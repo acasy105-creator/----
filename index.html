@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101116">
+  <meta name="frag-api-base-url" content="http://localhost:8080">
+  <title>FRAG / Gear Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="FRAG ホーム">
+        <span class="brand-mark">F<span>.</span></span>
+        <span class="brand-copy">FRAG<small>GEAR INTELLIGENCE</small></span>
+      </a>
+
+      <div class="side-label">WORKSPACE</div>
+      <nav class="navigation" aria-label="メインナビゲーション">
+        <button class="nav-item active" data-page="consult" aria-current="page"><span class="nav-icon">✳</span>デバイス相談<span class="nav-arrow">↗</span></button>
+        <button class="nav-item" data-page="search"><span class="nav-icon">⌕</span>プレイヤー検索</button>
+        <button class="nav-item" data-page="rankings"><span class="nav-icon">▤</span>プロ使用率</button>
+        <button class="nav-item" data-page="match"><span class="nav-icon">◎</span>感度マッチ</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="status-card"><span class="status-dot"></span><div><strong>データベース</strong><small id="source-summary">デモモードで稼働中</small></div></div>
+        <div class="sidebar-note">勝つための環境を、<br>データから考える。</div>
+        <span class="version">FRAG CONCEPT / 2025</span>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><span>FRAG</span><i>/</i><strong id="breadcrumb-current">デバイス相談</strong></div>
+        <div class="topbar-right"><span class="demo-pill"><span></span><span id="source-status">SAMPLE DATA</span></span><button class="avatar" aria-label="ユーザープロフィール">G</button></div>
+      </header>
+
+      <section class="page active" id="page-consult">
+        <div class="page-heading">
+          <div><div class="eyebrow"><span class="eyebrow-line"></span>GEAR CONSULTANT / 01</div><h1>デバイス相談<span class="heading-period">.</span></h1><p class="page-description">プレイの悩みを、デバイス選びのヒントに。</p></div>
+          <span class="heading-index">01 — 04</span>
+        </div>
+        <div class="consult-layout">
+          <form class="panel consult-form" id="consult-form">
+            <div class="panel-heading"><div><span class="step-number">01</span><h2>プレイ状況を教えてください</h2></div><span class="required-label">* 必須項目</span></div>
+            <label class="field-label" for="consult-game">プレイタイトル <span>*</span></label>
+            <select id="consult-game" required><option value="VALORANT">VALORANT</option><option value="Apex Legends">Apex Legends</option><option value="Overwatch 2">Overwatch 2</option></select>
+            <label class="field-label" for="consult-rank">現在のランク <span>*</span></label>
+            <select id="consult-rank" required><option>ダイヤモンド</option><option>アセンダント</option><option>イモータル</option><option>レディアント</option><option>プラチナ</option><option>マスター</option><option>プレデター</option><option>グランドマスター</option><option>その他</option></select>
+            <label class="field-label" for="consult-role">主なロール</label>
+            <select id="consult-role" aria-label="主なロール"></select>
+            <label class="field-label" for="consult-issue">いちばん困っていること <span>*</span></label>
+            <textarea id="consult-issue" rows="3" placeholder="例：足音が聞こえない、エイムがブレる、長時間プレイで手が疲れる…" required></textarea>
+            <button class="primary-button" type="submit">おすすめを分析する <span>→</span></button>
+            <p class="form-footnote">診断結果は入力内容とデバイス特性に基づく参考情報です。</p>
+          </form>
+
+          <div class="result-column">
+            <div class="panel result-panel" id="consult-result" aria-live="polite">
+              <div class="result-empty"><div class="empty-orbit"><span>✳</span></div><span class="eyebrow">YOUR NEXT ADVANTAGE</span><h2>次の一手を、見つけよう。</h2><p>ゲームと悩みを入力すると、<br>デバイス選びの方向性を提案します。</p><div class="empty-foot"><span>01</span> PLAYER INPUT <i>→</i><span>02</span> GEAR INSIGHT</div></div>
+            </div>
+            <div class="insight-note"><span class="note-icon">i</span><p>デバイスは上達を補助する要素のひとつです。設定や練習方法、ゲーム内の音響設定もあわせて確認しましょう。</p></div>
+          </div>
+        </div>
+        <div class="bottom-stats">
+          <div class="stat-card"><span class="stat-icon">⌖</span><div><span class="stat-caption">DATA-DRIVEN</span><strong>スペックから逆算</strong><small>重量・構造・用途を比較</small></div></div>
+          <div class="stat-card"><span class="stat-icon">◉</span><div><span class="stat-caption">CROSS-TITLE</span><strong>タイトル横断で分析</strong><small>タイトルを超えた感度比較</small></div></div>
+          <div class="stat-card"><span class="stat-icon">↗</span><div><span class="stat-caption">PLAYER INSIGHT</span><strong>プレイスタイルを反映</strong><small>悩みとロールに合わせて提案</small></div></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-search">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>PLAYER & ROLE / 02</div><h1>プレイヤー検索<span class="heading-period">.</span></h1><p class="page-description">気になる選手やロールから、デバイス構成を探す。</p></div><span class="heading-index">02 — 04</span></div>
+        <div class="panel search-panel">
+          <div class="panel-heading"><div><span class="step-number">02</span><h2>選手名・ゲーム・ロールで絞り込む</h2></div><span class="data-hint">⌕ &nbsp; <span id="search-data-hint">DEMO ROSTER</span></span></div>
+          <div class="search-controls">
+            <label class="search-input-wrap"><span>⌕</span><input id="player-query" type="search" placeholder="選手名で検索"></label>
+            <select id="search-game" aria-label="ゲームタイトル"><option value="">すべてのタイトル</option><option>VALORANT</option><option>Apex Legends</option><option>Overwatch 2</option></select>
+            <select id="search-role" aria-label="ゲーム内ロール"><option value="">すべてのロール</option></select>
+          </div>
+          <div class="results-caption"><span id="search-count">0 PLAYERS</span><span>デバイスをクリックして構成をチェック</span></div>
+          <div id="player-results" class="player-grid"></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-rankings">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>PRO GEAR INDEX / 03</div><h1>プロ使用率<span class="heading-period">.</span></h1><p class="page-description">タイトル別のデバイス傾向を、デモデータから集計。</p></div><span class="heading-index">03 — 04</span></div>
+        <div class="panel ranking-panel">
+          <div class="panel-heading"><div><span class="step-number">03</span><h2>タイトル別デバイスランキング</h2></div><span class="data-hint">AUTO-CALCULATED</span></div>
+          <div class="ranking-toolbar"><div class="game-tabs" id="ranking-games"><button class="game-tab selected" data-game="VALORANT">VALORANT</button><button class="game-tab" data-game="Apex Legends">APEX LEGENDS</button><button class="game-tab" data-game="Overwatch 2">OVERWATCH 2</button></div><span id="ranking-total" class="ranking-total"></span></div>
+          <div id="ranking-content" class="ranking-grid"></div>
+        </div>
+        <div class="data-disclaimer"><span>!</span><p id="ranking-disclaimer"><strong>デモデータについて</strong><br>ランキング・使用デバイスはUI確認用のサンプルです。実在プロの使用状況を示すものではありません。</p></div>
+      </section>
+
+      <section class="page" id="page-match">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>SENSITIVITY MATCH / 04</div><h1>感度マッチ<span class="heading-period">.</span></h1><p class="page-description">cm/360でタイトルを超えて、感覚の近い選手を見つける。</p></div><span class="heading-index">04 — 04</span></div>
+        <div class="match-layout">
+          <form class="panel match-form" id="match-form">
+            <div class="panel-heading"><div><span class="step-number">04</span><h2>あなたの感度設定</h2></div></div>
+            <label class="field-label" for="match-game">プレイタイトル</label><select id="match-game"><option value="VALORANT">VALORANT</option><option value="Apex Legends">Apex Legends</option><option value="Overwatch 2">Overwatch 2</option></select>
+            <div class="field-pair"><div><label class="field-label" for="match-dpi">マウス DPI</label><input id="match-dpi" type="number" min="100" max="100000" value="800" required></div><div><label class="field-label" for="match-sens">ゲーム内感度</label><input id="match-sens" type="number" min="0.001" max="10000" step="any" value="0.35" required></div></div>
+            <button class="primary-button" type="submit">近い感度を探す <span>→</span></button>
+            <div class="formula-card"><span class="formula-icon">ƒx</span><div><strong>cm/360 で比較</strong><small>ゲーム別の視点角度係数を用いて振り向き距離に換算します。</small></div></div>
+          </form>
+          <div class="match-result" id="match-result" aria-live="polite"><div class="match-empty"><div class="empty-orbit"><span>◎</span></div><span class="eyebrow">CROSS-GAME MATCHING</span><h2>感度の近いロールモデル</h2><p>DPIとゲーム内感度を入力すると<br>cm/360を計算して選手を探します。</p></div></div>
+        </div>
+        <div class="data-disclaimer"><span>!</span><p><strong>感度比較について</strong><br>ゲームの視点設定・入力方式・係数により実際の操作感は異なります。結果は近似値による参考情報であり、同じエイム感を保証するものではありません。</p></div>
+      </section>
+
+      <footer class="site-footer"><span>FRAG / GEAR INTELLIGENCE</span><span>PLAY SMARTER, NOT JUST FASTER.</span></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
