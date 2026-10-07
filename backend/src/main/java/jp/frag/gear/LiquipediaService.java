@@ -28,7 +28,7 @@ public class LiquipediaService {
     private static final Logger LOGGER = LoggerFactory.getLogger(LiquipediaService.class);
     private static final Duration CACHE_TTL = Duration.ofHours(24);
     private static final Duration MIN_REQUEST_INTERVAL = Duration.ofSeconds(2);
-    private static final int MAX_PLAYERS_PER_SYNC = 500;
+    private static final int MAX_PLAYERS_PER_SYNC = 50;
 
     private final ObjectMapper objectMapper;
     private final String contactEmail;
