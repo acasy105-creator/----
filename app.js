@@ -175,37 +175,82 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
     </div>`;
 });
 
-document.getElementById("match-form").addEventListener("submit", (event) => {
+document.getElementById("match-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const game = document.getElementById("match-game").value;
   const dpi = Number(document.getElementById("match-dpi").value);
   const sensitivity = Number(document.getElementById("match-sens").value);
+
   if (!Number.isFinite(dpi) || !Number.isFinite(sensitivity) || dpi <= 0 || sensitivity <= 0) {
     document.getElementById("match-result").textContent = "DPIとゲーム内感度には0より大きい数値を入力してください。";
     return;
   }
-  const userDistance = toCm360(dpi, sensitivity, game);
-  const comparablePlayers = players.filter((player) => Number.isFinite(player.dpi) && Number.isFinite(player.sens) && player.dpi > 0 && player.sens > 0);
-  if (comparablePlayers.length === 0) {
-    document.getElementById("match-result").textContent = "取得したデータに比較可能なDPI・感度がありません。";
-    return;
+
+  // APIのベースURLを取得
+  const apiBaseUrl = document.querySelector('meta[name="frag-api-base-url"]').content;
+  
+  // 通信中のローディング表示
+  document.getElementById("match-result").innerHTML = '<div class="no-results">APIからマッチする選手を検索中...</div>';
+
+  try {
+    // 1. バックエンドの /api/match へリクエストを送信
+    const url = new URL("/api/match", apiBaseUrl);
+    url.searchParams.set("game", game);
+    url.searchParams.set("dpi", dpi);
+    url.searchParams.set("sens", sensitivity);
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`APIエラー: ${response.status}`);
+    }
+
+    // 2. サーバーから送られてきた3人分のJSONデータを受け取る
+    const matchedPlayers = await response.json();
+
+    if (matchedPlayers.length === 0) {
+      document.getElementById("match-result").innerHTML = '<div class="no-results">比較可能な選手が見つかりませんでした。</div>';
+      return;
+    }
+
+    // ユーザー自身の振り向き値（画面表示用）
+    const userDistance = toCm360(dpi, sensitivity, game);
+
+    // 3. 受け取った3人分のデータを画面にカードとして並べる
+    document.getElementById("match-result").innerHTML = matchedPlayers.map((player) => {
+      const difference = Math.abs(player.cmPer360 - userDistance);
+      const percent = difference / userDistance * 100;
+      const matchQuality = percent < 5 ? "非常に近い" : percent < 15 ? "近い感度" : "参考候補";
+
+      return `
+        <article class="match-card" style="margin-bottom: 1.5rem;">
+          <div class="match-card-head">
+            <div>
+              <span class="eyebrow"><span class="eyebrow-line"></span>YOUR SENS / ${escapeHtml(gameSpecs[game].label)}</span>
+              <div class="match-distance">${userDistance.toFixed(1)}<small>cm / 360°</small></div>
+              <div class="match-delta">差 ${difference.toFixed(1)} cm · ${percent.toFixed(1)}%</div>
+            </div>
+            <span class="match-badge">${matchQuality}</span>
+          </div>
+          <div class="match-player">
+            <span class="player-avatar">${escapeHtml(player.name.slice(0, 1))}</span>
+            <div>
+              <h2>${escapeHtml(player.name)}</h2>
+              <p>${escapeHtml(gameSpecs[player.game].label)} · ${escapeHtml(player.roles.join(" / ") || "プレイヤー")}</p>
+            </div>
+          </div>
+          <p class="match-explanation">他のタイトルから振り向きが近いプロ選手を抽出しました。${escapeHtml(player.game)}で ${player.dpi} DPI / ${player.sens} （${player.cmPer360.toFixed(1)} cm / 360°）を使用しています。</p>
+          <div class="match-devices">
+            <div class="match-device"><span>PLAYER MOUSE</span><strong>${escapeHtml(player.devices["マウス"] || "データなし")}</strong></div>
+            <div class="match-device"><span>PLAYER MOUSEPAD</span><strong>${escapeHtml(player.devices["マウスパッド"] || "データなし")}</strong></div>
+          </div>
+          ${player.sourceUrl ? `<a class="player-source" style="margin-top: 1rem; display: inline-block;" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source)} ↗</a>` : ""}
+        </article>`;
+    }).join(""); // mapで作った複数のカードを連結
+
+  } catch (error) {
+    console.error("Match API通信エラー:", error);
+    document.getElementById("match-result").innerHTML = '<div class="no-results">サーバーとの通信に失敗しました。</div>';
   }
-  const closest = comparablePlayers.map((player) => ({
-    player,
-    distance: toCm360(player.dpi, player.sens, player.game)
-  })).sort((a, b) => Math.abs(a.distance - userDistance) - Math.abs(b.distance - userDistance))[0];
-  const difference = Math.abs(closest.distance - userDistance);
-  const percent = difference / userDistance * 100;
-  const matchQuality = percent < 5 ? "非常に近い" : percent < 15 ? "近い感度" : "参考候補";
-  const player = closest.player;
-  document.getElementById("match-result").innerHTML = `
-    <article class="match-card">
-      <div class="match-card-head"><div><span class="eyebrow"><span class="eyebrow-line"></span>YOUR SENS / ${escapeHtml(gameSpecs[game].label)}</span><div class="match-distance">${userDistance.toFixed(1)}<small>cm / 360°</small></div><div class="match-delta">差 ${difference.toFixed(1)} cm · ${percent.toFixed(1)}%</div></div><span class="match-badge">${matchQuality}</span></div>
-      <div class="match-player"><span class="player-avatar">${escapeHtml(player.name.slice(0, 1))}</span><div><h2>${escapeHtml(player.name)}</h2><p>${escapeHtml(gameSpecs[player.game].label)} · ${escapeHtml(player.roles.join(" / "))}</p></div></div>
-      <p class="match-explanation">cm/360の差が最も小さいデモ選手です。${escapeHtml(player.game)}で ${player.dpi} DPI / ${player.sens} を使用する設定例（${closest.distance.toFixed(1)} cm / 360°）と比較しています。</p>
-      <div class="match-devices"><div class="match-device"><span>PLAYER MOUSE</span><strong>${escapeHtml(player.devices["マウス"])}</strong></div><div class="match-device"><span>PLAYER MOUSEPAD</span><strong>${escapeHtml(player.devices["マウスパッド"])}</strong></div></div>
-      <p class="match-disclaimer">一致する感度でもタイトルごとに移動・加速・視野角が異なります。選手名とデバイスはデモ用サンプルです。</p>
-    </article>`;
 });
 
 renderPlayers();
