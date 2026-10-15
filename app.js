@@ -254,18 +254,18 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
         if (ytResponse.ok) {
           const videos = await ytResponse.json();
           if (videos.length > 0) {
-            const videoSectionHtml = `
-              <div class="youtube-reviews" style="grid-column: 1 / -1; width: 100%; margin-top: 1.5rem; padding: 1.5rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+        const videoSectionHtml = `
+              <div class="youtube-reviews" style="grid-column: 1 / -1; width: 100%; margin-top: 2rem; padding: 1.5rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; clear: both;">
                 <div style="margin-bottom: 1rem;">
                   <span class="eyebrow"><span class="eyebrow-line"></span>YOUTUBE REVIEWS</span>
-                  <h3 style="font-size: 1rem; margin-top: 0.25rem;">${escapeHtml(topPlayer.name)} 選手の使用マウス「${escapeHtml(topPlayerMouse)}」のレビュー動画</h3>
+                  <h3 style="font-size: 1rem; margin-top: 0.25rem; color: #fff;">${escapeHtml(topPlayer.name)} 選手の使用マウス「${escapeHtml(topPlayerMouse)}」のレビュー動画</h3>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
                   ${videos.map(v => `
                     <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: block; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
                       <img src="${escapeHtml(v.thumbnailUrl)}" alt="${escapeHtml(v.title)}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;">
                       <div style="padding: 0.75rem;">
-                        <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.4rem;">${escapeHtml(v.title)}</div>
+                        <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.4rem; color: #fff;">${escapeHtml(v.title)}</div>
                         <div style="font-size: 0.75rem; color: #a1a1aa;">${escapeHtml(v.channelTitle)}</div>
                       </div>
                     </a>
