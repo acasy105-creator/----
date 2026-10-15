@@ -4,7 +4,7 @@
 
 The page requests player gear data from the Spring Boot backend when it opens. The backend uses Liquipedia's public MediaWiki API only; it does not fetch generated HTML pages or expose an API key in the browser.
 
-Requirements: Java 17+ and Maven.
+Requirements: Java 25+ and Maven.
 
 1. Set `LIQUIPEDIA_CONTACT_EMAIL` to an address that Liquipedia can use to contact the project owner. A custom User-Agent with contact information is required by Liquipedia's API terms.
 2. Start the backend from `backend`:

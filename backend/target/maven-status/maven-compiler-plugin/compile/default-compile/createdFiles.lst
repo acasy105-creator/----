@@ -1,8 +1,13 @@
+jp\frag\gear\MatchController.class
 jp\frag\gear\GearIntelligenceApplication.class
+jp\frag\gear\YouTubeVideo.class
+jp\frag\gear\YouTubeController.class
 jp\frag\gear\LiquipediaService.class
 jp\frag\gear\LiquipediaService$CacheEntry.class
 jp\frag\gear\WebConfiguration.class
+jp\frag\gear\YouTubeService.class
 jp\frag\gear\LiquipediaController.class
+jp\frag\gear\MatchService.class
 jp\frag\gear\ApiExceptionHandler.class
 jp\frag\gear\LiquipediaException.class
 jp\frag\gear\ApiExceptionHandler$ApiError.class

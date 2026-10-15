@@ -1,5 +1,5 @@
 package jp.frag.gear;
-
+import jp.frag.gear.PlayerProfile;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;

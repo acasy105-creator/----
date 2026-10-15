@@ -1,5 +1,5 @@
-# 1. Java 17環境でビルド（構築）する
-FROM maven:3-eclipse-temurin-17 AS build
+# 1. Java 25環境でビルド（構築）する
+FROM maven:3-eclipse-temurin-25 AS build
 WORKDIR /app
 
 # backendフォルダ内のコードをコピー
@@ -10,7 +10,7 @@ COPY backend/src backend/src/
 RUN cd backend && mvn clean package -DskipTests
 
 # 2. 実行用の環境を用意
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 
 # 出来上がったサーバーファイルをコピー
