@@ -187,7 +187,14 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
   }
 
   const apiBaseUrl = document.querySelector('meta[name="frag-api-base-url"]').content;
-  document.getElementById("match-result").innerHTML = '<div class="no-results">APIからマッチする選手を検索中...</div>';
+  
+  // 親のコンテナごと綺麗にする
+  const resultContainer = document.getElementById("match-result");
+  resultContainer.innerHTML = '<div class="no-results" style="grid-column: 1 / -1; width:100%; text-align:center;">APIからマッチする選手を検索中...</div>';
+  
+  // もし過去のYouTubeレビュー帯が残っていたら、それも消去する
+  const existingYt = document.getElementById("youtube-reviews-section");
+  if (existingYt) existingYt.remove();
 
   try {
     // 1. バックエンドの /api/match へリクエストを送信
@@ -204,20 +211,21 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
     const matchedPlayers = await response.json();
 
     if (matchedPlayers.length === 0) {
-      document.getElementById("match-result").innerHTML = '<div class="no-results">比較可能な選手が見つかりませんでした。</div>';
+      resultContainer.innerHTML = '<div class="no-results" style="grid-column: 1 / -1; width:100%; text-align:center;">比較可能な選手が見つかりませんでした。</div>';
       return;
     }
 
     const userDistance = toCm360(dpi, sensitivity, game);
 
-    // 2. 3人分の選手カードを並べる
-    document.getElementById("match-result").innerHTML = matchedPlayers.map((player) => {
+    // 2. 3人分の選手カードを並べる (match-layout クラスなどを想定)
+    // 外側のグリッドが崩れないよう、カード部分のみを配置
+    resultContainer.innerHTML = matchedPlayers.map((player) => {
       const difference = Math.abs(player.cmPer360 - userDistance);
       const percent = difference / userDistance * 100;
       const matchQuality = percent < 5 ? "非常に近い" : percent < 15 ? "近い感度" : "参考候補";
 
       return `
-        <article class="match-card">
+        <article class="match-card" style="box-sizing: border-box;">
           <div class="match-card-head">
             <div>
               <span class="eyebrow"><span class="eyebrow-line"></span>YOUR SENS / ${escapeHtml(gameSpecs[game].label)}</span>
@@ -233,8 +241,8 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
               <p>${escapeHtml(gameSpecs[player.game].label)} · ${escapeHtml(player.roles.join(" / ") || "プレイヤー")}</p>
             </div>
           </div>
-          <p class="match-explanation">他のタイトルから振り向きが近いプロ選手を抽出しました。${escapeHtml(player.game)}で ${player.dpi} DPI / ${player.sens} （${player.cmPer360.toFixed(1)} cm / 360°）を使用しています。</p>
-          <div class="match-devices">
+          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">他のタイトルから振り向きが近いプロ選手を抽出しました。${escapeHtml(player.game)}で ${player.dpi} DPI / ${player.sens} （${player.cmPer360.toFixed(1)} cm / 360°）を使用しています。</p>
+          <div class="match-devices" style="margin-top: auto;">
             <div class="match-device"><span>PLAYER MOUSE</span><strong>${escapeHtml(player.devices["マウス"] || "データなし")}</strong></div>
             <div class="match-device"><span>PLAYER MOUSEPAD</span><strong>${escapeHtml(player.devices["マウスパッド"] || "データなし")}</strong></div>
           </div>
@@ -242,7 +250,7 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
         </article>`;
     }).join("");
 
-    // 3. マッチした1人目の選手のデバイス（マウス）のレビュー動画をYouTube APIから取得して下に大きく表示
+    // 3. 1人目の選手のマウスレビュー動画をYouTubeから取得して、全体の「下段に完全独立した帯」として表示
     const topPlayer = matchedPlayers[0];
     const topPlayerMouse = topPlayer.devices["マウス"];
     if (topPlayerMouse && topPlayerMouse !== "データなし") {
@@ -254,25 +262,38 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
         if (ytResponse.ok) {
           const videos = await ytResponse.json();
           if (videos.length > 0) {
-        const videoSectionHtml = `
-              <div class="youtube-reviews" style="grid-column: 1 / -1; width: 100%; margin-top: 2rem; padding: 1.5rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; clear: both;">
-                <div style="margin-bottom: 1rem;">
-                  <span class="eyebrow"><span class="eyebrow-line"></span>YOUTUBE REVIEWS</span>
-                  <h3 style="font-size: 1rem; margin-top: 0.25rem; color: #fff;">${escapeHtml(topPlayer.name)} 選手の使用マウス「${escapeHtml(topPlayerMouse)}」のレビュー動画</h3>
+            
+            // 💡 解決の核：#match-result の外（すぐ下）に、完全独立した横いっぱいのセクションを生成して挿入
+            const videoSectionHtml = `
+              <section id="youtube-reviews-section" style="width: 100%; margin-top: 2rem; padding: 1.75rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-sizing: border-box;">
+                <div style="margin-bottom: 1.25rem;">
+                  <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS</span>
+                  <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
+                    ${escapeHtml(topPlayer.name)} 選手の使用マウス 「${escapeHtml(topPlayerMouse)}」 のレビュー動画
+                  </h3>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
                   ${videos.map(v => `
-                    <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: block; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
-                      <img src="${escapeHtml(v.thumbnailUrl)}" alt="${escapeHtml(v.title)}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;">
-                      <div style="padding: 0.75rem;">
-                        <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.4rem; color: #fff;">${escapeHtml(v.title)}</div>
-                        <div style="font-size: 0.75rem; color: #a1a1aa;">${escapeHtml(v.channelTitle)}</div>
+                    <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; background: rgba(0,0,0,0.35); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;" onmouseover="this.style.transform='translateY(-3px)'; this.style.borderColor='rgba(255,255,255,0.15)'" onmouseout="this.style.transform='none'; this.style.borderColor='rgba(255,255,255,0.06)'">
+                      <div style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden;">
+                        <img src="${escapeHtml(v.thumbnailUrl)}" alt="${escapeHtml(v.title)}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                      </div>
+                      <div style="padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.75rem; color: #f4f4f5;">
+                          ${escapeHtml(v.title)}
+                        </div>
+                        <div style="font-size: 0.75rem; color: #a1a1aa; display: flex; align-items: center; justify-content: space-between;">
+                          <span>${escapeHtml(v.channelTitle)}</span>
+                          <span style="color: #ff0000; font-weight: 500; font-size: 0.7rem;">▶ WATCH</span>
+                        </div>
                       </div>
                     </a>
                   `).join("")}
                 </div>
-              </div>`;
-            document.getElementById("match-result").insertAdjacentHTML("beforeend", videoSectionHtml);
+              </section>`;
+            
+            // #match-result の外（直後）に配置することで、親のグリッドから解放される！
+            resultContainer.insertAdjacentHTML("afterend", videoSectionHtml);
           }
         }
       } catch (ytError) {
@@ -282,7 +303,7 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
 
   } catch (error) {
     console.error("Match API通信エラー:", error);
-    document.getElementById("match-result").innerHTML = '<div class="no-results">サーバーとの通信に失敗しました。</div>';
+    resultContainer.innerHTML = '<div class="no-results" style="grid-column: 1 / -1; width:100%; text-align:center;">サーバーとの通信に失敗しました。</div>';
   }
 });
 
