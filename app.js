@@ -24,16 +24,16 @@ const gameRoles = {
     { value: "duelist", text: "デュエリスト" },
     { value: "initiator", text: "イニシエーター" },
     { value: "sentinel", text: "センチネル" },
-    { value: "controller", text: "スモーク（コントローラー）" }
+    { value: "controller", text: "コントローラー" }
   ],
   apex: [
-    { value: "igl", text: "IGL（オーダー）" },
+    { value: "igl", text: "オーダー" },
     { value: "fragger", text: "フラッガー" },
     { value: "support", text: "サポート" }
   ],
   ow2: [
     { value: "tank", text: "タンク" },
-    { value: "damage", text: "ダメージ（DPS）" },
+    { value: "damage", text: "ダメージ" },
     { value: "support", text: "サポート" }
   ]
 };
@@ -337,7 +337,9 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
                   `).join("")}
                 </div>
               </section>`;
-            resultContainer.insertAdjacentHTML("afterend", videoSectionHtml);
+          
+            const layoutWrapper = resultContainer.closest(".match-layout") || resultContainer;
+            layoutWrapper.insertAdjacentHTML("afterend", videoSectionHtml);
           }
         }
       } catch (ytError) {
