@@ -19,32 +19,13 @@ public class MatchService {
         double userCmPer360 = (360.0 / (dpi * sens * userGame.yaw())) * 2.54;
         List<PlayerProfile> allOtherPlayers = new ArrayList<>();
 
-        // 1. Liquipediaからデータ取得を試みる（429エラーが出てもアプリを止めない！）
-        for (Game game : Game.values()) {
-            if (game == userGame) continue;
-            try {
-                List<PlayerProfile> players = liquipediaService.getPlayers(game);
-                for (PlayerProfile player : players) {
-                    if (player.cmPer360() != null && player.cmPer360() > 0) {
-                        allOtherPlayers.add(player);
-                    }
-                }
-            } catch (Exception e) {
-                // 429エラー等で取得に失敗した場合は無視して次へ進む
-                System.out.println(game.title() + " のAPI取得をスキップしました: " + e.getMessage());
+        // Liquipediaの通信を完全にスキップし、予備データから即座にマッチングさせる
+        for (PlayerProfile fallback : getFallbackPlayers()) {
+            if (!fallback.game().equals(userGame.title())) {
+                allOtherPlayers.add(fallback);
             }
         }
 
-        // 2. もしAPI制限(429)で1人も取得できなかった場合は、予備のプロ選手データを使う
-        if (allOtherPlayers.isEmpty()) {
-            for (PlayerProfile fallback : getFallbackPlayers()) {
-                if (!fallback.game().equals(userGame.title())) {
-                    allOtherPlayers.add(fallback);
-                }
-            }
-        }
-
-        // 3. 振り向き(cm/360)の差が小さい順にソートして上位3名を返す
         allOtherPlayers.sort(Comparator.comparingDouble(p -> Math.abs(p.cmPer360() - userCmPer360)));
 
         if (allOtherPlayers.size() > 3) {
@@ -53,7 +34,6 @@ public class MatchService {
         return allOtherPlayers;
     }
 
-    // API制限中(429)でも感度マッチとYouTube連携を止めないための予備データ
     private List<PlayerProfile> getFallbackPlayers() {
         return List.of(
             new PlayerProfile("ImperialHal", "Apex Legends", List.of("igl"), 800, 1.0, 51.95,
