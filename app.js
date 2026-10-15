@@ -39,8 +39,29 @@ const gameRoles = {
 };
 const categoryLabels = ["マウス", "マウスパッド", "ヘッドセット"];
 const pageNames = { consult: "デバイス相談", search: "プレイヤー検索", rankings: "プロ使用率", match: "感度マッチ" };
-const toCm360 = (dpi, sensitivity, game) => 360 * 2.54 / (dpi * sensitivity * gameSpecs[game].yaw);
-const getGameRoles = (game) => gameRoles[gameSpecs[game].roleKey];
+const normalizeGameName = (game) => {
+  if (!game) return "";
+  const target = String(game).trim();
+  return Object.keys(gameSpecs).find((key) =>
+    key.toLowerCase() === target.toLowerCase() ||
+    gameSpecs[key].label.toLowerCase() === target.toLowerCase()
+  ) || target;
+};
+const getGameSpec = (game) => {
+  const normalized = normalizeGameName(game);
+  return gameSpecs[normalized] || null;
+};
+const toCm360 = (dpi, sensitivity, game) => {
+  const spec = getGameSpec(game);
+  if (!spec || !Number.isFinite(dpi) || !Number.isFinite(sensitivity) || dpi <= 0 || sensitivity <= 0) {
+    return Number.NaN;
+  }
+  return 360 * 2.54 / (dpi * sensitivity * spec.yaw);
+};
+const getGameRoles = (game) => {
+  const spec = getGameSpec(game);
+  return spec ? (gameRoles[spec.roleKey] || []) : [];
+};
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 
 function populateRoleOptions(select, game, includeAll = false) {
@@ -84,20 +105,32 @@ function renderPlayers() {
   const query = document.getElementById("player-query").value.trim().toLowerCase();
   const game = document.getElementById("search-game").value;
   const role = document.getElementById("search-role").value;
-  const filtered = players.filter((player) =>
-    player.name.toLowerCase().includes(query) &&
-    (!game || player.game === game) &&
-    (!role || player.roles.includes(role))
-  );
+  const filtered = players.filter((player) => {
+    const playerName = typeof player?.name === "string" ? player.name : "";
+    const normalizedGame = normalizeGameName(player?.game);
+    const hasText = playerName.toLowerCase().includes(query);
+    const matchesGame = !game || normalizedGame === normalizeGameName(game);
+    const matchesRole = !role || (Array.isArray(player?.roles) && player.roles.includes(role));
+    return hasText && matchesGame && matchesRole;
+  });
   document.getElementById("search-count").textContent = `${String(filtered.length).padStart(2, "0")} PLAYERS`;
-  document.getElementById("player-results").innerHTML = filtered.length ? filtered.map((player) => `
-    <article class="player-card">
-      <div class="player-card-top"><span class="player-avatar">${escapeHtml(player.name.slice(0, 1))}</span><div><h3>${escapeHtml(player.name)}</h3><div class="player-game">${escapeHtml(gameSpecs[player.game].label)}</div></div></div>
-      <div class="player-tags">${player.roles.map((item) => `<span class="tag">${escapeHtml(getGameRoles(player.game).find((roleOption) => roleOption.value === item)?.text || item)}</span>`).join("")}</div>
-      <div class="device-list">${Object.entries(player.devices).map(([category, device]) => `<div class="device-row"><span>${escapeHtml(category)}</span><span>${escapeHtml(device)}</span></div>`).join("")}</div>
-      <div class="player-sens">${Number.isFinite(player.dpi) && Number.isFinite(player.sens) ? `${toCm360(player.dpi, player.sens, player.game).toFixed(1)} cm / 360°` : "感度データなし"}</div>
-      ${player.sourceUrl ? `<a class="player-source" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source)} ↗</a>` : ""}
-    </article>`).join("") : '<div class="no-results">条件に一致する選手が見つかりませんでした。</div>';
+  document.getElementById("player-results").innerHTML = filtered.length ? filtered.map((player) => {
+    const playerName = typeof player?.name === "string" ? player.name : "選手";
+    const spec = getGameSpec(player?.game);
+    const deviceEntries = Object.entries(player?.devices || {}).map(([category, device]) => `<div class="device-row"><span>${escapeHtml(category)}</span><span>${escapeHtml(device || "データなし")}</span></div>`).join("");
+    const dpi = Number(player?.dpi);
+    const sens = Number(player?.sens);
+    const cmValue = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, player?.game) : Number.NaN;
+    const playerRoleText = (Array.isArray(player?.roles) ? player.roles : []).map((item) => `<span class="tag">${escapeHtml(getGameRoles(player?.game).find((roleOption) => roleOption.value === item)?.text || item)}</span>`).join("");
+    return `
+      <article class="player-card">
+        <div class="player-card-top"><span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span><div><h3>${escapeHtml(playerName)}</h3><div class="player-game">${escapeHtml(spec ? spec.label : String(player?.game || ""))}</div></div></div>
+        <div class="player-tags">${playerRoleText || "<span class=\"tag\">ロールなし</span>"}</div>
+        <div class="device-list">${deviceEntries || '<div class="device-row"><span>デバイス</span><span>データなし</span></div>'}</div>
+        <div class="player-sens">${Number.isFinite(cmValue) ? `${cmValue.toFixed(1)} cm / 360°` : "感度データなし"}</div>
+        ${player?.sourceUrl ? `<a class="player-source" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source || "出典")} ↗</a>` : ""}
+      </article>`;
+  }).join("") : '<div class="no-results">条件に一致する選手が見つかりませんでした。</div>';
 }
 
 ["player-query", "search-game", "search-role"].forEach((id) => {
@@ -106,20 +139,23 @@ function renderPlayers() {
 });
 
 function renderRankings(game) {
-  const gamePlayers = players.filter((player) => player.game === game);
-  document.getElementById("ranking-total").textContent = `${gamePlayers.length} PLAYERS · ${players === demoPlayers ? "DEMO DATA" : "LIQUIPEDIA"}`;
+  const normalizedGame = normalizeGameName(game);
+  const gamePlayers = Array.isArray(players) ? players.filter((player) => normalizeGameName(player?.game) === normalizedGame) : [];
+  const sourceLabel = players === demoPlayers ? "DEMO DATA" : "LIQUIPEDIA";
+  document.getElementById("ranking-total").textContent = `${gamePlayers.length} PLAYERS · ${sourceLabel}`;
   document.getElementById("ranking-content").innerHTML = categoryLabels.map((category) => {
     const counts = new Map();
     let observedProfiles = 0;
     gamePlayers.forEach((player) => {
-      if (player.devices[category]) {
+      const device = player?.devices && player.devices[category];
+      if (device) {
         observedProfiles++;
-        counts.set(player.devices[category], (counts.get(player.devices[category]) || 0) + 1);
+        counts.set(device, (counts.get(device) || 0) + 1);
       }
     });
     const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"));
     return `<article class="category-card"><div class="category-heading"><h3>${category}</h3><span>${ranked.length} MODELS</span></div>${ranked.length ? ranked.map(([name, count], index) => {
-      const percentage = Math.round(count / observedProfiles * 100);
+      const percentage = observedProfiles ? Math.round(count / observedProfiles * 100) : 0;
       return `<div class="rank-row"><span class="rank-num">${String(index + 1).padStart(2, "0")}</span><div><div class="rank-name">${escapeHtml(name)}</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:${percentage}%"></div></div></div><span class="rank-percent">${percentage}%</span></div>`;
     }).join("") : '<p class="ranking-empty">このカテゴリのデータはありません。</p>'}</article>`;
   }).join("");
@@ -164,11 +200,15 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
   }
   const roleText = getGameRoles(game).find((roleOption) => roleOption.value === role)?.text || role;
   const roleHint = ["duelist", "fragger", "damage"].includes(role) ? "素早い視点移動と小さな修正の両立" : ["sentinel", "support", "tank"].includes(role) ? "安定したエイムと状況把握" : "細かな操作の安定性";
+  const safeGameName = escapeHtml(game || "ゲーム");
+  const safeRank = escapeHtml(rank || "ランクなし");
+  const safeRoleText = escapeHtml(roleText || "ロール");
+  const safeIssue = escapeHtml(issue || "不明");
   document.getElementById("consult-result").innerHTML = `
     <div class="consult-result-content">
       <div class="analysis-top"><span class="eyebrow"><span class="eyebrow-line"></span>YOUR GEAR INSIGHT</span><span class="analysis-score">MATCH <strong>01</strong></span></div>
       <div class="analysis-title">${escapeHtml(recommendation.category)}を見直してみましょう。</div>
-      <p class="analysis-description">${escapeHtml(game)} / ${escapeHtml(rank)} / ${escapeHtml(roleText)} のプレイ状況と「${escapeHtml(issue)}」という悩みから、次の観点を提案します。</p>
+      <p class="analysis-description">${safeGameName} / ${safeRank} / ${safeRoleText} のプレイ状況と「${safeIssue}」という悩みから、次の観点を提案します。</p>
       <div class="recommendation"><div class="recommendation-head"><span>01 / CATEGORY</span><span>推奨カテゴリ</span></div><h3>${escapeHtml(recommendation.title)}</h3><p>${escapeHtml(recommendation.detail)}</p></div>
       <div class="recommendation"><div class="recommendation-head"><span>02 / PLAYSTYLE</span><span>${escapeHtml(roleText)}</span></div><h3>${escapeHtml(roleHint)}を意識</h3><p>${escapeHtml(recommendation.reason)}</p></div>
       <p class="result-warning">※ ランクだけを根拠にデバイス性能を断定することはできません。購入前に持ち方・サイズ・装着感を確認してください。</p>
@@ -187,21 +227,17 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
   }
 
   const apiBaseUrl = document.querySelector('meta[name="frag-api-base-url"]').content;
-  
-  // 親のコンテナごと綺麗にする
   const resultContainer = document.getElementById("match-result");
   resultContainer.innerHTML = '<div class="no-results" style="grid-column: 1 / -1; width:100%; text-align:center;">APIからマッチする選手を検索中...</div>';
-  
-  // もし過去のYouTubeレビュー帯が残っていたら、それも消去する
+
   const existingYt = document.getElementById("youtube-reviews-section");
   if (existingYt) existingYt.remove();
 
   try {
-    // 1. バックエンドの /api/match へリクエストを送信
     const url = new URL("/api/match", apiBaseUrl);
     url.searchParams.set("game", game);
-    url.searchParams.set("dpi", dpi);
-    url.searchParams.set("sens", sensitivity);
+    url.searchParams.set("dpi", String(dpi));
+    url.searchParams.set("sens", String(sensitivity));
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -210,49 +246,60 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
 
     const matchedPlayers = await response.json();
 
-    if (matchedPlayers.length === 0) {
+    if (!Array.isArray(matchedPlayers) || matchedPlayers.length === 0) {
       resultContainer.innerHTML = '<div class="no-results" style="grid-column: 1 / -1; width:100%; text-align:center;">比較可能な選手が見つかりませんでした。</div>';
       return;
     }
 
     const userDistance = toCm360(dpi, sensitivity, game);
+    if (!Number.isFinite(userDistance)) {
+      throw new Error("ゲーム設定に対応するcm/360計算ができませんでした。");
+    }
 
-    // 2. 3人分の選手カードを並べる (match-layout クラスなどを想定)
-    // 外側のグリッドが崩れないよう、カード部分のみを配置
     resultContainer.innerHTML = matchedPlayers.map((player) => {
-      const difference = Math.abs(player.cmPer360 - userDistance);
-      const percent = difference / userDistance * 100;
-      const matchQuality = percent < 5 ? "非常に近い" : percent < 15 ? "近い感度" : "参考候補";
+      const playerDistance = Number(player.cmPer360);
+      const difference = Number.isFinite(playerDistance) ? Math.abs(playerDistance - userDistance) : Number.POSITIVE_INFINITY;
+      const percent = Number.isFinite(playerDistance) ? difference / userDistance * 100 : Number.POSITIVE_INFINITY;
+      const matchQuality = Number.isFinite(percent) && percent < 5 ? "非常に近い" : Number.isFinite(percent) && percent < 15 ? "近い感度" : "参考候補";
+      const safeGameLabel = escapeHtml(getGameSpec(player.game)?.label || player.game || "ゲーム");
+      const safePlayerName = escapeHtml(player.name || "選手");
+      const safeRoleText = escapeHtml((Array.isArray(player.roles) ? player.roles.join(" / ") : "プレイヤー") || "プレイヤー");
+      const safeMouse = escapeHtml(player.devices && player.devices["マウス"] ? player.devices["マウス"] : "データなし");
+      const safePad = escapeHtml(player.devices && player.devices["マウスパッド"] ? player.devices["マウスパッド"] : "データなし");
+      const safeSource = player.source ? escapeHtml(player.source) : "出典";
+      const safeSourceUrl = player.sourceUrl ? escapeHtml(player.sourceUrl) : "";
+      const playerCm = Number.isFinite(playerDistance) ? playerDistance.toFixed(1) : "-";
+      const playerSens = Number.isFinite(player.sens) ? player.sens : "-";
+      const playerDpi = Number.isFinite(player.dpi) ? player.dpi : "-";
 
       return `
         <article class="match-card" style="box-sizing: border-box;">
           <div class="match-card-head">
             <div>
-              <span class="eyebrow"><span class="eyebrow-line"></span>YOUR SENS / ${escapeHtml(gameSpecs[game].label)}</span>
+              <span class="eyebrow"><span class="eyebrow-line"></span>YOUR SENS / ${escapeHtml(gameSpecs[game]?.label || game)}</span>
               <div class="match-distance">${userDistance.toFixed(1)}<small>cm / 360°</small></div>
-              <div class="match-delta">差 ${difference.toFixed(1)} cm · ${percent.toFixed(1)}%</div>
+              <div class="match-delta">差 ${Number.isFinite(difference) ? difference.toFixed(1) : "-"} cm · ${Number.isFinite(percent) ? percent.toFixed(1) : "-"}%</div>
             </div>
             <span class="match-badge">${matchQuality}</span>
           </div>
           <div class="match-player">
-            <span class="player-avatar">${escapeHtml(player.name.slice(0, 1))}</span>
+            <span class="player-avatar">${safePlayerName.slice(0, 1)}</span>
             <div>
-              <h2>${escapeHtml(player.name)}</h2>
-              <p>${escapeHtml(gameSpecs[player.game].label)} · ${escapeHtml(player.roles.join(" / ") || "プレイヤー")}</p>
+              <h2>${safePlayerName}</h2>
+              <p>${safeGameLabel} · ${safeRoleText}</p>
             </div>
           </div>
-          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">他のタイトルから振り向きが近いプロ選手を抽出しました。${escapeHtml(player.game)}で ${player.dpi} DPI / ${player.sens} （${player.cmPer360.toFixed(1)} cm / 360°）を使用しています。</p>
+          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">他のタイトルから振り向きが近いプロ選手を抽出しました。${safeGameLabel}で ${playerDpi} DPI / ${playerSens} （${playerCm} cm / 360°）を使用しています。</p>
           <div class="match-devices" style="margin-top: auto;">
-            <div class="match-device"><span>PLAYER MOUSE</span><strong>${escapeHtml(player.devices["マウス"] || "データなし")}</strong></div>
-            <div class="match-device"><span>PLAYER MOUSEPAD</span><strong>${escapeHtml(player.devices["マウスパッド"] || "データなし")}</strong></div>
+            <div class="match-device"><span>PLAYER MOUSE</span><strong>${safeMouse}</strong></div>
+            <div class="match-device"><span>PLAYER MOUSEPAD</span><strong>${safePad}</strong></div>
           </div>
-          ${player.sourceUrl ? `<a class="player-source" style="margin-top: 1rem; display: inline-block;" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source)} ↗</a>` : ""}
+          ${player.sourceUrl ? `<a class="player-source" style="margin-top: 1rem; display: inline-block;" href="${safeSourceUrl}" target="_blank" rel="noopener noreferrer">${safeSource} ↗</a>` : ""}
         </article>`;
     }).join("");
 
-    // 3. 1人目の選手のマウスレビュー動画をYouTubeから取得して、全体の「下段に完全独立した帯」として表示
     const topPlayer = matchedPlayers[0];
-    const topPlayerMouse = topPlayer.devices["マウス"];
+    const topPlayerMouse = typeof topPlayer?.devices?.["マウス"] === "string" ? topPlayer.devices["マウス"].trim() : "";
     if (topPlayerMouse && topPlayerMouse !== "データなし") {
       try {
         const ytUrl = new URL("/api/youtube/reviews", apiBaseUrl);
@@ -261,29 +308,28 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
 
         if (ytResponse.ok) {
           const videos = await ytResponse.json();
-          if (videos.length > 0) {
-            
-            // 💡 解決の核：#match-result の外（すぐ下）に、完全独立した横いっぱいのセクションを生成して挿入
+          const validVideos = Array.isArray(videos) ? videos.filter((video) => video && typeof video.videoId === "string" && video.videoId.trim()) : [];
+          if (validVideos.length > 0) {
             const videoSectionHtml = `
               <section id="youtube-reviews-section" style="width: 100%; margin-top: 2rem; padding: 1.75rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-sizing: border-box;">
                 <div style="margin-bottom: 1.25rem;">
                   <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS</span>
                   <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
-                    ${escapeHtml(topPlayer.name)} 選手の使用マウス 「${escapeHtml(topPlayerMouse)}」 のレビュー動画
+                    ${escapeHtml(topPlayer.name || "選手")} 選手の使用マウス 「${escapeHtml(topPlayerMouse)}」 のレビュー動画
                   </h3>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
-                  ${videos.map(v => `
+                  ${validVideos.map((v) => `
                     <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; background: rgba(0,0,0,0.35); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;" onmouseover="this.style.transform='translateY(-3px)'; this.style.borderColor='rgba(255,255,255,0.15)'" onmouseout="this.style.transform='none'; this.style.borderColor='rgba(255,255,255,0.06)'">
                       <div style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden;">
-                        <img src="${escapeHtml(v.thumbnailUrl)}" alt="${escapeHtml(v.title)}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                        <img src="${escapeHtml(v.thumbnailUrl || "")}" alt="${escapeHtml(v.title || "video")}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                       </div>
                       <div style="padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
                         <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.75rem; color: #f4f4f5;">
-                          ${escapeHtml(v.title)}
+                          ${escapeHtml(v.title || "動画タイトル")}
                         </div>
                         <div style="font-size: 0.75rem; color: #a1a1aa; display: flex; align-items: center; justify-content: space-between;">
-                          <span>${escapeHtml(v.channelTitle)}</span>
+                          <span>${escapeHtml(v.channelTitle || "YouTube")}</span>
                           <span style="color: #ff0000; font-weight: 500; font-size: 0.7rem;">▶ WATCH</span>
                         </div>
                       </div>
@@ -291,8 +337,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
                   `).join("")}
                 </div>
               </section>`;
-            
-            // #match-result の外（直後）に配置することで、親のグリッドから解放される！
             resultContainer.insertAdjacentHTML("afterend", videoSectionHtml);
           }
         }

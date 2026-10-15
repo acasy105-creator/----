@@ -1,10 +1,10 @@
 package jp.frag.gear;
 
-import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 @Service
 public class MatchService {
@@ -16,22 +16,46 @@ public class MatchService {
     }
 
     public List<PlayerProfile> findMatches(Game userGame, int dpi, double sens) {
-        double userCmPer360 = (360.0 / (dpi * sens * userGame.yaw())) * 2.54;
-        List<PlayerProfile> allOtherPlayers = new ArrayList<>();
+        if (userGame == null) {
+            throw new IllegalArgumentException("Game is required.");
+        }
+        if (dpi <= 0) {
+            throw new IllegalArgumentException("DPI must be greater than zero.");
+        }
+        if (!Double.isFinite(sens) || sens <= 0.0) {
+            throw new IllegalArgumentException("Sensitivity must be a positive number.");
+        }
 
-        // Liquipediaの通信を完全にスキップし、予備データから即座にマッチングさせる
-        for (PlayerProfile fallback : getFallbackPlayers()) {
-            if (!fallback.game().equals(userGame.title())) {
-                allOtherPlayers.add(fallback);
+        double userCmPer360 = 360.0 * 2.54 / (dpi * sens * userGame.yaw());
+        List<PlayerProfile> candidates = new ArrayList<>();
+
+        try {
+            List<PlayerProfile> liquipediaPlayers = liquipediaService.getPlayers(userGame);
+            for (PlayerProfile player : liquipediaPlayers) {
+                if (player == null || player.cmPer360() == null || !Double.isFinite(player.cmPer360())) {
+                    continue;
+                }
+                if (!userGame.title().equals(player.game())) {
+                    candidates.add(player);
+                }
+            }
+        } catch (LiquipediaException exception) {
+            for (PlayerProfile fallback : getFallbackPlayers()) {
+                if (fallback == null || fallback.cmPer360() == null || !Double.isFinite(fallback.cmPer360())) {
+                    continue;
+                }
+                if (!userGame.title().equals(fallback.game())) {
+                    candidates.add(fallback);
+                }
             }
         }
 
-        allOtherPlayers.sort(Comparator.comparingDouble(p -> Math.abs(p.cmPer360() - userCmPer360)));
-
-        if (allOtherPlayers.size() > 3) {
-            return allOtherPlayers.subList(0, 3);
+        if (candidates.isEmpty()) {
+            return List.of();
         }
-        return allOtherPlayers;
+
+        candidates.sort(Comparator.comparingDouble(player -> Math.abs(player.cmPer360() - userCmPer360)));
+        return candidates.size() > 3 ? new ArrayList<>(candidates.subList(0, 3)) : new ArrayList<>(candidates);
     }
 
     private List<PlayerProfile> getFallbackPlayers() {
