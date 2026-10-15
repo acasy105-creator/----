@@ -16,44 +16,24 @@ public class MatchService {
     }
 
     public List<PlayerProfile> findMatches(Game userGame, int dpi, double sens) {
-        if (userGame == null) {
-            throw new IllegalArgumentException("Game is required.");
-        }
-        if (dpi <= 0) {
-            throw new IllegalArgumentException("dpi must be greater than 0.");
-        }
-        if (Double.isNaN(sens) || Double.isInfinite(sens) || sens <= 0) {
-            throw new IllegalArgumentException("sens must be a positive number.");
-        }
-
         double userCmPer360 = (360.0 / (dpi * sens * userGame.yaw())) * 2.54;
-        List<PlayerProfile> matchingPlayers = loadPlayersForGame(userGame);
+        List<PlayerProfile> allOtherPlayers = new ArrayList<>();
 
-        // 振り向き(cm/360)の差が小さい順にソートして上位3名を返す
-        matchingPlayers.sort(Comparator.comparingDouble(player -> Math.abs(player.cmPer360() - userCmPer360)));
-
-        if (matchingPlayers.size() > 3) {
-            return new ArrayList<>(matchingPlayers.subList(0, 3));
+        // Liquipediaの通信を完全にスキップし、予備データから即座にマッチングさせる
+        for (PlayerProfile fallback : getFallbackPlayers()) {
+            if (!fallback.game().equals(userGame.title())) {
+                allOtherPlayers.add(fallback);
+            }
         }
-        return new ArrayList<>(matchingPlayers);
+
+        allOtherPlayers.sort(Comparator.comparingDouble(p -> Math.abs(p.cmPer360() - userCmPer360)));
+
+        if (allOtherPlayers.size() > 3) {
+            return allOtherPlayers.subList(0, 3);
+        }
+        return allOtherPlayers;
     }
 
-    private List<PlayerProfile> loadPlayersForGame(Game userGame) {
-        try {
-            return liquipediaService.getPlayers(userGame).stream()
-                    .filter(player -> player != null && player.cmPer360() != null)
-                    .filter(player -> userGame.title().equals(player.game()) || userGame.title().equalsIgnoreCase(player.game()))
-                    .toList();
-        } catch (LiquipediaException exception) {
-            // API制限中(429)でも感度マッチとYouTube連携を止めないため、予備データで継続する
-            return getFallbackPlayers().stream()
-                    .filter(fallback -> fallback != null && fallback.cmPer360() != null)
-                    .filter(fallback -> userGame.title().equals(fallback.game()) || userGame.title().equalsIgnoreCase(fallback.game()))
-                    .toList();
-        }
-    }
-
-    // API制限中(429)でも感度マッチとYouTube連携を止めないための予備データ
     private List<PlayerProfile> getFallbackPlayers() {
         return List.of(
             new PlayerProfile("ImperialHal", "Apex Legends", List.of("igl"), 800, 1.0, 51.95,
