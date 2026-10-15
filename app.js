@@ -230,10 +230,84 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
   const resultContainer = document.getElementById("match-result");
   resultContainer.innerHTML = '<div class="no-results" style="grid-column: 1 / -1; width:100%; text-align:center;">APIからマッチする選手を検索中...</div>';
 
+  // 既存のYouTubeレビュー帯があれば消去
   const existingYt = document.getElementById("youtube-reviews-section");
   if (existingYt) existingYt.remove();
 
+  // 💡 指定した選手のマウス動画を非同期で取得・描画する関数
+  async function loadYoutubeReviews(playerName, mouseName) {
+    let ytSection = document.getElementById("youtube-reviews-section");
+    if (!ytSection) {
+      resultContainer.insertAdjacentHTML(
+        "afterend",
+        '<section id="youtube-reviews-section" style="grid-column: 1 / -1; width: 100%; margin-top: 2rem; padding: 1.75rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-sizing: border-box;"></section>'
+      );
+      ytSection = document.getElementById("youtube-reviews-section");
+    }
+
+    if (!mouseName || mouseName === "データなし") {
+      ytSection.innerHTML = `<div class="no-results" style="text-align:center; padding: 1rem;">${escapeHtml(playerName)} 選手のマウスデータがありません。</div>`;
+      return;
+    }
+
+    ytSection.innerHTML = `
+      <div style="margin-bottom: 1.25rem;">
+        <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS</span>
+        <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
+          ${escapeHtml(playerName)} 選手の使用マウス 「${escapeHtml(mouseName)}」 のレビュー動画を取得中...
+        </h3>
+      </div>`;
+
+    try {
+      const ytUrl = new URL("/api/youtube/reviews", apiBaseUrl);
+      ytUrl.searchParams.set("device", mouseName);
+      const ytResponse = await fetch(ytUrl);
+
+      if (ytResponse.ok) {
+        const videos = await ytResponse.json();
+        const validVideos = Array.isArray(videos) ? videos.filter((v) => v && v.videoId) : [];
+
+        if (validVideos.length > 0) {
+          ytSection.innerHTML = `
+            <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS</span>
+                <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
+                  ${escapeHtml(playerName)} 選手の使用マウス 「${escapeHtml(mouseName)}」 のレビュー動画
+                </h3>
+              </div>
+              <span style="font-size: 0.75rem; color: #a1a1aa;">※各選手の「PLAYER MOUSE」をクリックで動画切り替え</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+              ${validVideos.map((v) => `
+                <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; background: rgba(0,0,0,0.35); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;" onmouseover="this.style.transform='translateY(-3px)'; this.style.borderColor='rgba(255,255,255,0.15)'" onmouseout="this.style.transform='none'; this.style.borderColor='rgba(255,255,255,0.06)'">
+                  <div style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden;">
+                    <img src="${escapeHtml(v.thumbnailUrl || "")}" alt="${escapeHtml(v.title || "動画タイトル")}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                  </div>
+                  <div style="padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.75rem; color: #f4f4f5;">
+                      ${escapeHtml(v.title || "動画タイトル")}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #a1a1aa; display: flex; align-items: center; justify-content: space-between;">
+                      <span>${escapeHtml(v.channelTitle || "YouTube")}</span>
+                      <span style="color: #ff0000; font-weight: 500; font-size: 0.7rem;">▶ WATCH</span>
+                    </div>
+                  </div>
+                </a>
+              `).join("")}
+            </div>`;
+        } else {
+          ytSection.innerHTML = `<div class="no-results" style="text-align:center; padding: 1rem;">「${escapeHtml(mouseName)}」のレビュー動画が見つかりませんでした。</div>`;
+        }
+      }
+    } catch (ytError) {
+      console.error("YouTube API取得エラー:", ytError);
+      ytSection.innerHTML = `<div class="no-results" style="text-align:center; padding: 1rem;">動画の取得に失敗しました。</div>`;
+    }
+  }
+
   try {
+    // 1. バックエンドの /api/match へリクエストを送信
     const url = new URL("/api/match", apiBaseUrl);
     url.searchParams.set("game", game);
     url.searchParams.set("dpi", String(dpi));
@@ -252,99 +326,85 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
     }
 
     const userDistance = toCm360(dpi, sensitivity, game);
-    if (!Number.isFinite(userDistance)) {
-      throw new Error("ゲーム設定に対応するcm/360計算ができませんでした。");
-    }
 
-    resultContainer.innerHTML = matchedPlayers.map((player) => {
-      const playerDistance = Number(player.cmPer360);
-      const difference = Number.isFinite(playerDistance) ? Math.abs(playerDistance - userDistance) : Number.POSITIVE_INFINITY;
-      const percent = Number.isFinite(playerDistance) ? difference / userDistance * 100 : Number.POSITIVE_INFINITY;
-      const matchQuality = Number.isFinite(percent) && percent < 5 ? "非常に近い" : Number.isFinite(percent) && percent < 15 ? "近い感度" : "参考候補";
-      const safeGameLabel = escapeHtml(getGameSpec(player.game)?.label || player.game || "ゲーム");
-      const safePlayerName = escapeHtml(player.name || "選手");
-      const safeRoleText = escapeHtml((Array.isArray(player.roles) ? player.roles.join(" / ") : "プレイヤー") || "プレイヤー");
-      const safeMouse = escapeHtml(player.devices && player.devices["マウス"] ? player.devices["マウス"] : "データなし");
-      const safePad = escapeHtml(player.devices && player.devices["マウスパッド"] ? player.devices["マウスパッド"] : "データなし");
-      const safeSource = player.source ? escapeHtml(player.source) : "出典";
-      const safeSourceUrl = player.sourceUrl ? escapeHtml(player.sourceUrl) : "";
-      const playerCm = Number.isFinite(playerDistance) ? playerDistance.toFixed(1) : "-";
-      const playerSens = Number.isFinite(player.sens) ? player.sens : "-";
-      const playerDpi = Number.isFinite(player.dpi) ? player.dpi : "-";
+    // 2. 3人分の選手カードを並べる（マウス欄をクリック可能なトリガーに設定）
+    resultContainer.innerHTML = matchedPlayers.map((player, index) => {
+      const safePlayer = player && typeof player === "object" ? player : {};
+      const playerGame = normalizeGameName(safePlayer.game || game);
+      const playerSpec = getGameSpec(playerGame);
+      const playerName = typeof safePlayer.name === "string" ? safePlayer.name : "選手";
+      const playerRoles = Array.isArray(safePlayer.roles) ? safePlayer.roles : [];
+      const safeDevices = safePlayer.devices && typeof safePlayer.devices === "object" ? safePlayer.devices : {};
+      const playerCm = Number(safePlayer.cmPer360);
+      const playerDpi = Number(safePlayer.dpi);
+      const playerSens = Number(safePlayer.sens);
+      const userDistance = Number.isFinite(toCm360(dpi, sensitivity, game)) ? toCm360(dpi, sensitivity, game) : Number.NaN;
+      const playerDistance = Number.isFinite(playerCm) ? playerCm : (Number.isFinite(playerDpi) && Number.isFinite(playerSens) && playerSpec ? toCm360(playerDpi, playerSens, playerGame) : Number.NaN);
+      const difference = Number.isFinite(playerDistance) && Number.isFinite(userDistance) ? Math.abs(playerDistance - userDistance) : Number.NaN;
+      const percent = Number.isFinite(difference) && Number.isFinite(userDistance) && userDistance !== 0 ? (difference / userDistance) * 100 : Number.NaN;
+      const matchQuality = Number.isFinite(percent) ? (percent < 5 ? "非常に近い" : percent < 15 ? "近い感度" : "参考候補") : "参考候補";
+      const mouseName = typeof safeDevices["マウス"] === "string" && safeDevices["マウス"].trim() ? safeDevices["マウス"] : "データなし";
+      const isFirst = index === 0;
 
       return `
         <article class="match-card" style="box-sizing: border-box;">
           <div class="match-card-head">
             <div>
-              <span class="eyebrow"><span class="eyebrow-line"></span>YOUR SENS / ${escapeHtml(gameSpecs[game]?.label || game)}</span>
-              <div class="match-distance">${userDistance.toFixed(1)}<small>cm / 360°</small></div>
-              <div class="match-delta">差 ${Number.isFinite(difference) ? difference.toFixed(1) : "-"} cm · ${Number.isFinite(percent) ? percent.toFixed(1) : "-"}%</div>
+              <span class="eyebrow"><span class="eyebrow-line"></span>YOUR SENS / ${escapeHtml(playerSpec ? playerSpec.label : (gameSpecs[game]?.label || game || "GAME"))}</span>
+              <div class="match-distance">${Number.isFinite(userDistance) ? userDistance.toFixed(1) : "--"}<small>cm / 360°</small></div>
+              <div class="match-delta">${Number.isFinite(difference) ? `差 ${difference.toFixed(1)} cm · ${percent.toFixed(1)}%` : "感度差を計算できません"}</div>
             </div>
             <span class="match-badge">${matchQuality}</span>
           </div>
           <div class="match-player">
-            <span class="player-avatar">${safePlayerName.slice(0, 1)}</span>
+            <span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span>
             <div>
-              <h2>${safePlayerName}</h2>
-              <p>${safeGameLabel} · ${safeRoleText}</p>
+              <h2>${escapeHtml(playerName)}</h2>
+              <p>${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))} · ${escapeHtml(playerRoles.join(" / ") || "プレイヤー")}</p>
             </div>
           </div>
-          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">他のタイトルから振り向きが近いプロ選手を抽出しました。${safeGameLabel}で ${playerDpi} DPI / ${playerSens} （${playerCm} cm / 360°）を使用しています。</p>
+          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">${playerSpec ? `他のタイトルから振り向きが近いプロ選手を抽出しました。${escapeHtml(playerGame)}で ${Number.isFinite(playerDpi) && Number.isFinite(playerSens) ? `${playerDpi} DPI / ${playerSens}` : "感度情報なし"} （${Number.isFinite(playerDistance) ? `${playerDistance.toFixed(1)} cm / 360°` : "cm / 360° データなし"}）を使用しています。` : "選手の感度データが一部欠けているため参考情報を表示しています。"}</p>
           <div class="match-devices" style="margin-top: auto;">
-            <div class="match-device"><span>PLAYER MOUSE</span><strong>${safeMouse}</strong></div>
-            <div class="match-device"><span>PLAYER MOUSEPAD</span><strong>${safePad}</strong></div>
+            <div class="match-device js-yt-trigger"
+                 data-player="${escapeHtml(playerName)}"
+                 data-mouse="${escapeHtml(mouseName)}"
+                 style="cursor: pointer; transition: all 0.2s; border: 1px solid ${isFirst ? '#bf57ff' : 'rgba(255,255,255,0.08)'}; background: ${isFirst ? 'rgba(191, 87, 255, 0.12)' : 'transparent'}; border-radius: 6px; padding: 0.5rem;"
+                 title="クリックしてこのマウスのレビュー動画を表示">
+              <span style="display: flex; justify-content: space-between; align-items: center;">
+                PLAYER MOUSE
+                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画切替</small>
+              </span>
+              <strong>${escapeHtml(mouseName)}</strong>
+            </div>
+            <div class="match-device" style="padding: 0.5rem;">
+              <span>PLAYER MOUSEPAD</span>
+              <strong>${escapeHtml(typeof safeDevices["マウスパッド"] === "string" && safeDevices["マウスパッド"].trim() ? safeDevices["マウスパッド"] : "データなし")}</strong>
+            </div>
           </div>
-          ${player.sourceUrl ? `<a class="player-source" style="margin-top: 1rem; display: inline-block;" href="${safeSourceUrl}" target="_blank" rel="noopener noreferrer">${safeSource} ↗</a>` : ""}
+          ${safePlayer.sourceUrl ? `<a class="player-source" style="margin-top: 1rem; display: inline-block;" href="${escapeHtml(safePlayer.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(safePlayer.source || "出典")} ↗</a>` : ""}
         </article>`;
     }).join("");
 
-    const topPlayer = matchedPlayers[0];
-    const topPlayerMouse = typeof topPlayer?.devices?.["マウス"] === "string" ? topPlayer.devices["マウス"].trim() : "";
-    if (topPlayerMouse && topPlayerMouse !== "データなし") {
-      try {
-        const ytUrl = new URL("/api/youtube/reviews", apiBaseUrl);
-        ytUrl.searchParams.set("device", topPlayerMouse);
-        const ytResponse = await fetch(ytUrl);
+    // 3. 各カードの「PLAYER MOUSE」ボックスにクリックイベントを設定
+    const triggers = resultContainer.querySelectorAll(".js-yt-trigger");
+    triggers.forEach((trigger) => {
+      trigger.addEventListener("click", () => {
+        // 全カードのハイライトを一度リセット
+        triggers.forEach((t) => {
+          t.style.borderColor = "rgba(255,255,255,0.08)";
+          t.style.background = "transparent";
+        });
+        // クリックされたカードだけ紫にハイライト
+        trigger.style.borderColor = "#bf57ff";
+        trigger.style.background = "rgba(191, 87, 255, 0.12)";
 
-        if (ytResponse.ok) {
-          const videos = await ytResponse.json();
-          const validVideos = Array.isArray(videos) ? videos.filter((video) => video && typeof video.videoId === "string" && video.videoId.trim()) : [];
-          if (validVideos.length > 0) {
-            const videoSectionHtml = `
-             <section id="youtube-reviews-section" style="grid-column: 1 / -1; width: 100%; margin-top: 2rem; padding: 1.75rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-sizing: border-box;">
-                <div style="margin-bottom: 1.25rem;">
-                  <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS</span>
-                  <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
-                    ${escapeHtml(topPlayer.name || "選手")} 選手の使用マウス 「${escapeHtml(topPlayerMouse)}」 のレビュー動画
-                  </h3>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
-                  ${validVideos.map((v) => `
-                    <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; background: rgba(0,0,0,0.35); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;" onmouseover="this.style.transform='translateY(-3px)'; this.style.borderColor='rgba(255,255,255,0.15)'" onmouseout="this.style.transform='none'; this.style.borderColor='rgba(255,255,255,0.06)'">
-                      <div style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden;">
-                        <img src="${escapeHtml(v.thumbnailUrl || "")}" alt="${escapeHtml(v.title || "video")}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                      </div>
-                      <div style="padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                        <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.75rem; color: #f4f4f5;">
-                          ${escapeHtml(v.title || "動画タイトル")}
-                        </div>
-                        <div style="font-size: 0.75rem; color: #a1a1aa; display: flex; align-items: center; justify-content: space-between;">
-                          <span>${escapeHtml(v.channelTitle || "YouTube")}</span>
-                          <span style="color: #ff0000; font-weight: 500; font-size: 0.7rem;">▶ WATCH</span>
-                        </div>
-                      </div>
-                    </a>
-                  `).join("")}
-                </div>
-              </section>`;
-          
-            resultContainer.insertAdjacentHTML("afterend", videoSectionHtml);
-          }
-        }
-      } catch (ytError) {
-        console.error("YouTube API取得エラー:", ytError);
-      }
-    }
+        // 該当選手のマウス動画を読み込む
+        loadYoutubeReviews(trigger.dataset.player, trigger.dataset.mouse);
+      });
+    });
+
+    // 4. 初期表示として1人目の選手のマウス動画を読み込む
+    await loadYoutubeReviews(matchedPlayers[0].name, matchedPlayers[0].devices["マウス"]);
 
   } catch (error) {
     console.error("Match API通信エラー:", error);
