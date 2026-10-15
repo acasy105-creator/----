@@ -311,14 +311,14 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
           const validVideos = Array.isArray(videos) ? videos.filter((video) => video && typeof video.videoId === "string" && video.videoId.trim()) : [];
           if (validVideos.length > 0) {
             const videoSectionHtml = `
-              <section id="youtube-reviews-section" style="width: 100%; margin-top: 2rem; padding: 1.75rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-sizing: border-box;">
+             <section id="youtube-reviews-section" style="grid-column: 1 / -1; width: 100%; margin-top: 2rem; padding: 1.75rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-sizing: border-box;">
                 <div style="margin-bottom: 1.25rem;">
                   <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS</span>
                   <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
                     ${escapeHtml(topPlayer.name || "選手")} 選手の使用マウス 「${escapeHtml(topPlayerMouse)}」 のレビュー動画
                   </h3>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
                   ${validVideos.map((v) => `
                     <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; background: rgba(0,0,0,0.35); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;" onmouseover="this.style.transform='translateY(-3px)'; this.style.borderColor='rgba(255,255,255,0.15)'" onmouseout="this.style.transform='none'; this.style.borderColor='rgba(255,255,255,0.06)'">
                       <div style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden;">
@@ -338,8 +338,7 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
                 </div>
               </section>`;
           
-            const layoutWrapper = resultContainer.closest(".match-layout") || resultContainer;
-            layoutWrapper.insertAdjacentHTML("afterend", videoSectionHtml);
+            resultContainer.insertAdjacentHTML("afterend", videoSectionHtml);
           }
         }
       } catch (ytError) {
