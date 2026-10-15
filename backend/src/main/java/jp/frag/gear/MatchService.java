@@ -15,36 +15,18 @@ public class MatchService {
         this.liquipediaService = liquipediaService;
     }
 
-    public List<PlayerProfile> findMatches(Game userGame, int dpi, double sens) {
+   public List<PlayerProfile> findMatches(Game userGame, int dpi, double sens) {
         double userCmPer360 = (360.0 / (dpi * sens * userGame.yaw())) * 2.54;
         List<PlayerProfile> allOtherPlayers = new ArrayList<>();
 
-        // 1. Liquipediaからデータ取得を試みる（429エラーが出てもアプリを止めない！）
-        for (Game game : Game.values()) {
-            if (game == userGame) continue;
-            try {
-                List<PlayerProfile> players = liquipediaService.getPlayers(game);
-                for (PlayerProfile player : players) {
-                    if (player.cmPer360() != null && player.cmPer360() > 0) {
-                        allOtherPlayers.add(player);
-                    }
-                }
-            } catch (Exception e) {
-                // 429エラー等で取得に失敗した場合は無視して次へ進む
-                System.out.println(game.title() + " のAPI取得をスキップしました: " + e.getMessage());
+        // Liquipediaの429制限が解除されるまで、一時的に予備データを使って高速マッチングさせる
+        for (PlayerProfile fallback : getFallbackPlayers()) {
+            if (!fallback.game().equals(userGame.title())) {
+                allOtherPlayers.add(fallback);
             }
         }
 
-        // 2. もしAPI制限(429)で1人も取得できなかった場合は、予備のプロ選手データを使う
-        if (allOtherPlayers.isEmpty()) {
-            for (PlayerProfile fallback : getFallbackPlayers()) {
-                if (!fallback.game().equals(userGame.title())) {
-                    allOtherPlayers.add(fallback);
-                }
-            }
-        }
-
-        // 3. 振り向き(cm/360)の差が小さい順にソートして上位3名を返す
+        // 振り向き(cm/360)の差が小さい順にソートして上位3名を返す
         allOtherPlayers.sort(Comparator.comparingDouble(p -> Math.abs(p.cmPer360() - userCmPer360)));
 
         if (allOtherPlayers.size() > 3) {
