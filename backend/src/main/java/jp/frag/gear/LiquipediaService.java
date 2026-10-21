@@ -5,23 +5,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.zip.GZIPInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.zip.GZIPInputStream;
 
 @Service
 public class LiquipediaService {
@@ -49,10 +47,6 @@ public class LiquipediaService {
     }
 
     public synchronized List<PlayerProfile> getPlayers(Game game) {
-        if (game == null) {
-            throw new IllegalArgumentException("Game is required.");
-        }
-
         CacheEntry entry = cache.get(game);
         Instant now = Instant.now();
 
@@ -64,15 +58,14 @@ public class LiquipediaService {
         // キャッシュがない、または期限切れの場合はAPI取得を試みる
         try {
             List<PlayerProfile> players = fetchPlayersFromApi(game);
-            List<PlayerProfile> immutablePlayers = List.copyOf(players);
-            cache.put(game, new CacheEntry(immutablePlayers, now));
-            return immutablePlayers;
+            cache.put(game, new CacheEntry(players, now));
+            return players;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             LOGGER.warn("Liquipedia APIからのデータ取得が中断されました (ゲーム: {})。", game.title());
             return getStaleOrFallbackPlayers(game, entry, now);
         } catch (Exception e) {
-            LOGGER.warn("Liquipedia APIからのデータ取得に失敗しました (ゲーム: {}): {}。", game.title(), e.getMessage());
+            LOGGER.warn("Liquipedia APIからのデータ取得に失敗しました (ゲーム: {}): {}。内蔵フォールバックデータを使用します。", game.title(), e.getMessage());
             return getStaleOrFallbackPlayers(game, entry, now);
         }
     }
