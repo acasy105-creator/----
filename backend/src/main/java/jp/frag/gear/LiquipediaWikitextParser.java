@@ -191,4 +191,9 @@ final class LiquipediaWikitextParser {
             return null;
         }
     }
+
+    public static List<PlayerProfile> parsePlayers(String wikitext, Game game, int maxPlayersPerSync) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'parsePlayers'");
+    }
 }

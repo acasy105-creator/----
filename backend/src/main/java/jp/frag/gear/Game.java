@@ -47,4 +47,9 @@ public enum Game {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported game: " + value));
     }
+
+    String subdomain() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'subdomain'");
+    }
 }
