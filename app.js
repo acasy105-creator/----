@@ -182,27 +182,98 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 });
 
 // ============================================================================
-// 1. プレイヤー検索（クリックで該当選手のデバイス動画を表示）
+// 1. プレイヤー検索（プロ / ストリーマー / VTuber フィルター＆バッジ＆動画連携）
 // ============================================================================
+let currentCreatorTypeFilter = "all"; // "all" | "pro" | "streamer" | "vtuber"
+
+function getPlayerCreatorTypes(player) {
+  const roles = Array.isArray(player?.roles) ? player.roles.map((r) => String(r).toLowerCase()) : [];
+  const source = String(player?.source || "").toLowerCase();
+  const types = new Set();
+
+  if (roles.includes("vtuber") || source.includes("vtuber") || /ぶいすぽ|にじさんじ/.test(player?.name || "")) {
+    types.add("vtuber");
+  }
+  if (roles.includes("streamer") || source.includes("streamer")) {
+    types.add("streamer");
+  }
+  if (roles.includes("pro") || (types.size === 0)) {
+    types.add("pro");
+  }
+  return types;
+}
+
+function setupCreatorFilterBar() {
+  const resultsEl = document.getElementById("player-results");
+  if (!resultsEl || document.getElementById("creator-type-filter-bar")) return;
+
+  const filterBarHtml = `
+    <div id="creator-type-filter-bar" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem; align-items: center;">
+      <span style="font-size: 0.75rem; color: #a1a1aa; margin-right: 0.25rem;">属性フィルター:</span>
+      <button type="button" data-type="all" class="js-creator-tab" style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid #d4ff33; background: rgba(212, 255, 51, 0.15); color: #fff; transition: all 0.2s;">すべて</button>
+      <button type="button" data-type="pro" class="js-creator-tab" style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa; transition: all 0.2s;">🏆 プロ選手</button>
+      <button type="button" data-type="streamer" class="js-creator-tab" style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa; transition: all 0.2s;">🎙 ストリーマー / 配信者</button>
+      <button type="button" data-type="vtuber" class="js-creator-tab" style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa; transition: all 0.2s;">✨ VTuber（ぶいすぽっ！・にじさんじ等）</button>
+    </div>`;
+
+  resultsEl.insertAdjacentHTML("beforebegin", filterBarHtml);
+
+  const tabs = document.querySelectorAll(".js-creator-tab");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      currentCreatorTypeFilter = tab.dataset.type;
+      tabs.forEach((t) => {
+        const active = t === tab;
+        t.style.borderColor = active ? "#d4ff33" : "rgba(255,255,255,0.12)";
+        t.style.background = active ? "rgba(212, 255, 51, 0.15)" : "rgba(255,255,255,0.03)";
+        t.style.color = active ? "#fff" : "#a1a1aa";
+      });
+      renderPlayers();
+    });
+  });
+}
+
 function renderPlayers() {
+  setupCreatorFilterBar();
+
   const query = document.getElementById("player-query").value.trim().toLowerCase();
   const game = document.getElementById("search-game").value;
   const role = document.getElementById("search-role").value;
+
   const filtered = players.filter((player) => {
     const playerName = typeof player?.name === "string" ? player.name : "";
     const normalizedGame = normalizeGameName(player?.game);
-    const hasText = playerName.toLowerCase().includes(query);
+    const deviceString = Object.values(player?.devices || {}).join(" ").toLowerCase();
+    // 選手名だけでなく、デバイス名（「Superlight」「Artisan」など）でも検索ヒットするように強化！
+    const hasText = !query || playerName.toLowerCase().includes(query) || deviceString.includes(query);
     const matchesGame = !game || normalizedGame === normalizeGameName(game);
     const matchesRole = !role || (Array.isArray(player?.roles) && player.roles.includes(role));
-    return hasText && matchesGame && matchesRole;
+    const creatorTypes = getPlayerCreatorTypes(player);
+    const matchesCreatorType = currentCreatorTypeFilter === "all" || creatorTypes.has(currentCreatorTypeFilter);
+
+    return hasText && matchesGame && matchesRole && matchesCreatorType;
   });
 
   document.getElementById("search-count").textContent = `${String(filtered.length).padStart(2, "0")} PLAYERS`;
   const resultsEl = document.getElementById("player-results");
 
+  const typeBadgeMap = {
+    vtuber: '<span class="tag" style="background: rgba(191, 87, 255, 0.2); border: 1px solid #bf57ff; color: #e9d5ff; font-weight: bold;">✨ VTuber</span>',
+    streamer: '<span class="tag" style="background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #bae6fd; font-weight: bold;">🎙 STREAMER</span>',
+    pro: '<span class="tag" style="background: rgba(212, 255, 51, 0.12); border: 1px solid rgba(212, 255, 51, 0.4); color: #d4ff33; font-weight: bold;">🏆 PRO</span>'
+  };
+
   resultsEl.innerHTML = filtered.length ? filtered.map((player) => {
     const playerName = typeof player?.name === "string" ? player.name : "選手";
     const spec = getGameSpec(player?.game);
+    const creatorTypes = getPlayerCreatorTypes(player);
+
+    const creatorBadges = [...creatorTypes].map((t) => typeBadgeMap[t] || "").join("");
+    const gameRoleTags = (Array.isArray(player?.roles) ? player.roles : [])
+      .filter((item) => !["pro", "streamer", "vtuber"].includes(String(item).toLowerCase()))
+      .map((item) => `<span class="tag">${escapeHtml(getGameRoles(player?.game).find((roleOption) => roleOption.value === item)?.text || item)}</span>`)
+      .join("");
+
     const deviceEntries = Object.entries(player?.devices || {}).map(([category, device]) => {
       const hasValidDevice = device && device !== "データなし";
       return `
@@ -222,18 +293,17 @@ function renderPlayers() {
     const dpi = Number(player?.dpi);
     const sens = Number(player?.sens);
     const cmValue = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, player?.game) : Number.NaN;
-    const playerRoleText = (Array.isArray(player?.roles) ? player.roles : []).map((item) => `<span class="tag">${escapeHtml(getGameRoles(player?.game).find((roleOption) => roleOption.value === item)?.text || item)}</span>`).join("");
+
     return `
       <article class="player-card">
         <div class="player-card-top"><span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span><div><h3>${escapeHtml(playerName)}</h3><div class="player-game">${escapeHtml(spec ? spec.label : String(player?.game || ""))}</div></div></div>
-        <div class="player-tags">${playerRoleText || "<span class=\"tag\">ロールなし</span>"}</div>
+        <div class="player-tags" style="display: flex; flex-wrap: wrap; gap: 0.35rem;">${creatorBadges}${gameRoleTags || ""}</div>
         <div class="device-list">${deviceEntries || '<div class="device-row"><span>デバイス</span><span>データなし</span></div>'}</div>
-        <div class="player-sens">${Number.isFinite(cmValue) ? `${cmValue.toFixed(1)} cm / 360°` : "感度データなし"}</div>
+        <div class="player-sens">${Number.isFinite(cmValue) ? `${dpi} DPI / 感度 ${sens} （${cmValue.toFixed(1)} cm / 360°）` : "感度データなし"}</div>
         ${player?.sourceUrl ? `<a class="player-source" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source || "出典")} ↗</a>` : ""}
       </article>`;
-  }).join("") : '<div class="no-results">条件に一致する選手が見つかりませんでした。</div>';
+  }).join("") : '<div class="no-results">条件に一致するプレイヤーが見つかりませんでした。</div>';
 
-  // 各選手のデバイス行クリック時にYouTube動画を表示（カード一覧の上部に配置して見やすくする）
   const triggers = resultsEl.querySelectorAll(".js-search-yt-trigger");
   triggers.forEach((trigger) => {
     trigger.addEventListener("click", () => {
@@ -244,14 +314,13 @@ function renderPlayers() {
         sectionId: "search-youtube-section",
         anchorElement: resultsEl,
         position: "beforebegin",
-        titlePrefix: `${trigger.dataset.player} 選手の使用デバイス`,
+        titlePrefix: `${trigger.dataset.player} の使用デバイス`,
         deviceName: trigger.dataset.device,
-        hintText: "※各選手カードの「▶ 動画」をクリックで動画切り替え"
+        hintText: "※各カードの「▶ 動画」をクリックで動画切り替え"
       });
     });
   });
 
-  // 検索結果の1人目のマウス動画を初期表示としてセット
   if (filtered.length > 0 && filtered[0].devices?.["マウス"]) {
     const firstTrigger = resultsEl.querySelector(".js-search-yt-trigger");
     if (firstTrigger) {
@@ -262,9 +331,9 @@ function renderPlayers() {
       sectionId: "search-youtube-section",
       anchorElement: resultsEl,
       position: "beforebegin",
-      titlePrefix: `${filtered[0].name} 選手の使用デバイス`,
+      titlePrefix: `${filtered[0].name} の使用デバイス`,
       deviceName: filtered[0].devices["マウス"],
-      hintText: "※各選手カードの「▶ 動画」をクリックで動画切り替え"
+      hintText: "※各カードの「▶ 動画」をクリックで動画切り替え"
     });
   }
 }
@@ -273,7 +342,6 @@ function renderPlayers() {
   document.getElementById(id).addEventListener("input", renderPlayers);
   document.getElementById(id).addEventListener("change", renderPlayers);
 });
-
 // ============================================================================
 // 2. プロ使用率（ランキングのデバイス名クリックでレビュー動画を表示）
 // ============================================================================
