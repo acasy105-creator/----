@@ -160,9 +160,8 @@ const getGameRanks = (game) => {
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 
 // ============================================================================
-// 💡 全ページ共通：YouTubeレビュー動画取得＆アフィリエイト導線描画関数
+// ⚖️ 主要ゲーミングマウス スペックデータベース ＆ VS比較エンジン
 // ============================================================================
-async function renderYouTubeSection({ sectionId, anchorElement, position = "afterend", titlePrefix, deviceName, hintText = "" }) {
 const MOUSE_SPECS_DB = {
   "Logicool G PRO X SUPERLIGHT 2": { weight: 60, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 8000, sensor: "HERO 2" },
   "Logitech G PRO X SUPERLIGHT 2": { weight: 60, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 8000, sensor: "HERO 2" },
@@ -399,7 +398,7 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
     console.error("YouTube API取得エラー:", ytError);
     ytSection.innerHTML = `${comparisonHtml}<div class="no-results" style="text-align:center; padding: 1rem;">動画の取得に失敗しました。</div>`;
   }
-}}
+}
 
 // ロール選択肢の更新
 function populateRoleOptions(select, game, includeAll = false) {
