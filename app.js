@@ -163,6 +163,157 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&"
 // 💡 全ページ共通：YouTubeレビュー動画取得＆アフィリエイト導線描画関数
 // ============================================================================
 async function renderYouTubeSection({ sectionId, anchorElement, position = "afterend", titlePrefix, deviceName, hintText = "" }) {
+const MOUSE_SPECS_DB = {
+  "Logicool G PRO X SUPERLIGHT 2": { weight: 60, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 8000, sensor: "HERO 2" },
+  "Logitech G PRO X SUPERLIGHT 2": { weight: 60, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 8000, sensor: "HERO 2" },
+  "Logicool G PRO X SUPERLIGHT": { weight: 63, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 1000, sensor: "HERO 25K" },
+  "Razer Viper V3 Pro": { weight: 54, shape: "左右対称", size: "127.1 × 63.9 × 39.9 mm", grip: "つかみ / つまみ", hz: 8000, sensor: "Focus Pro 35K" },
+  "Ninjutso Sora V2": { weight: 39, shape: "左右対称（後部高め）", size: "119.2 × 61.4 × 38.8 mm", grip: "つかみ / つまみ", hz: 8000, sensor: "PAW3395" },
+  "Razer DeathAdder V3 Pro": { weight: 63, shape: "エルゴノミクス（非対称）", size: "128 × 68 × 44 mm", grip: "かぶせ / つかみ", hz: 8000, sensor: "Focus Pro 30K" },
+  "Finalmouse UltralightX": { weight: 35, shape: "左右対称（ハニカム）", size: "121.3 × 56.8 × 37 mm", grip: "つまみ / つかみ", hz: 8000, sensor: "PAW3395" },
+  "WLmouse Beast X": { weight: 39, shape: "左右対称（マグネシウム）", size: "122 × 62 × 37 mm", grip: "つまみ / つかみ", hz: 8000, sensor: "PAW3395" },
+  "ZOWIE EC2-CW": { weight: 77, shape: "エルゴノミクス（非対称）", size: "123 × 65 × 42 mm", grip: "かぶせ / つかみ", hz: 1000, sensor: "PAW3370" },
+  "Vaxee XE Wireless": { weight: 76, shape: "左右対称", size: "124 × 66 × 39.5 mm", grip: "かぶせ / つかみ", hz: 4000, sensor: "PAW3395" },
+  "Lamzu Atlantis": { weight: 55, shape: "左右対称（ワイドバック）", size: "123 × 66 × 38 mm", grip: "つかみ", hz: 4000, sensor: "PAW3395" },
+  // 比較基準としてよく使われる定番・エントリーモデル
+  "Logicool G703h (定番エルゴ / 95g)": { weight: 95, shape: "エルゴノミクス（非対称）", size: "124 × 68 × 43 mm", grip: "かぶせ / つかみ", hz: 1000, sensor: "HERO 25K" },
+  "Logicool G304 (定番エントリー / 99g)": { weight: 99, shape: "左右対称（小型）", size: "116.6 × 62.2 × 38.2 mm", grip: "つかみ / つまみ", hz: 1000, sensor: "HERO 12K" },
+  "Razer Viper Ultimate (旧定番 / 74g)": { weight: 74, shape: "左右対称（低背）", size: "126.7 × 66.2 × 37.8 mm", grip: "つかみ / つまみ", hz: 1000, sensor: "Focus+" },
+  "Logicool G502 X (多ボタン / 102g)": { weight: 102, shape: "エルゴノミクス（多ボタン）", size: "131.4 × 41.1 × 79.2 mm", grip: "かぶせ", hz: 1000, sensor: "HERO 25K" }
+};
+
+// ユーザーの現在使用中のマウスを保持（ローカルストレージ対応）
+let currentUserMouseName = localStorage.getItem("frag_user_mouse") || "Logicool G703h (定番エルゴ / 95g)";
+
+function findMouseSpec(deviceName) {
+  if (!deviceName) return null;
+  if (MOUSE_SPECS_DB[deviceName]) return { name: deviceName, ...MOUSE_SPECS_DB[deviceName] };
+  const target = deviceName.toLowerCase();
+  const matchedKey = Object.keys(MOUSE_SPECS_DB).find((k) =>
+    k.toLowerCase().includes(target) || target.includes(k.toLowerCase())
+  );
+  return matchedKey ? { name: matchedKey, ...MOUSE_SPECS_DB[matchedKey] } : null;
+}
+
+function buildMouseComparisonHtml(targetDeviceName, containerId) {
+  const targetSpec = findMouseSpec(targetDeviceName);
+  if (!targetSpec) return ""; // マウス以外のデバイス（パッド・ヘッドセット等）の場合は非表示
+
+  const userSpec = findMouseSpec(currentUserMouseName) || { name: currentUserMouseName, ...MOUSE_SPECS_DB["Logicool G703h (定番エルゴ / 95g)"] };
+  const weightDiff = targetSpec.weight - userSpec.weight; // マイナスなら軽くなる
+  const weightPct = Math.round((Math.abs(weightDiff) / userSpec.weight) * 100);
+
+  let diffBadgeHtml = "";
+  let feelingComment = "";
+
+  if (weightDiff < 0) {
+    diffBadgeHtml = `<span style="padding: 0.25rem 0.65rem; border-radius: 999px; background: rgba(212, 255, 51, 0.18); border: 1px solid #d4ff33; color: #d4ff33; font-size: 0.78rem; font-weight: 800;">⚡ 今より ${Math.abs(weightDiff)}g（${weightPct}%）軽くなる！</span>`;
+    feelingComment = Math.abs(weightDiff) >= 15
+      ? `現在より ${Math.abs(weightDiff)}g も軽量化されるため、振り始めの重さや視点移動後の慣性（行き過ぎ）が劇的に減り、別次元の初動スピードと疲労軽減を体感できます。`
+      : `現在より ${Math.abs(weightDiff)}g 軽くなるため、今の感覚を大きく崩さずにマイクロフリック（微調整）のキレと取り回しを向上できます。`;
+  } else if (weightDiff > 0) {
+    diffBadgeHtml = `<span style="padding: 0.25rem 0.65rem; border-radius: 999px; background: rgba(56, 189, 248, 0.18); border: 1px solid #38bdf8; color: #bae6fd; font-size: 0.78rem; font-weight: 800;">🛡 今より +${weightDiff}g（安定感重視）</span>`;
+    feelingComment = `現在より +${weightDiff}g 重みが増すため、手元の細かい震えや視点の浮きが抑えられ、クロスヘアをピタッと止めるストッピングの安定感が増します。`;
+  } else {
+    diffBadgeHtml = `<span style="padding: 0.25rem 0.65rem; border-radius: 999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.25); color: #fff; font-size: 0.78rem; font-weight: 800;">＝ 同じ重量クラス（${targetSpec.weight}g）</span>`;
+    feelingComment = `現在のマウスと同じ重量帯のため、重さの違和感ゼロでスムーズに移行できます。`;
+  }
+
+  if (userSpec.shape.slice(0, 4) !== targetSpec.shape.slice(0, 4)) {
+    feelingComment += ` また、形状が「${userSpec.shape}」から「${targetSpec.shape}」へ変わるため、握り込んだ際のフィット感にも新鮮な変化があります。`;
+  }
+
+  const optionsHtml = Object.keys(MOUSE_SPECS_DB)
+    .filter((k) => k !== "Logitech G PRO X SUPERLIGHT 2")
+    .map((mouseKey) => `<option value="${escapeHtml(mouseKey)}" ${mouseKey === userSpec.name ? "selected" : ""}>${escapeHtml(mouseKey)} (${MOUSE_SPECS_DB[mouseKey].weight}g)</option>`)
+    .join("");
+
+  const userBarWidth = Math.min(100, Math.round((userSpec.weight / 110) * 100));
+  const targetBarWidth = Math.min(100, Math.round((targetSpec.weight / 110) * 100));
+
+  return `
+    <div id="${escapeHtml(containerId)}" style="margin-bottom: 1.5rem; padding: 1.25rem 1.4rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.05) 0%, rgba(191,87,255,0.06) 100%); border: 1px solid rgba(255,255,255,0.12);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+        <div>
+          <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>SPEC COMPARISON // 買い替え体感シミュレーター</span>
+          <h4 style="margin: 0.3rem 0 0; font-size: 1rem; color: #fff; font-weight: 700;">
+            あなたの現在のマウス vs 「${escapeHtml(targetDeviceName)}」
+          </h4>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <label style="font-size: 0.75rem; color: #a1a1aa;">あなたの今のマウス:</label>
+          <select onchange="window.handleUserMouseChange(this.value, '${escapeHtml(targetDeviceName)}', '${escapeHtml(containerId)}')"
+                  style="padding: 0.35rem 0.65rem; border-radius: 6px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.22); color: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+            ${optionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; align-items: stretch;">
+        <!-- 左：現在のマウス -->
+        <div style="padding: 0.9rem 1rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.07);">
+          <div style="font-size: 0.7rem; color: #a1a1aa; margin-bottom: 0.2rem;">CURRENT MOUSE（現在）</div>
+          <div style="font-size: 0.95rem; font-weight: 700; color: #e4e4e7; margin-bottom: 0.65rem;">${escapeHtml(userSpec.name)}</div>
+          <div style="margin-bottom: 0.5rem;">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;">
+              <span style="color:#a1a1aa;">重量</span><strong>${userSpec.weight} g</strong>
+            </div>
+            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;">
+              <div style="width: ${userBarWidth}%; height: 100%; background: #71717a;"></div>
+            </div>
+          </div>
+          <div style="font-size: 0.76rem; color: #a1a1aa; display: grid; gap: 0.25rem; margin-top: 0.6rem;">
+            <div>形状: <strong style="color:#e4e4e7;">${escapeHtml(userSpec.shape)}</strong></div>
+            <div>寸法: <strong style="color:#e4e4e7;">${escapeHtml(userSpec.size)}</strong></div>
+            <div>最大レポートレート: <strong style="color:#e4e4e7;">${userSpec.hz} Hz</strong></div>
+          </div>
+        </div>
+
+        <!-- 右：候補のプロ使用マウス -->
+        <div style="padding: 0.9rem 1rem; border-radius: 8px; background: rgba(191, 87, 255, 0.1); border: 1px solid rgba(191, 87, 255, 0.45);">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.2rem;">
+            <span style="font-size: 0.7rem; color: #e9d5ff; font-weight: 700;">TARGET PRO MOUSE（候補）</span>
+            ${diffBadgeHtml}
+          </div>
+          <div style="font-size: 0.95rem; font-weight: 800; color: #fff; margin-bottom: 0.65rem;">${escapeHtml(targetDeviceName)}</div>
+          <div style="margin-bottom: 0.5rem;">
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;">
+              <span style="color:#e9d5ff;">重量</span><strong style="color:#d4ff33; font-size:0.88rem;">${targetSpec.weight} g</strong>
+            </div>
+            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;">
+              <div style="width: ${targetBarWidth}%; height: 100%; background: #d4ff33;"></div>
+            </div>
+          </div>
+          <div style="font-size: 0.76rem; color: #e4e4e7; display: grid; gap: 0.25rem; margin-top: 0.6rem;">
+            <div>形状: <strong style="color:#fff;">${escapeHtml(targetSpec.shape)}</strong>（推奨: ${escapeHtml(targetSpec.grip)}）</div>
+            <div>寸法: <strong style="color:#fff;">${escapeHtml(targetSpec.size)}</strong></div>
+            <div>最大レポートレート: <strong style="color:#d4ff33;">${targetSpec.hz} Hz</strong>（${escapeHtml(targetSpec.sensor)}）</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <p style="margin: 0; font-size: 0.8rem; color: #e4e4e7; line-height: 1.45; flex: 1; min-width: 240px;">
+          💡 <strong>乗り換え体感予測：</strong>${escapeHtml(feelingComment)}
+        </p>
+        ${createAffiliateButtonsHtml(targetDeviceName, false)}
+      </div>
+    </div>`;
+}
+
+window.handleUserMouseChange = function (newMouseName, targetDeviceName, containerId) {
+  currentUserMouseName = newMouseName;
+  localStorage.setItem("frag_user_mouse", newMouseName);
+  const el = document.getElementById(containerId);
+  if (el) {
+    el.outerHTML = buildMouseComparisonHtml(targetDeviceName, containerId);
+  }
+};
+
+// ============================================================================
+// 💡 全ページ共通：YouTubeレビュー動画取得＆VSスペック比較＆アフィリエイト導線描画関数
+// ============================================================================
+async function renderYouTubeSection({ sectionId, anchorElement, position = "afterend", titlePrefix, deviceName, hintText = "" }) {
   const apiBaseUrl = document.querySelector('meta[name="frag-api-base-url"]')?.content;
   if (!apiBaseUrl || !anchorElement) return;
 
@@ -180,9 +331,11 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
     return;
   }
 
+  const comparisonHtml = buildMouseComparisonHtml(deviceName, `${sectionId}-mouse-vs`);
   const headingLabel = titlePrefix ? `${escapeHtml(titlePrefix)} 「${escapeHtml(deviceName)}」 のレビュー動画` : `「${escapeHtml(deviceName)}」 のYouTubeレビュー動画`;
 
   ytSection.innerHTML = `
+    ${comparisonHtml}
     <div style="margin-bottom: 1.25rem;">
       <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS &amp; SHOPPING</span>
       <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
@@ -198,9 +351,11 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
     if (ytResponse.ok) {
       const videos = await ytResponse.json();
       const validVideos = Array.isArray(videos) ? videos.filter((v) => v && v.videoId) : [];
+      const refreshedComparisonHtml = buildMouseComparisonHtml(deviceName, `${sectionId}-mouse-vs`);
 
       if (validVideos.length > 0) {
         ytSection.innerHTML = `
+          ${refreshedComparisonHtml}
           <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.75rem;">
             <div>
               <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS &amp; SHOPPING <small style="color:#a1a1aa; font-weight:normal; margin-left:0.4rem;">[PR]</small></span>
@@ -233,6 +388,7 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
           </div>`;
       } else {
         ytSection.innerHTML = `
+          ${refreshedComparisonHtml}
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
             <div class="no-results" style="padding: 0.5rem 0;">「${escapeHtml(deviceName)}」のレビュー動画が見つかりませんでした。</div>
             ${createAffiliateButtonsHtml(deviceName, false)}
@@ -241,9 +397,9 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
     }
   } catch (ytError) {
     console.error("YouTube API取得エラー:", ytError);
-    ytSection.innerHTML = `<div class="no-results" style="text-align:center; padding: 1rem;">動画の取得に失敗しました。</div>`;
+    ytSection.innerHTML = `${comparisonHtml}<div class="no-results" style="text-align:center; padding: 1rem;">動画の取得に失敗しました。</div>`;
   }
-}
+}}
 
 // ロール選択肢の更新
 function populateRoleOptions(select, game, includeAll = false) {
