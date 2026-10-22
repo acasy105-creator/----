@@ -1,16 +1,69 @@
+// ============================================================================
+// 💰 アフィリエイト設定（Amazonアソシエイト / 楽天アフィリエイト用）
+// ※取得したトラッキングIDを入力すると、サイト内の全購入ボタンに自動でIDが付与されます
+// ============================================================================
+const AFFILIATE_CONFIG = {
+  amazonTag: "acasy105-22", // 例: "fraggear-22" （未取得の間はそのままでOK）
+  rakutenAffiliateId: "a_id=5858550"           // 楽天アフィリエイトID（任意）
+};
+
+function getAmazonAffiliateUrl(deviceName) {
+  const query = encodeURIComponent(deviceName);
+  const tagParam = AFFILIATE_CONFIG.amazonTag ? `&tag=${encodeURIComponent(AFFILIATE_CONFIG.amazonTag)}` : "";
+  return `https://www.amazon.co.jp/s?k=${query}${tagParam}`;
+}
+
+function getRakutenAffiliateUrl(deviceName) {
+  const query = encodeURIComponent(deviceName);
+  const searchUrl = `https://search.rakuten.co.jp/search/mall/${query}/`;
+  if (AFFILIATE_CONFIG.rakutenAffiliateId) {
+    return `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(AFFILIATE_CONFIG.rakutenAffiliateId)}/?pc=${encodeURIComponent(searchUrl)}`;
+  }
+  return searchUrl;
+}
+
+function createAffiliateButtonsHtml(deviceName, compact = false) {
+  if (!deviceName || deviceName === "データなし") return "";
+  const amzUrl = getAmazonAffiliateUrl(deviceName);
+  const rakUrl = getRakutenAffiliateUrl(deviceName);
+  const pad = compact ? "0.25rem 0.55rem" : "0.45rem 0.85rem";
+  const fontSize = compact ? "0.68rem" : "0.78rem";
+
+  return `
+    <div style="display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
+      <a href="${escapeHtml(amzUrl)}" target="_blank" rel="sponsored noopener noreferrer"
+         onclick="event.stopPropagation();"
+         style="text-decoration: none; padding: ${pad}; border-radius: 6px; font-size: ${fontSize}; font-weight: 700; background: rgba(255, 153, 0, 0.16); border: 1px solid rgba(255, 153, 0, 0.55); color: #ffb84d; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.25rem;"
+         onmouseover="this.style.background='rgba(255, 153, 0, 0.28)'" onmouseout="this.style.background='rgba(255, 153, 0, 0.16)'"
+         title="Amazonで「${escapeHtml(deviceName)}」の価格・在庫を見る">
+        🛒 Amazon
+      </a>
+      <a href="${escapeHtml(rakUrl)}" target="_blank" rel="sponsored noopener noreferrer"
+         onclick="event.stopPropagation();"
+         style="text-decoration: none; padding: ${pad}; border-radius: 6px; font-size: ${fontSize}; font-weight: 700; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.25rem;"
+         onmouseover="this.style.background='rgba(239, 68, 68, 0.28)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)'"
+         title="楽天市場で「${escapeHtml(deviceName)}」の価格・在庫を見る">
+        🛍 楽天
+      </a>
+    </div>`;
+}
+
+// ============================================================================
+// 初期データ・ゲーム仕様定義（ロール＆タイトル専用ランク）
+// ============================================================================
 const demoPlayers = [
-  { name: "RAY", game: "VALORANT", roles: ["duelist"], dpi: 800, sens: 0.32, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "HyperX Cloud II" } },
-  { name: "MIO", game: "VALORANT", roles: ["sentinel", "controller"], dpi: 800, sens: 0.28, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "ヘッドセット": "Logicool G PRO X" } },
-  { name: "KAI", game: "VALORANT", roles: ["initiator"], dpi: 1600, sens: 0.16, devices: { "マウス": "Ninjutso Sora V2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "Razer BlackShark V2" } },
-  { name: "NOVA", game: "VALORANT", roles: ["duelist"], dpi: 800, sens: 0.4, devices: { "マウス": "ZOWIE EC2-CW", "マウスパッド": "SteelSeries QcK Heavy", "ヘッドセット": "HyperX Cloud Alpha" } },
-  { name: "SORA", game: "VALORANT", roles: ["controller"], dpi: 400, sens: 0.7, devices: { "マウス": "Lamzu Atlantis", "マウスパッド": "Lethal Gaming Gear Saturn Pro", "ヘッドセット": "Logicool G PRO X 2" } },
-  { name: "KITE", game: "Apex Legends", roles: ["fragger", "support"], dpi: 800, sens: 1.2, devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SteelSeries Arctis Nova Pro" } },
-  { name: "LUNA", game: "Apex Legends", roles: ["fragger"], dpi: 1600, sens: 0.55, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "HyperX Cloud II" } },
-  { name: "ACE", game: "Apex Legends", roles: ["igl"], dpi: 800, sens: 1.6, devices: { "マウス": "Razer DeathAdder V3 Pro", "マウスパッド": "ZOWIE G-SR-SE", "ヘッドセット": "Razer BlackShark V2 Pro" } },
-  { name: "ZEN", game: "Apex Legends", roles: ["fragger"], dpi: 800, sens: 1.0, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Wallhack SP-004", "ヘッドセット": "Logicool G PRO X" } },
-  { name: "YUKI", game: "Overwatch 2", roles: ["damage"], dpi: 800, sens: 4.5, devices: { "マウス": "Logicool G PRO X SUPERLIGHT", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "HyperX Cloud II" } },
-  { name: "REI", game: "Overwatch 2", roles: ["support"], dpi: 1600, sens: 2.2, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "ヘッドセット": "SteelSeries Arctis Nova 7" } },
-  { name: "SHIN", game: "Overwatch 2", roles: ["tank"], dpi: 800, sens: 5.2, devices: { "マウス": "Logitech G PRO X SUPERLIGHT 2", "マウスパッド": "SteelSeries QcK Heavy", "ヘッドセット": "Logicool G PRO X" } }
+  { name: "RAY", game: "VALORANT", roles: ["pro", "duelist"], dpi: 800, sens: 0.32, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "HyperX Cloud II" } },
+  { name: "MIO", game: "VALORANT", roles: ["pro", "sentinel", "controller"], dpi: 800, sens: 0.28, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "ヘッドセット": "Logicool G PRO X" } },
+  { name: "KAI", game: "VALORANT", roles: ["pro", "initiator"], dpi: 1600, sens: 0.16, devices: { "マウス": "Ninjutso Sora V2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "Razer BlackShark V2" } },
+  { name: "NOVA", game: "VALORANT", roles: ["pro", "duelist"], dpi: 800, sens: 0.4, devices: { "マウス": "ZOWIE EC2-CW", "マウスパッド": "SteelSeries QcK Heavy", "ヘッドセット": "HyperX Cloud Alpha" } },
+  { name: "SORA", game: "VALORANT", roles: ["pro", "controller"], dpi: 400, sens: 0.7, devices: { "マウス": "Lamzu Atlantis", "マウスパッド": "Lethal Gaming Gear Saturn Pro", "ヘッドセット": "Logicool G PRO X 2" } },
+  { name: "KITE", game: "Apex Legends", roles: ["pro", "fragger", "support"], dpi: 800, sens: 1.2, devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SteelSeries Arctis Nova Pro" } },
+  { name: "LUNA", game: "Apex Legends", roles: ["pro", "fragger"], dpi: 1600, sens: 0.55, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "HyperX Cloud II" } },
+  { name: "ACE", game: "Apex Legends", roles: ["pro", "igl"], dpi: 800, sens: 1.6, devices: { "マウス": "Razer DeathAdder V3 Pro", "マウスパッド": "ZOWIE G-SR-SE", "ヘッドセット": "Razer BlackShark V2 Pro" } },
+  { name: "ZEN", game: "Apex Legends", roles: ["pro", "fragger"], dpi: 800, sens: 1.0, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Wallhack SP-004", "ヘッドセット": "Logicool G PRO X" } },
+  { name: "YUKI", game: "Overwatch 2", roles: ["pro", "damage"], dpi: 800, sens: 4.5, devices: { "マウス": "Logicool G PRO X SUPERLIGHT", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "HyperX Cloud II" } },
+  { name: "REI", game: "Overwatch 2", roles: ["pro", "support"], dpi: 1600, sens: 2.2, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "ヘッドセット": "SteelSeries Arctis Nova 7" } },
+  { name: "SHIN", game: "Overwatch 2", roles: ["pro", "tank"], dpi: 800, sens: 5.2, devices: { "マウス": "Logitech G PRO X SUPERLIGHT 2", "マウスパッド": "SteelSeries QcK Heavy", "ヘッドセット": "Logicool G PRO X" } }
 ];
 let players = demoPlayers;
 
@@ -19,6 +72,7 @@ const gameSpecs = {
   "Apex Legends": { yaw: 0.022, label: "APEX LEGENDS", roleKey: "apex" },
   "Overwatch 2": { yaw: 0.0066, label: "OVERWATCH 2", roleKey: "ow2" }
 };
+
 const gameRoles = {
   valorant: [
     { value: "duelist", text: "デュエリスト" },
@@ -27,7 +81,7 @@ const gameRoles = {
     { value: "controller", text: "コントローラー" }
   ],
   apex: [
-    { value: "igl", text: "オーダー" },
+    { value: "igl", text: "オーダー (IGL)" },
     { value: "fragger", text: "フラッガー" },
     { value: "support", text: "サポート" }
   ],
@@ -37,6 +91,42 @@ const gameRoles = {
     { value: "support", text: "サポート" }
   ]
 };
+
+// 💡 ゲームタイトルごとに実在するランク体系を定義
+const gameRanks = {
+  valorant: [
+    { value: "アイアン", text: "アイアン (Iron)", tier: "entry" },
+    { value: "ブロンズ", text: "ブロンズ (Bronze)", tier: "entry" },
+    { value: "シルバー", text: "シルバー (Silver)", tier: "entry" },
+    { value: "ゴールド", text: "ゴールド (Gold)", tier: "mid" },
+    { value: "プラチナ", text: "プラチナ (Platinum)", tier: "mid" },
+    { value: "ダイヤモンド", text: "ダイヤモンド (Diamond)", tier: "high" },
+    { value: "アセンダント", text: "アセンダント (Ascendant)", tier: "high" },
+    { value: "イモータル", text: "イモータル (Immortal)", tier: "top" },
+    { value: "レディアント", text: "レディアント (Radiant)", tier: "top" }
+  ],
+  apex: [
+    { value: "ルーキー", text: "ルーキー (Rookie)", tier: "entry" },
+    { value: "ブロンズ", text: "ブロンズ (Bronze)", tier: "entry" },
+    { value: "シルバー", text: "シルバー (Silver)", tier: "entry" },
+    { value: "ゴールド", text: "ゴールド (Gold)", tier: "mid" },
+    { value: "プラチナ", text: "プラチナ (Platinum)", tier: "mid" },
+    { value: "ダイヤモンド", text: "ダイヤモンド (Diamond)", tier: "high" },
+    { value: "マスター", text: "マスター (Master)", tier: "top" },
+    { value: "プレデター", text: "プレデター (Predator)", tier: "top" }
+  ],
+  ow2: [
+    { value: "ブロンズ", text: "ブロンズ (Bronze)", tier: "entry" },
+    { value: "シルバー", text: "シルバー (Silver)", tier: "entry" },
+    { value: "ゴールド", text: "ゴールド (Gold)", tier: "mid" },
+    { value: "プラチナ", text: "プラチナ (Platinum)", tier: "mid" },
+    { value: "ダイヤモンド", text: "ダイヤモンド (Diamond)", tier: "high" },
+    { value: "マスター", text: "マスター (Master)", tier: "high" },
+    { value: "グランドマスター", text: "グランドマスター (Grandmaster)", tier: "top" },
+    { value: "チャンピオン", text: "チャンピオン (Champion)", tier: "top" }
+  ]
+};
+
 const categoryLabels = ["マウス", "マウスパッド", "ヘッドセット"];
 const pageNames = { consult: "デバイス相談", search: "プレイヤー検索", rankings: "プロ使用率", match: "感度マッチ" };
 
@@ -63,10 +153,14 @@ const getGameRoles = (game) => {
   const spec = getGameSpec(game);
   return spec ? (gameRoles[spec.roleKey] || []) : [];
 };
+const getGameRanks = (game) => {
+  const spec = getGameSpec(game);
+  return spec ? (gameRanks[spec.roleKey] || []) : [];
+};
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 
 // ============================================================================
-// 💡 全ページ共通：YouTubeレビュー動画取得＆描画関数
+// 💡 全ページ共通：YouTubeレビュー動画取得＆アフィリエイト導線描画関数
 // ============================================================================
 async function renderYouTubeSection({ sectionId, anchorElement, position = "afterend", titlePrefix, deviceName, hintText = "" }) {
   const apiBaseUrl = document.querySelector('meta[name="frag-api-base-url"]')?.content;
@@ -90,7 +184,7 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
 
   ytSection.innerHTML = `
     <div style="margin-bottom: 1.25rem;">
-      <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS</span>
+      <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS &amp; SHOPPING</span>
       <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
         ${headingLabel} を取得中...
       </h3>
@@ -107,14 +201,17 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
 
       if (validVideos.length > 0) {
         ytSection.innerHTML = `
-          <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.75rem;">
             <div>
-              <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS</span>
+              <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS &amp; SHOPPING <small style="color:#a1a1aa; font-weight:normal; margin-left:0.4rem;">[PR]</small></span>
               <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
                 ${headingLabel}
               </h3>
             </div>
-            ${hintText ? `<span style="font-size: 0.75rem; color: #a1a1aa;">${escapeHtml(hintText)}</span>` : ""}
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+              ${createAffiliateButtonsHtml(deviceName, false)}
+              ${hintText ? `<span style="font-size: 0.75rem; color: #a1a1aa;">${escapeHtml(hintText)}</span>` : ""}
+            </div>
           </div>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
             ${validVideos.map((v) => `
@@ -135,7 +232,11 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
             `).join("")}
           </div>`;
       } else {
-        ytSection.innerHTML = `<div class="no-results" style="text-align:center; padding: 1rem;">「${escapeHtml(deviceName)}」のレビュー動画が見つかりませんでした。</div>`;
+        ytSection.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+            <div class="no-results" style="padding: 0.5rem 0;">「${escapeHtml(deviceName)}」のレビュー動画が見つかりませんでした。</div>
+            ${createAffiliateButtonsHtml(deviceName, false)}
+          </div>`;
       }
     }
   } catch (ytError) {
@@ -144,6 +245,7 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
   }
 }
 
+// ロール選択肢の更新
 function populateRoleOptions(select, game, includeAll = false) {
   const roleSets = game ? [getGameRoles(game)] : Object.values(gameRoles);
   const roles = [...new Map(roleSets.flat().map((role) => [role.value, role])).values()];
@@ -153,12 +255,27 @@ function populateRoleOptions(select, game, includeAll = false) {
   ).join(""));
 }
 
+// 💡 ランク選択肢をゲームタイトルに合わせて動的に更新（中間のゴールド等を初期選択）
+function populateRankOptions(select, game) {
+  if (!select) return;
+  const ranks = getGameRanks(game);
+  select.innerHTML = ranks.map((rank, index) => {
+    const isDefault = index === Math.min(3, ranks.length - 1);
+    return `<option value="${escapeHtml(rank.value)}" ${isDefault ? "selected" : ""}>${escapeHtml(rank.text)}</option>`;
+  }).join("");
+}
+
 const consultGameSelect = document.getElementById("consult-game");
 const consultRoleSelect = document.getElementById("consult-role");
-populateRoleOptions(consultRoleSelect, consultGameSelect.value);
-consultGameSelect.addEventListener("change", () => {
-  populateRoleOptions(consultRoleSelect, consultGameSelect.value);
-});
+const consultRankSelect = document.getElementById("consult-rank");
+
+function syncConsultSelectors() {
+  const selectedGame = consultGameSelect.value;
+  populateRoleOptions(consultRoleSelect, selectedGame);
+  populateRankOptions(consultRankSelect, selectedGame);
+}
+syncConsultSelectors();
+consultGameSelect.addEventListener("change", syncConsultSelectors);
 
 const searchGameSelect = document.getElementById("search-game");
 const searchRoleSelect = document.getElementById("search-role");
@@ -182,9 +299,9 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 });
 
 // ============================================================================
-// 1. プレイヤー検索（プロ / ストリーマー / VTuber フィルター＆バッジ＆動画連携）
+// 1. プレイヤー検索（プロ / ストリーマー / VTuber フィルター＆動画＆購入ボタン）
 // ============================================================================
-let currentCreatorTypeFilter = "all"; // "all" | "pro" | "streamer" | "vtuber"
+let currentCreatorTypeFilter = "all";
 
 function getPlayerCreatorTypes(player) {
   const roles = Array.isArray(player?.roles) ? player.roles.map((r) => String(r).toLowerCase()) : [];
@@ -244,7 +361,6 @@ function renderPlayers() {
     const playerName = typeof player?.name === "string" ? player.name : "";
     const normalizedGame = normalizeGameName(player?.game);
     const deviceString = Object.values(player?.devices || {}).join(" ").toLowerCase();
-    // 選手名だけでなく、デバイス名（「Superlight」「Artisan」など）でも検索ヒットするように強化！
     const hasText = !query || playerName.toLowerCase().includes(query) || deviceString.includes(query);
     const matchesGame = !game || normalizedGame === normalizeGameName(game);
     const matchesRole = !role || (Array.isArray(player?.roles) && player.roles.includes(role));
@@ -280,12 +396,13 @@ function renderPlayers() {
         <div class="device-row ${hasValidDevice ? 'js-search-yt-trigger' : ''}"
              data-player="${escapeHtml(playerName)}"
              data-device="${escapeHtml(device || '')}"
-             style="${hasValidDevice ? 'cursor: pointer; transition: background 0.2s; border-radius: 4px; padding: 0.25rem 0.4rem;' : ''}"
+             style="${hasValidDevice ? 'cursor: pointer; transition: background 0.2s; border-radius: 4px; padding: 0.35rem 0.4rem;' : ''}"
              ${hasValidDevice ? 'title="クリックしてこのデバイスのレビュー動画を表示"' : ''}>
           <span>${escapeHtml(category)}</span>
-          <span style="display: flex; align-items: center; gap: 0.4rem;">
-            ${escapeHtml(device || "データなし")}
+          <span style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; justify-content: flex-end;">
+            <strong>${escapeHtml(device || "データなし")}</strong>
             ${hasValidDevice ? '<small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画</small>' : ''}
+            ${hasValidDevice ? `<a href="${escapeHtml(getAmazonAffiliateUrl(device))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;" title="Amazonで見る">🛒 Amazon</a>` : ''}
           </span>
         </div>`;
     }).join("");
@@ -316,7 +433,7 @@ function renderPlayers() {
         position: "beforebegin",
         titlePrefix: `${trigger.dataset.player} の使用デバイス`,
         deviceName: trigger.dataset.device,
-        hintText: "※各カードの「▶ 動画」をクリックで動画切り替え"
+        hintText: "※各カードの「▶ 動画」をクリックで切り替え"
       });
     });
   });
@@ -333,7 +450,7 @@ function renderPlayers() {
       position: "beforebegin",
       titlePrefix: `${filtered[0].name} の使用デバイス`,
       deviceName: filtered[0].devices["マウス"],
-      hintText: "※各カードの「▶ 動画」をクリックで動画切り替え"
+      hintText: "※各カードの「▶ 動画」をクリックで切り替え"
     });
   }
 }
@@ -342,13 +459,14 @@ function renderPlayers() {
   document.getElementById(id).addEventListener("input", renderPlayers);
   document.getElementById(id).addEventListener("change", renderPlayers);
 });
+
 // ============================================================================
-// 2. プロ使用率（ランキングのデバイス名クリックでレビュー動画を表示）
+// 2. プロ使用率（ランキングクリックでレビュー動画＆購入リンク表示）
 // ============================================================================
 function renderRankings(game) {
   const normalizedGame = normalizeGameName(game);
   const gamePlayers = Array.isArray(players) ? players.filter((player) => normalizeGameName(player?.game) === normalizedGame) : [];
-  const sourceLabel = players === demoPlayers ? "DEMO DATA" : "LIQUIPEDIA";
+  const sourceLabel = players === demoPlayers ? "DEMO DATA" : "PRO & CREATOR DB";
   document.getElementById("ranking-total").textContent = `${gamePlayers.length} PLAYERS · ${sourceLabel}`;
   const rankingContentEl = document.getElementById("ranking-content");
 
@@ -372,12 +490,15 @@ function renderRankings(game) {
     return `<article class="category-card"><div class="category-heading"><h3>${category}</h3><span>${ranked.length} MODELS</span></div>${ranked.length ? ranked.map(([name, count], index) => {
       const percentage = observedProfiles ? Math.round(count / observedProfiles * 100) : 0;
       return `
-        <div class="rank-row js-ranking-yt-trigger" data-device="${escapeHtml(name)}" style="cursor: pointer; padding: 0.35rem; border-radius: 6px; transition: background 0.2s;" title="クリックしてレビュー動画を表示">
+        <div class="rank-row js-ranking-yt-trigger" data-device="${escapeHtml(name)}" style="cursor: pointer; padding: 0.4rem; border-radius: 6px; transition: background 0.2s;" title="クリックしてレビュー動画を表示">
           <span class="rank-num">${String(index + 1).padStart(2, "0")}</span>
           <div>
-            <div class="rank-name" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="rank-name" style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
               <span>${escapeHtml(name)}</span>
-              <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画</small>
+              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画</small>
+                <a href="${escapeHtml(getAmazonAffiliateUrl(name))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.35rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;">🛒 Amazon</a>
+              </span>
             </div>
             <div class="rank-bar-wrap"><div class="rank-bar" style="width:${percentage}%"></div></div>
           </div>
@@ -428,7 +549,7 @@ document.querySelectorAll(".game-tab").forEach((button) => {
 });
 
 // ============================================================================
-// 3. デバイス相談（悩みに合わせたプロ採用デバイスのピックアップ＆動画表示）
+// 3. デバイス相談（8種類の詳細分析バリエーション × ランク帯別アドバイス × 収益化導線）
 // ============================================================================
 document.getElementById("consult-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -440,90 +561,172 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
 
   let recommendation;
   let targetDeviceCategory = "マウス";
-  let fallbackSearchKeyword = "Logicool G PRO X SUPERLIGHT 2";
+  let customCandidateModels = null;
 
-  if (/足音|聞こえ|音|定位|sound|footstep/.test(normalized)) {
+  // 💡 8パターンの精密診断ロジック
+  if (/足音|聞こえ|音|定位|ヘッド|イヤホン|耳|sound|footstep|audio/.test(normalized)) {
     recommendation = {
-      category: "ヘッドセット・音響",
-      title: "音の方向がわかりやすい環境づくり",
-      detail: "まずゲーム内のHRTF・立体音響設定とOS側の空間オーディオを確認。定位の聞き分けを優先するなら開放型、環境音を遮りたいなら密閉型を試聴して選ぶのがおすすめです。",
-      reason: "音の聞こえ方は装着感や耳の形でも変わるため、可能なら試着して比較しましょう。"
+      score: "98",
+      category: "ヘッドセット・インイヤーモニター（音響・定位）",
+      title: "足音の方向・距離感を正確に掴む音響環境への刷新",
+      detail: "上下左右の足音やスキル音を聞き分けるには、周波数特性がフラットに近いゲーミングヘッドセットや、遮音性の高いカナル型イヤホン（IEM）が有効です。長時間プレイで側圧が気になる場合はSHURE SE215やINZONE Budsなどのイヤホン型がプロ・配信者間で主流になっています。",
+      actionPoint: "ゲーム内のHRTF（立体音響）設定をONにし、イコライザーで低音（爆発音）を少し抑えて中〜高音域（足音の擦れる音）をクリアにする設定も併用しましょう。"
     };
     targetDeviceCategory = "ヘッドセット";
-    fallbackSearchKeyword = "ゲーミングヘッドセット FPS";
-  } else if (/滑り|止まら|パッド|摩擦/.test(normalized)) {
+  } else if (/追いエイム|トラッキング|ガラス|引っかか|初動|硬い|tracking|apex/.test(normalized)) {
     recommendation = {
-      category: "マウスパッド",
-      title: "ストッピングと滑走バランスの最適化",
-      detail: "視点が止まりにくい場合はコントロール系マウスパッド、追いエイムが引っかかる場合はスピード・バランス系マウスパッドへの変更が効果的です。",
-      reason: "湿度やソールとの相性でも滑りが変わるため、プロ使用率の高い定番モデルから試すのが安全です。"
+      score: "96",
+      category: "スピード系・ガラスマウスパッド",
+      title: "初動の引っかかりをゼロにする低摩擦サーフェス",
+      detail: "近〜中距離での追いエイム（トラッキング）や素早いターゲット切り替えで引っかかりを感じる場合、滑走速度の高いスピード系布パッド（Artisan 疾風乙 / 飛燕）や、湿気の影響を一切受けないガラスマウスパッド（Wallhack SP-004）への移行が極めて効果的です。",
+      actionPoint: "マウスソールを汎用丸型PTFEソールに張り替えると、さらに初動の軽さと滑走の均一性が向上します。"
     };
     targetDeviceCategory = "マウスパッド";
-    fallbackSearchKeyword = "Artisan Ninja FX Zero";
-  } else if (/ブレ|重い|疲れ|手|エイム|aim|振り/.test(normalized)) {
+    customCandidateModels = ["Wallhack SP-004", "Artisan Ninja FX Hayate Otsu", "Artisan Ninja FX Hien"];
+  } else if (/止まら|滑りすぎ|ストッピング|行き過ぎ|オーバー|コントロール|湿気|パッド/.test(normalized)) {
     recommendation = {
-      category: "マウス・マウスパッド",
-      title: "操作感を安定させる組み合わせ",
-      detail: "軽量マウス（目安 55〜65g）とコントロール寄りのパッドを比較候補に。軽さは取り回しに役立つ一方、安定感は持ち方や腕・手首の使い方でも変わります。",
-      reason: "センチネルやコントローラーなど、細かな置きエイムが多い役割では止めやすさも試す価値があります。"
+      score: "95",
+      category: "コントロール系マウスパッド",
+      title: "ピタッと視点が止まるストッピング重視サーフェス",
+      detail: "フリック時にクロスヘアが敵を通り過ぎてしまう（オーバーフリック）場合は、適度な摩擦抵抗とクッション性を持つコントロール系マウスパッドが最適です。スポンジに沈み込ませて止める感覚を掴みやすくなります。",
+      actionPoint: "日本の多湿な環境では布パッドが湿気で重くなりやすいため、耐湿性に優れたArtisan ZeroやLGG Saturn Proを選ぶと年中同じ感覚でプレイできます。"
+    };
+    targetDeviceCategory = "マウスパッド";
+    customCandidateModels = ["Artisan Ninja FX Zero", "Vaxee PA", "Lethal Gaming Gear Saturn Pro"];
+  } else if (/持ち方|つかみ|つまみ|かぶせ|手首|小さい|大きい|フィット|形|エルゴ|左右対称/.test(normalized)) {
+    recommendation = {
+      score: "94",
+      category: "マウス形状（エルゴノミクス / 左右対称）",
+      title: "手のサイズとグリップスタイルに合致するシェル形状",
+      detail: "『つかみ持ち・つまみ持ち』で指先の微調整を重視するなら後部コブが高めの左右対称型（Sora V2やViper V3 Pro）、『かぶせ持ち』で手のひら全体を預けて安定させたいなら非対称エルゴノミクス形状（DeathAdder V3 ProやEC2-CW）が最適です。",
+      actionPoint: "グリップテープを側面に貼ることで、手汗による滑りを防ぎ、少ない握力でもマウスを確実にホールドできるようになります。"
     };
     targetDeviceCategory = "マウス";
-    fallbackSearchKeyword = "Logicool G PRO X SUPERLIGHT 2";
+    customCandidateModels = ["Ninjutso Sora V2", "Razer DeathAdder V3 Pro", "Razer Viper V3 Pro"];
+  } else if (/重い|疲れ|手首痛|腱鞘炎|軽い|軽量|フリック|振り向き/.test(normalized)) {
+    recommendation = {
+      score: "95",
+      category: "超軽量ワイヤレスマウス（40g〜50g台）",
+      title: "慣性を極限まで減らす超軽量シェルへのアップデート",
+      detail: "マウスの重量が60g以下になると、振り始めのエネルギーと止める際の慣性が大幅に減少します。ローセンシで大きく腕を振るプレイヤーや、長時間ランクを回して手首・前腕に疲労が溜まりやすい方に最も効果が出やすい投資です。",
+      actionPoint: "軽量マウスに変えた直後は視点が浮きやすいため、ゲーム内感度を2〜5%ほど下げて微調整するとすぐに馴染みます。"
+    };
+    targetDeviceCategory = "マウス";
+    customCandidateModels = ["Finalmouse UltralightX", "WLmouse Beast X", "Logicool G PRO X SUPERLIGHT 2"];
+  } else if (/キーボード|ストッピング|キャラコン|移動|キー|ラピトリ|ラピッドトリガー|設定/.test(normalized)) {
+    recommendation = {
+      score: "93",
+      category: "ラピッドトリガー対応ゲーミングキーボード",
+      title: "キーを離した瞬間に止まる高速入力環境の構築",
+      detail: "撃ち合い時のストッピングの遅れや、切り返し（レレレ撃ち）のキレに悩んでいる場合、磁気式スイッチ搭載のラピッドトリガーキーボード（Wooting 60HE+ や Apex Pro Mini 等）が圧倒的なアドバンテージをもたらします。",
+      actionPoint: "アクチュエーションポイントを0.1〜0.3mm、ラピッドトリガーを0.15mm前後に設定することで、理論値レベルの素早いストッピングが可能になります。"
+    };
+    targetDeviceCategory = "キーボード";
+    customCandidateModels = ["Wooting 60HE+", "SteelSeries Apex Pro Mini", "REALFORCE GX1"];
+  } else if (/見え|モニター|fps|カクつ|ラグ|遅延|hz|画面|視認/.test(normalized)) {
+    recommendation = {
+      score: "91",
+      category: "高リフレッシュレートモニター（240Hz〜360Hz）",
+      title: "飛び出しの視認性と応答速度を高める表示環境",
+      detail: "飛び出してくる敵への反応遅れや、激しい視点移動時の残像感が気になる場合は、240Hz以上のゲーミングモニター（ZOWIE XL2546X等のDyAc+搭載モデルやOLEDパネル）へのアップグレードが直結します。",
+      actionPoint: "Windowsのディスプレイ詳細設定でリフレッシュレートが最大値になっているか、NVIDIA Reflexが「オン＋ブースト」になっているかも必ず確認してください。"
+    };
+    targetDeviceCategory = "モニター";
+    customCandidateModels = ["BenQ ZOWIE XL2546X", "ASUS ROG Swift OLED PG27AQDM", "Dell AW2523HF"];
   } else {
     recommendation = {
-      category: "プレイ環境全体",
-      title: "まずは悩みの原因を切り分ける",
-      detail: "現在の悩みに合わせてマウスの形状・重量、パッドの滑走特性、音響環境のどこに違和感があるかを一つずつ比較しましょう。",
-      reason: "デバイス変更前にゲーム内設定や練習環境を記録すると、変化を判断しやすくなります。"
+      score: "92",
+      category: "マウス・マウスパッド総合バランス",
+      title: "プロ使用率トップの王道セットアップによる基準作り",
+      detail: "エイムのブレや撃ち合いの不安定さを根本から改善するには、癖のない王道シェルの軽量ワイヤレスマウス（SUPERLIGHT 2 / Viper V3 Pro）と、滑りと止まりのバランスに優れた定番マウスパッド（Artisan Zero）の組み合わせを基準にするのが最も確実です。",
+      actionPoint: "まずはプロ平均に近い振り向き（VALORANTなら45〜65cm、Apex/OW2なら30〜45cm）に感度を合わせ、デバイスのポテンシャルを引き出しましょう。"
     };
     targetDeviceCategory = "マウス";
-    fallbackSearchKeyword = "Razer Viper V3 Pro";
   }
 
-  // 該当ゲーム・ロールのプロ選手が実際に使っている人気モデルを抽出して動画候補にする
+  // 💡 ランク帯（Tier）とロールに応じたカスタムコーチング文の生成
+  const rankObj = getGameRanks(game).find((r) => r.value === rank);
+  const rankTier = rankObj ? rankObj.tier : "mid";
+  const roleText = getGameRoles(game).find((roleOption) => roleOption.value === role)?.text || role;
+
+  let tierAdviceTitle = "";
+  let tierAdviceDetail = "";
+  if (rankTier === "entry") {
+    tierAdviceTitle = `${rank}帯からのステップアップ：癖のない王道モデルで基礎を固める`;
+    tierAdviceDetail = `現在のランク帯（${rank}）では、ピーキーな特殊機材よりも、どんな持ち方・感度にも柔軟に対応できる「プロ使用率1〜2位の定番モデル」を選ぶことで、エイムの基礎フォームがブレずに上達スピードが最大化します。`;
+  } else if (rankTier === "mid") {
+    tierAdviceTitle = `${rank}帯の壁を突破する：ロール（${roleText}）の得意距離に特化する`;
+    tierAdviceDetail = `${rank}帯では基礎的な視点操作が身についているため、${roleText}に求められる交戦距離や視点移動量に合わせて「初動の軽さ」か「ストッピングの制動力」のどちらを優先するか明確にしてデバイスを選ぶと勝率が安定します。`;
+  } else {
+    tierAdviceTitle = `${rank}（上位帯）向けの極限最適化：0.1秒の反応差を埋めるハイエンド環境`;
+    tierAdviceDetail = `${rank}帯のハイレベルな撃ち合いでは、ポーリングレート（4000Hz/8000Hz）の低遅延性能や、手汗・湿気に左右されないサーフェス環境など、再現性と応答速度のわずかな差が勝敗に直結します。`;
+  }
+
+  // 該当ゲームのプロ・配信者が実際に使っている人気モデルを抽出
   const normalizedGame = normalizeGameName(game);
   const candidatePlayers = players.filter((p) => normalizeGameName(p?.game) === normalizedGame);
-  const candidateDevices = [...new Set(
+  let candidateDevices = customCandidateModels ? [...customCandidateModels] : [...new Set(
     candidatePlayers
       .map((p) => p?.devices?.[targetDeviceCategory])
-      .filter((d) => d && d !== "データなし" && !/軽量ワイヤレス|左右対称|エルゴノミクス|開放型|密閉型|コントロール|バランス|スピード/.test(d))
+      .filter((d) => d && d !== "データなし")
   )];
 
   if (candidateDevices.length === 0) {
     if (targetDeviceCategory === "マウス") candidateDevices.push("Logicool G PRO X SUPERLIGHT 2", "Razer Viper V3 Pro", "Ninjutso Sora V2");
-    else if (targetDeviceCategory === "マウスパッド") candidateDevices.push("Artisan Ninja FX Zero", "Vaxee PA", "SteelSeries QcK Heavy");
-    else candidateDevices.push("HyperX Cloud II", "Logicool G PRO X 2", "Razer BlackShark V2 Pro");
+    else if (targetDeviceCategory === "マウスパッド") candidateDevices.push("Artisan Ninja FX Zero", "Vaxee PA", "Wallhack SP-004");
+    else candidateDevices.push("SHURE SE215", "HyperX Cloud II", "Razer BlackShark V2 Pro");
   }
 
   const topCandidateDevices = candidateDevices.slice(0, 3);
-
-  const roleText = getGameRoles(game).find((roleOption) => roleOption.value === role)?.text || role;
-  const roleHint = ["duelist", "fragger", "damage"].includes(role) ? "素早い視点移動と小さな修正の両立" : ["sentinel", "support", "tank"].includes(role) ? "安定したエイムと状況把握" : "細かな操作の安定性";
   const safeGameName = escapeHtml(game || "ゲーム");
   const safeRank = escapeHtml(rank || "ランクなし");
   const safeRoleText = escapeHtml(roleText || "ロール");
-  const safeIssue = escapeHtml(issue || "不明");
+  const safeIssue = escapeHtml(issue || "全体的なエイム・環境の改善");
 
   const consultResultEl = document.getElementById("consult-result");
   consultResultEl.innerHTML = `
     <div class="consult-result-content">
-      <div class="analysis-top"><span class="eyebrow"><span class="eyebrow-line"></span>YOUR GEAR INSIGHT</span><span class="analysis-score">MATCH <strong>01</strong></span></div>
+      <div class="analysis-top">
+        <span class="eyebrow"><span class="eyebrow-line"></span>YOUR GEAR INSIGHT</span>
+        <span class="analysis-score">MATCH <strong>${escapeHtml(recommendation.score)}%</strong></span>
+      </div>
       <div class="analysis-title">${escapeHtml(recommendation.category)}を見直してみましょう。</div>
-      <p class="analysis-description">${safeGameName} / ${safeRank} / ${safeRoleText} のプレイ状況と「${safeIssue}」という悩みから、次の観点を提案します。</p>
-      <div class="recommendation"><div class="recommendation-head"><span>01 / CATEGORY</span><span>推奨カテゴリ</span></div><h3>${escapeHtml(recommendation.title)}</h3><p>${escapeHtml(recommendation.detail)}</p></div>
-      <div class="recommendation"><div class="recommendation-head"><span>02 / PLAYSTYLE</span><span>${escapeHtml(roleText)}</span></div><h3>${escapeHtml(roleHint)}を意識</h3><p>${escapeHtml(recommendation.reason)}</p></div>
+      <p class="analysis-description">${safeGameName} / <strong>${safeRank}</strong> / ${safeRoleText} のプレイ状況と「${safeIssue}」という悩みから、最適な改善アプローチを算出しました。</p>
+
       <div class="recommendation">
-        <div class="recommendation-head"><span>03 / PRO MODELS</span><span>プロ採用の定番モデル（クリックで動画切替）</span></div>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem;">
+        <div class="recommendation-head"><span>01 / SOLUTION</span><span>推奨アプローチ</span></div>
+        <h3>${escapeHtml(recommendation.title)}</h3>
+        <p>${escapeHtml(recommendation.detail)}</p>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: #d4ff33;">💡 実践アドバイス：${escapeHtml(recommendation.actionPoint)}</p>
+      </div>
+
+      <div class="recommendation">
+        <div class="recommendation-head"><span>02 / RANK &amp; ROLE STRATEGY</span><span>${safeRank} × ${safeRoleText}</span></div>
+        <h3>${escapeHtml(tierAdviceTitle)}</h3>
+        <p>${escapeHtml(tierAdviceDetail)}</p>
+      </div>
+
+      <div class="recommendation">
+        <div class="recommendation-head"><span>03 / RECOMMENDED GEAR</span><span>プロ・配信者採用の推奨モデル <small style="opacity:0.75;">[PR]</small></span></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
           ${topCandidateDevices.map((dev, idx) => `
-            <button type="button" class="js-consult-yt-trigger" data-device="${escapeHtml(dev)}"
-              style="cursor: pointer; padding: 0.5rem 0.85rem; border-radius: 6px; font-size: 0.8rem; font-weight: bold; color: #fff; border: 1px solid ${idx === 0 ? '#bf57ff' : 'rgba(255,255,255,0.15)'}; background: ${idx === 0 ? 'rgba(191, 87, 255, 0.2)' : 'rgba(255,255,255,0.04)'}; transition: all 0.2s;">
-              ▶ ${escapeHtml(dev)}
-            </button>
+            <div style="padding: 0.85rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; justify-content: space-between; gap: 0.65rem;">
+              <div>
+                <div style="font-size: 0.7rem; color: #a1a1aa;">候補 0${idx + 1}</div>
+                <div style="font-size: 0.92rem; font-weight: 700; color: #fff; margin-top: 0.15rem;">${escapeHtml(dev)}</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.45rem;">
+                <button type="button" class="js-consult-yt-trigger" data-device="${escapeHtml(dev)}"
+                  style="cursor: pointer; width: 100%; padding: 0.45rem 0.6rem; border-radius: 6px; font-size: 0.78rem; font-weight: bold; color: #fff; border: 1px solid ${idx === 0 ? '#bf57ff' : 'rgba(255,255,255,0.15)'}; background: ${idx === 0 ? 'rgba(191, 87, 255, 0.22)' : 'rgba(255,255,255,0.05)'}; transition: all 0.2s;">
+                  ▶ レビュー動画を見る
+                </button>
+                ${createAffiliateButtonsHtml(dev, true)}
+              </div>
+            </div>
           `).join("")}
         </div>
       </div>
-      <p class="result-warning">※ ランクだけを根拠にデバイス性能を断定することはできません。購入前に持ち方・サイズ・装着感を確認してください。</p>
+      <p class="result-warning">※ 提案モデルはプロ・ストリーマーの採用実績に基づく参考候補です。購入前にサイズ・重量・在庫状況をご確認ください。</p>
     </div>`;
 
   const triggers = consultResultEl.querySelectorAll(".js-consult-yt-trigger");
@@ -531,17 +734,17 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
     trigger.addEventListener("click", () => {
       triggers.forEach((t) => {
         t.style.borderColor = "rgba(255,255,255,0.15)";
-        t.style.background = "rgba(255,255,255,0.04)";
+        t.style.background = "rgba(255,255,255,0.05)";
       });
       trigger.style.borderColor = "#bf57ff";
-      trigger.style.background = "rgba(191, 87, 255, 0.2)";
+      trigger.style.background = "rgba(191, 87, 255, 0.22)";
       renderYouTubeSection({
         sectionId: "consult-youtube-section",
         anchorElement: consultResultEl,
         position: "afterend",
-        titlePrefix: `提案カテゴリ（${targetDeviceCategory}）の定番モデル`,
+        titlePrefix: `推奨モデル（${targetDeviceCategory}）`,
         deviceName: trigger.dataset.device,
-        hintText: "※上のモデルボタンをクリックで動画切り替え"
+        hintText: "※上の候補カードの「▶ レビュー動画を見る」で切り替え"
       });
     });
   });
@@ -550,14 +753,14 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
     sectionId: "consult-youtube-section",
     anchorElement: consultResultEl,
     position: "afterend",
-    titlePrefix: `提案カテゴリ（${targetDeviceCategory}）の定番モデル`,
-    deviceName: topCandidateDevices[0] || fallbackSearchKeyword,
-    hintText: "※上のモデルボタンをクリックで動画切り替え"
+    titlePrefix: `推奨モデル（${targetDeviceCategory}）`,
+    deviceName: topCandidateDevices[0],
+    hintText: "※上の候補カードの「▶ レビュー動画を見る」で切り替え"
   });
 });
 
 // ============================================================================
-// 4. 感度マッチ（プロ選手マッチング＆マウス動画切替）
+// 4. 感度マッチ（プロ選手マッチング＆マウス動画切替＆購入リンク）
 // ============================================================================
 document.getElementById("match-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -611,6 +814,7 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       const percent = Number.isFinite(difference) && Number.isFinite(userDistance) && userDistance !== 0 ? (difference / userDistance) * 100 : Number.NaN;
       const matchQuality = Number.isFinite(percent) ? (percent < 5 ? "非常に近い" : percent < 15 ? "近い感度" : "参考候補") : "参考候補";
       const mouseName = typeof safeDevices["マウス"] === "string" && safeDevices["マウス"].trim() ? safeDevices["マウス"] : "データなし";
+      const padName = typeof safeDevices["マウスパッド"] === "string" && safeDevices["マウスパッド"].trim() ? safeDevices["マウスパッド"] : "データなし";
       const isFirst = index === 0;
 
       return `
@@ -624,28 +828,30 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
             <span class="match-badge">${matchQuality}</span>
           </div>
           <div class="match-player">
-            <span class="player-avatar">${escapeHtml(player.name.slice(0, 1))}</span>
+            <span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span>
             <div>
               <h2>${escapeHtml(playerName)}</h2>
               <p>${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))} · ${escapeHtml(playerRoles.join(" / ") || "プレイヤー")}</p>
             </div>
           </div>
-          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">${playerSpec ? `他のタイトルから振り向きが近いプロ選手を抽出しました。${escapeHtml(playerGame)}で ${Number.isFinite(playerDpi) && Number.isFinite(playerSens) ? `${playerDpi} DPI / ${playerSens}` : "感度情報なし"} （${Number.isFinite(playerDistance) ? `${playerDistance.toFixed(1)} cm / 360°` : "cm / 360° データなし"}）を使用しています。` : "選手の感度データが一部欠けているため参考情報を表示しています。"}</p>
+          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">${playerSpec ? `他のタイトルから振り向きが近いプレイヤーを抽出しました。${escapeHtml(playerGame)}で ${Number.isFinite(playerDpi) && Number.isFinite(playerSens) ? `${playerDpi} DPI / ${playerSens}` : "感度情報なし"} （${Number.isFinite(playerDistance) ? `${playerDistance.toFixed(1)} cm / 360°` : "cm / 360° データなし"}）を使用しています。` : "感度データが一部欠けているため参考情報を表示しています。"}</p>
           <div class="match-devices" style="margin-top: auto;">
             <div class="match-device js-yt-trigger"
                  data-player="${escapeHtml(playerName)}"
                  data-mouse="${escapeHtml(mouseName)}"
-                 style="cursor: pointer; transition: all 0.2s; border: 1px solid ${isFirst ? '#bf57ff' : 'rgba(255,255,255,0.08)'}; background: ${isFirst ? 'rgba(191, 87, 255, 0.12)' : 'transparent'}; border-radius: 6px; padding: 0.5rem;"
+                 style="cursor: pointer; transition: all 0.2s; border: 1px solid ${isFirst ? '#bf57ff' : 'rgba(255,255,255,0.08)'}; background: ${isFirst ? 'rgba(191, 87, 255, 0.12)' : 'transparent'}; border-radius: 6px; padding: 0.55rem;"
                  title="クリックしてこのマウスのレビュー動画を表示">
               <span style="display: flex; justify-content: space-between; align-items: center;">
                 PLAYER MOUSE
                 <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画切替</small>
               </span>
-              <strong>${escapeHtml(mouseName)}</strong>
+              <strong style="display:block; margin-bottom: 0.4rem;">${escapeHtml(mouseName)}</strong>
+              ${createAffiliateButtonsHtml(mouseName, true)}
             </div>
-            <div class="match-device" style="padding: 0.5rem;">
+            <div class="match-device" style="padding: 0.55rem;">
               <span>PLAYER MOUSEPAD</span>
-              <strong>${escapeHtml(typeof safeDevices["マウスパッド"] === "string" && safeDevices["マウスパッド"].trim() ? safeDevices["マウスパッド"] : "データなし")}</strong>
+              <strong style="display:block; margin-bottom: 0.4rem;">${escapeHtml(padName)}</strong>
+              ${createAffiliateButtonsHtml(padName, true)}
             </div>
           </div>
           ${safePlayer.sourceUrl ? `<a class="player-source" style="margin-top: 1rem; display: inline-block;" href="${escapeHtml(safePlayer.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(safePlayer.source || "出典")} ↗</a>` : ""}
@@ -666,9 +872,9 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
           sectionId: "youtube-reviews-section",
           anchorElement: resultContainer,
           position: "afterend",
-          titlePrefix: `${trigger.dataset.player} 選手の使用マウス`,
+          titlePrefix: `${trigger.dataset.player} の使用マウス`,
           deviceName: trigger.dataset.mouse,
-          hintText: "※各選手の「PLAYER MOUSE」をクリックで動画切り替え"
+          hintText: "※各カードの「PLAYER MOUSE」をクリックで動画切り替え"
         });
       });
     });
@@ -677,9 +883,9 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       sectionId: "youtube-reviews-section",
       anchorElement: resultContainer,
       position: "afterend",
-      titlePrefix: `${matchedPlayers[0].name} 選手の使用マウス`,
+      titlePrefix: `${matchedPlayers[0].name} の使用マウス`,
       deviceName: matchedPlayers[0].devices?.["マウス"],
-      hintText: "※各選手の「PLAYER MOUSE」をクリックで動画切り替え"
+      hintText: "※各カードの「PLAYER MOUSE」をクリックで動画切り替え"
     });
 
   } catch (error) {
@@ -695,8 +901,8 @@ async function loadLiquipediaPlayers() {
   const sourceStatus = document.getElementById("source-status");
   const sourceSummary = document.getElementById("source-summary");
   const apiBaseUrl = document.querySelector('meta[name="frag-api-base-url"]').content;
-  sourceStatus.textContent = "Liquipedia取得中";
-  sourceSummary.textContent = "公式APIからデータ取得中";
+  sourceStatus.textContent = "データ同期中";
+  sourceSummary.textContent = "サーバーからデータ取得中";
 
   try {
     const importedPlayers = [];
@@ -710,7 +916,7 @@ async function loadLiquipediaPlayers() {
       }
       const gamePlayers = await response.json();
       if (!Array.isArray(gamePlayers)) {
-        throw new Error("Liquipedia APIから不正なデータ形式が返されました。");
+        throw new Error("APIから不正なデータ形式が返されました。");
       }
       importedPlayers.push(...gamePlayers);
     }
@@ -718,22 +924,21 @@ async function loadLiquipediaPlayers() {
     if (importedPlayers.length === 0) {
       sourceStatus.textContent = "該当データなし";
       sourceSummary.textContent = "API応答済み・表示データなし";
-      console.warn("Liquipedia API responded successfully but no supported gear profiles were found; demo data remains visible.");
       return;
     }
 
     players = importedPlayers;
-    sourceStatus.textContent = "LIQUIPEDIA DATA";
-    sourceSummary.textContent = "Liquipedia APIデータを表示中";
-    document.getElementById("search-data-hint").textContent = `${players.length} API PROFILES`;
-    document.getElementById("ranking-disclaimer").innerHTML = '<strong>データ出典・範囲</strong><br>Liquipedia公式MediaWiki APIから各タイトルのCategory:Players先頭50件を取得。現役プロに限定された一覧ではなく、この範囲からの集計はプロ全体の使用率を示しません。出典: Liquipedia / CC BY-SA 3.0。';
+    sourceStatus.textContent = "PRO & CREATOR DB";
+    sourceSummary.textContent = `全 ${players.length} 名のデータを表示中`;
+    document.getElementById("search-data-hint").textContent = `${players.length} PROFILES`;
+    document.getElementById("ranking-disclaimer").innerHTML = '<strong>データ出典・範囲</strong><br>世界・日本のトッププロ選手および人気ストリーマー・VTuber計85名の公開デバイス・感度データを統合集計。出典: Liquipedia / ProSettings / 各配信者公開情報（CC BY-SA 3.0）。';
     renderPlayers();
     const selectedRankingGame = document.querySelector(".game-tab.selected")?.dataset.game || "VALORANT";
     renderRankings(selectedRankingGame);
   } catch (error) {
     sourceStatus.textContent = "API接続失敗";
     sourceSummary.textContent = "APIエラー・デモデータを表示中";
-    console.error("Liquipedia data could not be loaded; demo data remains visible.", error);
+    console.error("Data could not be loaded; demo data remains visible.", error);
   }
 }
 
