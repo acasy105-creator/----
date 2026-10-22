@@ -1243,3 +1243,363 @@ async function loadLiquipediaPlayers() {
 }
 
 loadLiquipediaPlayers();
+// ============================================================================
+// ⑤ お気に入り（比較トレイ）ローカル保存機能（LocalStorage永続化・横並び比較ドロワー）
+// ============================================================================
+const FAVORITES_STORAGE_KEY = "frag_saved_favorites_v1";
+
+// 保存データ構造: { players: ["TenZ", "釈迦 (SHAKA)"], devices: ["Logicool G PRO X SUPERLIGHT 2"] }
+function loadFavoritesState() {
+  try {
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (!raw) return { players: [], devices: [] };
+    const parsed = JSON.parse(raw);
+    return {
+      players: Array.isArray(parsed?.players) ? parsed.players : [],
+      devices: Array.isArray(parsed?.devices) ? parsed.devices : []
+    };
+  } catch (e) {
+    return { players: [], devices: [] };
+  }
+}
+
+let favoritesState = loadFavoritesState();
+let isCompareTrayOpen = false;
+let showOnlyFavoritePlayers = false;
+
+function saveFavoritesState() {
+  localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoritesState));
+  renderCompareTrayUI();
+  syncFavoriteButtonsState();
+}
+
+window.toggleFavoritePlayer = function (playerName, event) {
+  if (event) event.stopPropagation();
+  if (!playerName) return;
+  const idx = favoritesState.players.indexOf(playerName);
+  if (idx >= 0) {
+    favoritesState.players.splice(idx, 1);
+  } else {
+    favoritesState.players.push(playerName);
+  }
+  saveFavoritesState();
+  if (showOnlyFavoritePlayers) {
+    renderPlayers();
+  }
+};
+
+window.toggleFavoriteDevice = function (deviceName, event) {
+  if (event) event.stopPropagation();
+  if (!deviceName || deviceName === "データなし") return;
+  const idx = favoritesState.devices.indexOf(deviceName);
+  if (idx >= 0) {
+    favoritesState.devices.splice(idx, 1);
+  } else {
+    favoritesState.devices.push(deviceName);
+  }
+  saveFavoritesState();
+};
+
+window.clearAllFavorites = function () {
+  favoritesState = { players: [], devices: [] };
+  showOnlyFavoritePlayers = false;
+  saveFavoritesState();
+  renderPlayers();
+};
+
+window.toggleCompareTrayDrawer = function (forceState) {
+  isCompareTrayOpen = typeof forceState === "boolean" ? forceState : !isCompareTrayOpen;
+  renderCompareTrayUI();
+};
+
+// 画面上のカードやランキングに「★ 保存」ボタンを動的に注入・状態同期する関数
+function syncFavoriteButtonsState() {
+  // 1. プレイヤー検索の属性フィルターバーに「★ お気に入り選手のみ」ボタンを追加
+  const filterBar = document.getElementById("creator-type-filter-bar");
+  if (filterBar && !document.getElementById("fav-only-filter-btn")) {
+    filterBar.insertAdjacentHTML(
+      "beforeend",
+      `<button type="button" id="fav-only-filter-btn"
+         style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid rgba(250, 204, 21, 0.35); background: rgba(250, 204, 21, 0.08); color: #fde047; transition: all 0.2s; margin-left: auto;">
+         ★ 保存済み (${favoritesState.players.length})
+       </button>`
+    );
+    document.getElementById("fav-only-filter-btn").addEventListener("click", () => {
+      showOnlyFavoritePlayers = !showOnlyFavoritePlayers;
+      applyFavoritePlayerFilter();
+    });
+  }
+
+  const favFilterBtn = document.getElementById("fav-only-filter-btn");
+  if (favFilterBtn) {
+    favFilterBtn.innerHTML = `★ 保存済み選手のみ (${favoritesState.players.length})`;
+    favFilterBtn.style.background = showOnlyFavoritePlayers ? "rgba(250, 204, 21, 0.25)" : "rgba(250, 204, 21, 0.08)";
+    favFilterBtn.style.borderColor = showOnlyFavoritePlayers ? "#facc15" : "rgba(250, 204, 21, 0.35)";
+    favFilterBtn.style.color = showOnlyFavoritePlayers ? "#fff" : "#fde047";
+  }
+
+  // 2. 各プレイヤーカード＆感度マッチカードに「★ 選手を保存」ボタンを注入・更新
+  document.querySelectorAll(".player-card, .match-card").forEach((card) => {
+    const heading = card.querySelector("h3, h2");
+    if (!heading) return;
+    const playerName = heading.textContent.trim();
+    if (!playerName) return;
+
+    const isFav = favoritesState.players.includes(playerName);
+    let favBtn = card.querySelector(".js-fav-player-btn");
+
+    if (!favBtn) {
+      const topRow = card.querySelector(".player-card-top, .match-player");
+      if (topRow) {
+        topRow.style.position = "relative";
+        topRow.insertAdjacentHTML(
+          "beforeend",
+          `<button type="button" class="js-fav-player-btn"
+             data-player-name="${escapeHtml(playerName)}"
+             onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)"
+             style="margin-left: auto; cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; transition: all 0.15s; white-space: nowrap;">
+           </button>`
+        );
+        favBtn = topRow.querySelector(".js-fav-player-btn");
+      }
+    }
+
+    if (favBtn) {
+      favBtn.dataset.playerName = playerName;
+      favBtn.innerHTML = isFav ? "★ 保存中" : "☆ 比較に保存";
+      favBtn.style.border = isFav ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.16)";
+      favBtn.style.background = isFav ? "rgba(250, 204, 21, 0.2)" : "rgba(255,255,255,0.04)";
+      favBtn.style.color = isFav ? "#fde047" : "#a1a1aa";
+    }
+  });
+
+  // 3. デバイス行・ランキング行・相談結果に「★ デバイス保存」ミニボタンを注入・更新
+  document.querySelectorAll("[data-device]").forEach((row) => {
+    const deviceName = row.dataset.device;
+    if (!deviceName || deviceName === "データなし") return;
+
+    const isFav = favoritesState.devices.includes(deviceName);
+    let devFavBtn = row.querySelector(".js-fav-device-btn");
+
+    if (!devFavBtn) {
+      // デバイス相談のボタン自身の場合は親カード内に追加
+      if (row.tagName === "BUTTON") {
+        const parent = row.parentElement;
+        if (parent && !parent.querySelector(".js-fav-device-btn")) {
+          parent.insertAdjacentHTML(
+            "beforeend",
+            `<button type="button" class="js-fav-device-btn"
+               data-device-name="${escapeHtml(deviceName)}"
+               onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)"
+               style="cursor: pointer; width: 100%; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.72rem; font-weight: 700; transition: all 0.15s;">
+             </button>`
+          );
+          devFavBtn = parent.querySelector(".js-fav-device-btn");
+        }
+      } else {
+        const targetSpan = row.querySelector(".rank-name > span:last-child") || row.querySelector("span:last-child");
+        if (targetSpan) {
+          targetSpan.insertAdjacentHTML(
+            "beforeend",
+            `<button type="button" class="js-fav-device-btn"
+               data-device-name="${escapeHtml(deviceName)}"
+               onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)"
+               title="このデバイスをお気に入り比較トレイに保存"
+               style="cursor: pointer; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 800; transition: all 0.15s;">
+             </button>`
+          );
+          devFavBtn = targetSpan.querySelector(".js-fav-device-btn");
+        }
+      }
+    } else if (row.tagName === "BUTTON" && row.parentElement) {
+      devFavBtn = row.parentElement.querySelector(".js-fav-device-btn");
+    }
+
+    if (devFavBtn) {
+      devFavBtn.dataset.deviceName = deviceName;
+      devFavBtn.innerHTML = row.tagName === "BUTTON"
+        ? (isFav ? "★ 欲しいものリスト保存中" : "☆ 欲しいものリストに保存")
+        : (isFav ? "★" : "☆");
+      devFavBtn.style.border = isFav ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.18)";
+      devFavBtn.style.background = isFav ? "rgba(250, 204, 21, 0.22)" : "rgba(255,255,255,0.05)";
+      devFavBtn.style.color = isFav ? "#fde047" : "#d4d4d8";
+    }
+  });
+}
+
+function applyFavoritePlayerFilter() {
+  const resultsEl = document.getElementById("player-results");
+  if (!resultsEl) return;
+  const cards = resultsEl.querySelectorAll(".player-card");
+  let visibleCount = 0;
+
+  cards.forEach((card) => {
+    const nameEl = card.querySelector("h3");
+    const name = nameEl ? nameEl.textContent.trim() : "";
+    const shouldShow = !showOnlyFavoritePlayers || favoritesState.players.includes(name);
+    card.style.display = shouldShow ? "" : "none";
+    if (shouldShow) visibleCount++;
+  });
+
+  const countEl = document.getElementById("search-count");
+  if (countEl) {
+    countEl.textContent = `${String(visibleCount).padStart(2, "0")} PLAYERS`;
+  }
+  syncFavoriteButtonsState();
+}
+
+// 画面右下のフローティングバッジ ＆ 横並び比較ドロワーの描画
+function renderCompareTrayUI() {
+  let root = document.getElementById("frag-compare-tray-root");
+  if (!root) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="frag-compare-tray-root"></div>`);
+    root = document.getElementById("frag-compare-tray-root");
+  }
+
+  const totalCount = favoritesState.players.length + favoritesState.devices.length;
+
+  // 保存されたプレイヤーの詳細オブジェクトを取得
+  const savedPlayerObjects = favoritesState.players.map((name) =>
+    players.find((p) => p?.name === name) || { name, game: "-", dpi: null, sens: null, devices: {} }
+  );
+
+  const playerComparisonCardsHtml = savedPlayerObjects.length > 0
+    ? savedPlayerObjects.map((p) => {
+        const dpi = Number(p?.dpi);
+        const sens = Number(p?.sens);
+        const cm = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, p?.game) : Number.NaN;
+        const mouse = p?.devices?.["マウス"] || "データなし";
+        const pad = p?.devices?.["マウスパッド"] || "データなし";
+        const headset = p?.devices?.["ヘッドセット"] || "データなし";
+
+        return `
+          <div style="min-width: 240px; max-width: 280px; flex: 0 0 auto; padding: 1rem; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; gap: 0.65rem;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                <div>
+                  <div style="font-size: 0.7rem; color: #d4ff33; font-weight: 700;">${escapeHtml(p?.game || "")}</div>
+                  <div style="font-size: 0.98rem; font-weight: 800; color: #fff;">${escapeHtml(p?.name || "")}</div>
+                </div>
+                <button type="button" data-player-name="${escapeHtml(p?.name || "")}"
+                        onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)"
+                        style="cursor: pointer; background: transparent; border: none; color: #a1a1aa; font-size: 0.85rem; padding: 0.1rem 0.3rem;"
+                        title="トレイから外す">✕</button>
+              </div>
+              <div style="margin-top: 0.5rem; padding: 0.45rem 0.6rem; border-radius: 6px; background: rgba(212,255,51,0.08); border: 1px solid rgba(212,255,51,0.25); font-size: 0.78rem; color: #fff;">
+                振り向き: <strong style="color:#d4ff33; font-size:0.9rem;">${Number.isFinite(cm) ? `${cm.toFixed(1)} cm` : "--"}</strong>
+                <div style="font-size: 0.7rem; color: #a1a1aa; margin-top: 0.1rem;">${Number.isFinite(dpi) && Number.isFinite(sens) ? `${dpi} DPI / 感度 ${sens}` : "感度情報なし"}</div>
+              </div>
+              <div style="margin-top: 0.6rem; font-size: 0.75rem; color: #d4d4d8; display: grid; gap: 0.3rem;">
+                <div>🖱 マウス: <strong style="color:#fff;">${escapeHtml(mouse)}</strong></div>
+                <div>⬛ パッド: <strong style="color:#fff;">${escapeHtml(pad)}</strong></div>
+                <div>🎧 音響: <strong style="color:#fff;">${escapeHtml(headset)}</strong></div>
+              </div>
+            </div>
+            ${mouse !== "データなし" ? `<div style="padding-top: 0.45rem; border-top: 1px solid rgba(255,255,255,0.06);">${createAffiliateButtonsHtml(mouse, true)}</div>` : ""}
+          </div>`;
+      }).join("")
+    : `<div style="font-size: 0.8rem; color: #a1a1aa; padding: 0.75rem 0;">まだ選手が保存されていません。各カードの「☆ 比較に保存」を押すとここで横並び比較できます。</div>`;
+
+  const savedDeviceCardsHtml = favoritesState.devices.length > 0
+    ? favoritesState.devices.map((devName) => {
+        const spec = findMouseSpec(devName);
+        const usersCount = players.filter((p) => Object.values(p?.devices || {}).includes(devName)).length;
+        return `
+          <div style="min-width: 230px; max-width: 270px; flex: 0 0 auto; padding: 0.9rem 1rem; border-radius: 10px; background: rgba(191,87,255,0.08); border: 1px solid rgba(191,87,255,0.35); display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                <div style="font-size: 0.9rem; font-weight: 800; color: #fff; line-height: 1.35;">${escapeHtml(devName)}</div>
+                <button type="button" data-device-name="${escapeHtml(devName)}"
+                        onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)"
+                        style="cursor: pointer; background: transparent; border: none; color: #a1a1aa; font-size: 0.85rem; padding: 0.1rem 0.3rem;"
+                        title="トレイから外す">✕</button>
+              </div>
+              <div style="font-size: 0.74rem; color: #e9d5ff; margin-top: 0.35rem;">
+                プロ・配信者採用数: <strong>${usersCount} 名</strong>
+              </div>
+              ${spec ? `
+                <div style="font-size: 0.72rem; color: #d4d4d8; margin-top: 0.35rem; display: grid; gap: 0.15rem;">
+                  <div>重量: <strong style="color:#d4ff33;">${spec.weight}g</strong> / ${escapeHtml(spec.shape)}</div>
+                  <div>寸法: ${escapeHtml(spec.size)}</div>
+                </div>
+              ` : ""}
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap; padding-top: 0.4rem; border-top: 1px solid rgba(255,255,255,0.08);">
+              ${createAffiliateButtonsHtml(devName, true)}
+            </div>
+          </div>`;
+      }).join("")
+    : `<div style="font-size: 0.8rem; color: #a1a1aa; padding: 0.75rem 0;">まだデバイスが保存されていません。デバイス名横の「☆」ボタンで欲しいものリストに追加できます。</div>`;
+
+  root.innerHTML = `
+    <!-- 右下フローティング起動ボタン -->
+    <button type="button"
+            onclick="window.toggleCompareTrayDrawer()"
+            style="position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 9998; cursor: pointer; padding: 0.75rem 1.2rem; border-radius: 999px; background: ${totalCount > 0 ? 'linear-gradient(135deg, #d4ff33 0%, #a3e635 100%)' : 'rgba(24, 24, 27, 0.95)'}; color: ${totalCount > 0 ? '#09090b' : '#e4e4e7'}; border: 1px solid ${totalCount > 0 ? '#d4ff33' : 'rgba(255,255,255,0.2)'}; font-weight: 800; font-size: 0.85rem; box-shadow: 0 10px 25px rgba(0,0,0,0.65); display: flex; align-items: center; gap: 0.5rem; transition: transform 0.2s;">
+      <span>★ お気に入り・比較トレイ</span>
+      <span style="padding: 0.15rem 0.55rem; border-radius: 999px; background: ${totalCount > 0 ? '#09090b' : 'rgba(255,255,255,0.12)'}; color: ${totalCount > 0 ? '#d4ff33' : '#a1a1aa'}; font-size: 0.75rem;">
+        ${totalCount}
+      </span>
+    </button>
+
+    <!-- 下部スライドアップ比較ドロワー -->
+    ${isCompareTrayOpen ? `
+      <div style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 9999; max-height: 75vh; overflow-y: auto; background: rgba(12, 12, 16, 0.98); border-top: 2px solid #d4ff33; box-shadow: 0 -12px 40px rgba(0,0,0,0.85); padding: 1.5rem 2rem; backdrop-filter: blur(12px); box-sizing: border-box;">
+        <div style="max-width: 1280px; margin: 0 auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <div>
+              <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>FAVORITES &amp; COMPARISON TRAY // ローカル自動保存</span>
+              <h3 style="margin: 0.25rem 0 0; font-size: 1.1rem; color: #fff; font-weight: 800;">
+                ピン留めしたプレイヤー（${favoritesState.players.length}名）＆ 欲しいデバイス（${favoritesState.devices.length}点）の横並び比較
+              </h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+              ${totalCount > 0 ? `
+                <button type="button" onclick="window.clearAllFavorites()"
+                        style="cursor: pointer; padding: 0.4rem 0.8rem; border-radius: 6px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; font-size: 0.75rem; font-weight: 700;">
+                  🗑 すべてクリア
+                </button>
+              ` : ""}
+              <button type="button" onclick="window.toggleCompareTrayDrawer(false)"
+                      style="cursor: pointer; padding: 0.45rem 1rem; border-radius: 6px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; font-size: 0.8rem; font-weight: 700;">
+                ✕ 閉じる
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1.25rem;">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #d4ff33; margin-bottom: 0.6rem;">
+              👤 保存したプレイヤーの感度・使用ギア比較（横スクロール）
+            </div>
+            <div style="display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 0.5rem;">
+              ${playerComparisonCardsHtml}
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 0.78rem; font-weight: 700; color: #e9d5ff; margin-bottom: 0.6rem;">
+              🛒 欲しいものリスト（保存したデバイス・スペック＆購入リンク）
+            </div>
+            <div style="display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 0.5rem;">
+              ${savedDeviceCardsHtml}
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : ""}
+  `;
+}
+
+// 画面内のカード描画やタブ切り替えを自動検知して「☆保存」ボタンを常時付与するObserver
+const favMutationObserver = new MutationObserver(() => {
+  syncFavoriteButtonsState();
+});
+
+favMutationObserver.observe(document.body, {
+  childList: true,
+  subtree: true
+});
+
+// 初回起動
+renderCompareTrayUI();
+syncFavoriteButtonsState();
