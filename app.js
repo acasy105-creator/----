@@ -1603,3 +1603,220 @@ favMutationObserver.observe(document.body, {
 // 初回起動
 renderCompareTrayUI();
 syncFavoriteButtonsState();
+// ============================================================================
+// ③ 推し・プロとの環境シンクロ率算出 ＆ SNS（X / Twitter）シェア機能
+// ============================================================================
+
+// ユーザーの基準設定（感度マッチの入力値 または デフォルト値）を取得
+function getUserBaselineEnv() {
+  const game = document.getElementById("match-game")?.value || "VALORANT";
+  const dpi = Number(document.getElementById("match-dpi")?.value) || 800;
+  const sens = Number(document.getElementById("match-sens")?.value) || 0.3;
+  const cm = toCm360(dpi, sens, game);
+  const mouse = currentUserMouseName || "Logicool G703h (定番エルゴ / 95g)";
+  return { game, dpi, sens, cm, mouse };
+}
+
+// プレイヤーとの「環境シンクロ率（0〜99%）」を計算する関数
+function calculateEnvSyncRate(player, userEnv = getUserBaselineEnv()) {
+  const pDpi = Number(player?.dpi);
+  const pSens = Number(player?.sens);
+  const pCm = Number(player?.cmPer360) || toCm360(pDpi, pSens, player?.game);
+
+  let sensScore = 70; // 最高75点
+  if (Number.isFinite(pCm) && Number.isFinite(userEnv.cm) && userEnv.cm > 0) {
+    const diffRatio = Math.abs(pCm - userEnv.cm) / userEnv.cm;
+    sensScore = Math.max(15, Math.round(75 * Math.exp(-diffRatio * 2.2)));
+  }
+
+  // マウスの一致・スペック近접度（最高24点）
+  const pMouse = String(player?.devices?.["マウス"] || "");
+  const uSpec = findMouseSpec(userEnv.mouse);
+  const pSpec = findMouseSpec(pMouse);
+
+  let gearScore = 12;
+  if (pMouse && userEnv.mouse.toLowerCase().includes(pMouse.toLowerCase())) {
+    gearScore = 24; // 同一マウス使用ボーナス！
+  } else if (uSpec && pSpec) {
+    const weightGap = Math.abs(uSpec.weight - pSpec.weight);
+    const shapeBonus = uSpec.shape.slice(0, 4) === pSpec.shape.slice(0, 4) ? 6 : 2;
+    gearScore = Math.max(6, Math.round(18 - weightGap * 0.25) + shapeBonus);
+  }
+
+  return Math.min(99, Math.max(25, sensScore + gearScore));
+}
+
+// X（旧Twitter）の投稿画面を開く関数
+window.shareToX = function (shareText, event) {
+  if (event) event.stopPropagation();
+  const pageUrl = window.location.href.split("#")[0];
+  const hashtags = "FRAG_GEAR,FPS感度,ゲーミングデバイス";
+  const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pageUrl)}&hashtags=${encodeURIComponent(hashtags)}`;
+  window.open(intentUrl, "_blank", "noopener,noreferrer,width=600,height=520");
+};
+
+// プレイヤー検索カードから「推しとの環境シンクロ診断モーダル」を開く関数
+window.openPlayerSyncModal = function (playerName, event) {
+  if (event) event.stopPropagation();
+  const player = players.find((p) => p?.name === playerName);
+  if (!player) return;
+
+  const userEnv = getUserBaselineEnv();
+  const syncRate = calculateEnvSyncRate(player, userEnv);
+  const pDpi = Number(player?.dpi);
+  const pSens = Number(player?.sens);
+  const pCm = Number(player?.cmPer360) || toCm360(pDpi, pSens, player?.game);
+  const diffCm = Number.isFinite(pCm) && Number.isFinite(userEnv.cm) ? Math.abs(pCm - userEnv.cm) : Number.NaN;
+  const convertedSensForUser = fromCm360ToSens(pCm, userEnv.dpi, userEnv.game);
+  const pMouse = player?.devices?.["マウス"] || "データなし";
+  const pPad = player?.devices?.["マウスパッド"] || "データなし";
+
+  const shareText = `【FRAG // 環境シンクロ診断】\n私と「${player.name}」の環境シンクロ率は【${syncRate}%】でした！⚡\n・${player.name}の振り向き: ${Number.isFinite(pCm) ? pCm.toFixed(1) : "--"}cm/360°\n・使用マウス: ${pMouse}\n`;
+
+  let modalRoot = document.getElementById("frag-sync-modal-root");
+  if (!modalRoot) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="frag-sync-modal-root"></div>`);
+    modalRoot = document.getElementById("frag-sync-modal-root");
+  }
+
+  modalRoot.innerHTML = `
+    <div onclick="document.getElementById('frag-sync-modal-root').innerHTML=''"
+         style="position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.78); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 1.25rem; box-sizing: border-box;">
+      <div onclick="event.stopPropagation()"
+           style="width: 100%; max-width: 540px; border-radius: 14px; background: #0f0f13; border: 1px solid rgba(212,255,51,0.45); box-shadow: 0 20px 50px rgba(0,0,0,0.85); padding: 1.6rem; position: relative; color: #fff;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+          <div>
+            <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>ENVIRONMENT SYNC CARD</span>
+            <h3 style="margin: 0.3rem 0 0; font-size: 1.25rem; font-weight: 800;">
+              あなた × ${escapeHtml(player.name)}
+            </h3>
+          </div>
+          <button type="button" onclick="document.getElementById('frag-sync-modal-root').innerHTML=''"
+                  style="cursor: pointer; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700;">✕</button>
+        </div>
+
+        <div style="margin: 1.2rem 0; padding: 1.2rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.12) 0%, rgba(191,87,255,0.12) 100%); border: 1px solid rgba(212,255,51,0.35); text-align: center;">
+          <div style="font-size: 0.75rem; color: #d4ff33; font-weight: 800; letter-spacing: 0.08em;">ENVIRONMENT SYNC RATE // 環境シンクロ率</div>
+          <div style="font-size: 3rem; font-weight: 900; color: #fff; line-height: 1.1; margin: 0.25rem 0;">
+            ${syncRate}<span style="font-size: 1.4rem; color: #d4ff33;">%</span>
+          </div>
+          <div style="font-size: 0.78rem; color: #e4e4e7;">
+            あなたの基準振り向き（${Number.isFinite(userEnv.cm) ? userEnv.cm.toFixed(1) : "--"}cm）との差: <strong>${Number.isFinite(diffCm) ? `${diffCm.toFixed(1)} cm` : "--"}</strong>
+          </div>
+        </div>
+
+        <div style="display: grid; gap: 0.6rem; font-size: 0.82rem; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 1.2rem;">
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#a1a1aa;">本人感度 (${escapeHtml(player.game)}):</span>
+            <strong>${pDpi} DPI / 感度 ${pSens} (${Number.isFinite(pCm) ? pCm.toFixed(1) : "--"} cm/360°)</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#a1a1aa;">あなたの ${escapeHtml(userEnv.game)} (${userEnv.dpi}DPI) 換算:</span>
+            <strong style="color:#d4ff33;">感度 ${Number.isFinite(convertedSensForUser) ? convertedSensForUser.toFixed(3) : "--"}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#a1a1aa;">使用マウス:</span>
+            <strong>${escapeHtml(pMouse)}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#a1a1aa;">使用マウスパッド:</span>
+            <strong>${escapeHtml(pPad)}</strong>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          ${createAffiliateButtonsHtml(pMouse, false)}
+          <button type="button"
+                  data-share-text="${escapeHtml(shareText)}"
+                  onclick="window.shareToX(this.dataset.shareText, event)"
+                  style="cursor: pointer; padding: 0.55rem 1.1rem; border-radius: 8px; background: #fff; color: #000; border: none; font-size: 0.82rem; font-weight: 800; display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto;">
+            𝕏 シンクロ率をポストする
+          </button>
+        </div>
+      </div>
+    </div>`;
+};
+
+// 画面内の各カードに「シンクロ率バッジ」と「𝕏 ポスト」ボタンを自動注入する関数
+function injectSyncAndShareButtons() {
+  const userEnv = getUserBaselineEnv();
+
+  // 1. 感度マッチ結果カードに「SYNC XX%」と「𝕏 結果をポスト」ボタンを注入
+  document.querySelectorAll("#match-result .match-card").forEach((card) => {
+    if (card.querySelector(".js-sync-share-bar")) return;
+    const nameEl = card.querySelector("h2");
+    if (!nameEl) return;
+    const playerName = nameEl.textContent.trim();
+    const player = players.find((p) => p?.name === playerName) || { name: playerName };
+    const syncRate = calculateEnvSyncRate(player, userEnv);
+    const mouseName = player?.devices?.["マウス"] || "ゲーミングマウス";
+
+    const shareText = `【FRAG // 感度＆環境シンクロ診断】\n私のFPS感度は「${playerName}」とシンクロ率【${syncRate}%】でした！（振り向き ${Number.isFinite(userEnv.cm) ? userEnv.cm.toFixed(1) : "--"}cm / 360°）\n注目の使用マウス: ${mouseName}\n`;
+
+    card.insertAdjacentHTML(
+      "beforeend",
+      `<div class="js-sync-share-bar" style="margin-top: 0.9rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+         <span style="padding: 0.25rem 0.6rem; border-radius: 6px; background: rgba(212,255,51,0.14); border: 1px solid rgba(212,255,51,0.4); color: #d4ff33; font-size: 0.74rem; font-weight: 800;">
+           ⚡ 環境シンクロ率 ${syncRate}%
+         </span>
+         <button type="button"
+                 data-share-text="${escapeHtml(shareText)}"
+                 onclick="window.shareToX(this.dataset.shareText, event)"
+                 style="cursor: pointer; padding: 0.32rem 0.75rem; border-radius: 6px; background: rgba(255,255,255,0.92); color: #09090b; border: none; font-size: 0.73rem; font-weight: 800; display: inline-flex; align-items: center; gap: 0.3rem; transition: opacity 0.15s;"
+                 onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+           𝕏 結果をポスト
+         </button>
+       </div>`
+    );
+  });
+
+  // 2. プレイヤー検索カードに「⚡ シンクロ診断・共有」ボタンを注入
+  document.querySelectorAll("#player-results .player-card").forEach((card) => {
+    if (card.querySelector(".js-open-sync-modal-btn")) return;
+    const nameEl = card.querySelector("h3");
+    if (!nameEl) return;
+    const playerName = nameEl.textContent.trim();
+
+    card.insertAdjacentHTML(
+      "beforeend",
+      `<div style="margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: flex-end;">
+         <button type="button" class="js-open-sync-modal-btn"
+                 data-player-name="${escapeHtml(playerName)}"
+                 onclick="window.openPlayerSyncModal(this.dataset.playerName, event)"
+                 style="cursor: pointer; width: 100%; padding: 0.38rem 0.65rem; border-radius: 6px; background: rgba(191,87,255,0.12); border: 1px solid rgba(191,87,255,0.38); color: #e9d5ff; font-size: 0.73rem; font-weight: 700; transition: all 0.15s;"
+                 onmouseover="this.style.background='rgba(191,87,255,0.24)'" onmouseout="this.style.background='rgba(191,87,255,0.12)'">
+           ⚡ あなたとの環境シンクロ率を診断・𝕏共有
+         </button>
+       </div>`
+    );
+  });
+
+  // 3. デバイス相談結果に「𝕏 診断結果をポスト」ボタンを注入
+  const consultContent = document.querySelector("#consult-result .consult-result-content");
+  if (consultContent && !consultContent.querySelector(".js-consult-share-btn")) {
+    const titleEl = consultContent.querySelector(".analysis-title");
+    const firstGearBtn = consultContent.querySelector(".js-consult-yt-trigger");
+    const recommendedGear = firstGearBtn?.dataset?.device || "プロ推奨モデル";
+    const shareText = `【FRAG // デバイス診断結果】\n私のプレイスタイルに最適な改善ポイントは「${titleEl ? titleEl.textContent.trim() : "デバイス環境の見直し"}」でした！\n🎯 推奨モデル: ${recommendedGear}\n`;
+
+    const analysisTop = consultContent.querySelector(".analysis-top");
+    if (analysisTop) {
+      analysisTop.insertAdjacentHTML(
+        "beforeend",
+        `<button type="button" class="js-consult-share-btn"
+                 data-share-text="${escapeHtml(shareText)}"
+                 onclick="window.shareToX(this.dataset.shareText, event)"
+                 style="cursor: pointer; padding: 0.35rem 0.8rem; border-radius: 6px; background: #fff; color: #09090b; border: none; font-size: 0.74rem; font-weight: 800; display: inline-flex; align-items: center; gap: 0.3rem;">
+           𝕏 診断結果をポスト
+         </button>`
+      );
+    }
+  }
+}
+
+// DOM更新時に自動でシンクロ診断＆Xシェアボタンを付与
+const syncShareObserver = new MutationObserver(() => {
+  injectSyncAndShareButtons();
+});
+syncShareObserver.observe(document.body, { childList: true, subtree: true });
+injectSyncAndShareButtons();
