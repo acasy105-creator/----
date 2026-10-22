@@ -760,8 +760,36 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
 });
 
 // ============================================================================
-// 4. 感度マッチ（プロ選手マッチング＆マウス動画切替＆購入リンク）
+// 4. 感度マッチ（双方向・感度コンバーター ＆ プロ感度逆算コピー ＆ マウス動画切替）
 // ============================================================================
+
+// 💡 振り向き(cm/360°)とDPIから、指定ゲームのゲーム内感度を逆算する関数
+const fromCm360ToSens = (cm360, dpi, game) => {
+  const spec = getGameSpec(game);
+  if (!spec || !Number.isFinite(cm360) || !Number.isFinite(dpi) || cm360 <= 0 || dpi <= 0) {
+    return Number.NaN;
+  }
+  return (360 * 2.54) / (dpi * cm360 * spec.yaw);
+};
+
+// 💡 ワンクリックで数値をクリップボードにコピーし、ボタン表示を切り替える関数
+window.copySensValue = function (buttonEl, textValue) {
+  if (!navigator.clipboard) return;
+  navigator.clipboard.writeText(String(textValue)).then(() => {
+    const originalHtml = buttonEl.innerHTML;
+    buttonEl.innerHTML = "✓ COPIED!";
+    buttonEl.style.borderColor = "#d4ff33";
+    buttonEl.style.color = "#d4ff33";
+    buttonEl.style.background = "rgba(212, 255, 51, 0.18)";
+    setTimeout(() => {
+      buttonEl.innerHTML = originalHtml;
+      buttonEl.style.borderColor = "rgba(255,255,255,0.18)";
+      buttonEl.style.color = "#e4e4e7";
+      buttonEl.style.background = "rgba(255,255,255,0.06)";
+    }, 1500);
+  });
+};
+
 document.getElementById("match-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const game = document.getElementById("match-game").value;
@@ -777,8 +805,72 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
   const resultContainer = document.getElementById("match-result");
   resultContainer.innerHTML = '<div class="no-results" style="grid-column: 1 / -1; width:100%; text-align:center;">APIからマッチする選手を検索中...</div>';
 
+  // 既存のコンバーター帯・YouTubeレビュー帯があれば消去
+  const existingConverter = document.getElementById("sens-converter-panel");
+  if (existingConverter) existingConverter.remove();
   const existingYt = document.getElementById("youtube-reviews-section");
   if (existingYt) existingYt.remove();
+
+  const userDistance = toCm360(dpi, sensitivity, game);
+  const userGameSpec = getGameSpec(game);
+
+  // 💡 ① 双方向・感度コンバーターパネルを結果上部に生成
+  if (Number.isFinite(userDistance)) {
+    const converterCardsHtml = Object.keys(gameSpecs).map((targetGameKey) => {
+      const targetSpec = gameSpecs[targetGameKey];
+      const isCurrentGame = normalizeGameName(targetGameKey) === normalizeGameName(game);
+      const convertedSens = fromCm360ToSens(userDistance, dpi, targetGameKey);
+      const sensFormatted = Number.isFinite(convertedSens) ? convertedSens.toFixed(3) : "--";
+      const eDpi = Number.isFinite(convertedSens) ? Math.round(dpi * convertedSens) : "--";
+
+      // 別DPI（400 / 800 / 1600）にした場合の早見表
+      const dpiPresets = [400, 800, 1600].map((presetDpi) => {
+        const s = fromCm360ToSens(userDistance, presetDpi, targetGameKey);
+        return `<span style="font-size: 0.7rem; color: ${presetDpi === dpi ? '#d4ff33' : '#a1a1aa'};">${presetDpi}DPI: <strong>${Number.isFinite(s) ? s.toFixed(3) : '--'}</strong></span>`;
+      }).join(" <span style='color:rgba(255,255,255,0.2)'>|</span> ");
+
+      return `
+        <div style="padding: 1rem 1.15rem; border-radius: 10px; background: ${isCurrentGame ? 'rgba(212, 255, 51, 0.07)' : 'rgba(0,0,0,0.35)'}; border: 1px solid ${isCurrentGame ? 'rgba(212, 255, 51, 0.45)' : 'rgba(255,255,255,0.08)'}; display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; color: ${isCurrentGame ? '#d4ff33' : '#a1a1aa'};">
+              ${escapeHtml(targetSpec.label)} ${isCurrentGame ? '（現在）' : '換算'}
+            </span>
+            <span style="font-size: 0.7rem; color: #71717a;">eDPI: ${eDpi}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;">
+            <div style="font-size: 1.65rem; font-weight: 800; color: #fff; font-family: monospace;">
+              ${sensFormatted}
+            </div>
+            <button type="button"
+                    onclick="copySensValue(this, '${sensFormatted}')"
+                    style="cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 6px; font-size: 0.72rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #e4e4e7; transition: all 0.15s;">
+              📋 感度をコピー
+            </button>
+          </div>
+          <div style="padding-top: 0.45rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-wrap: wrap; gap: 0.35rem;">
+            ${dpiPresets}
+          </div>
+        </div>`;
+    }).join("");
+
+    resultContainer.insertAdjacentHTML(
+      "beforebegin",
+      `<section id="sens-converter-panel" style="grid-column: 1 / -1; width: 100%; margin-bottom: 1.75rem; padding: 1.5rem 1.75rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+          <div>
+            <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>CROSS-GAME SENSITIVITY CONVERTER</span>
+            <h3 style="font-size: 1.05rem; margin-top: 0.35rem; color: #fff; font-weight: 700;">
+              あなたの振り向き（<span style="color:#d4ff33;">${userDistance.toFixed(2)} cm / 360°</span> · ${dpi} DPI）を全タイトルへ即時換算
+            </h3>
+          </div>
+          <span style="font-size: 0.75rem; color: #a1a1aa;">※ボタンクリックでゲーム内設定用の数値をコピーできます</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+          ${converterCardsHtml}
+        </div>
+      </section>`
+    );
+  }
 
   try {
     const url = new URL("/api/match", apiBaseUrl);
@@ -808,7 +900,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       const playerCm = Number(safePlayer.cmPer360);
       const playerDpi = Number(safePlayer.dpi);
       const playerSens = Number(safePlayer.sens);
-      const userDistance = Number.isFinite(toCm360(dpi, sensitivity, game)) ? toCm360(dpi, sensitivity, game) : Number.NaN;
       const playerDistance = Number.isFinite(playerCm) ? playerCm : (Number.isFinite(playerDpi) && Number.isFinite(playerSens) && playerSpec ? toCm360(playerDpi, playerSens, playerGame) : Number.NaN);
       const difference = Number.isFinite(playerDistance) && Number.isFinite(userDistance) ? Math.abs(playerDistance - userDistance) : Number.NaN;
       const percent = Number.isFinite(difference) && Number.isFinite(userDistance) && userDistance !== 0 ? (difference / userDistance) * 100 : Number.NaN;
@@ -817,13 +908,17 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       const padName = typeof safeDevices["マウスパッド"] === "string" && safeDevices["マウスパッド"].trim() ? safeDevices["マウスパッド"] : "データなし";
       const isFirst = index === 0;
 
+      // 💡 このプロ選手の振り向きを「ユーザーの現在のゲーム＆DPI」で再現するための逆算感度
+      const tryProSensInUserEnv = fromCm360ToSens(playerDistance, dpi, game);
+      const tryProSensFormatted = Number.isFinite(tryProSensInUserEnv) ? tryProSensInUserEnv.toFixed(3) : null;
+
       return `
         <article class="match-card" style="box-sizing: border-box;">
           <div class="match-card-head">
             <div>
-              <span class="eyebrow"><span class="eyebrow-line"></span>YOUR SENS / ${escapeHtml(playerSpec ? playerSpec.label : (gameSpecs[game]?.label || game || "GAME"))}</span>
-              <div class="match-distance">${Number.isFinite(userDistance) ? userDistance.toFixed(1) : "--"}<small>cm / 360°</small></div>
-              <div class="match-delta">${Number.isFinite(difference) ? `差 ${difference.toFixed(1)} cm · ${percent.toFixed(1)}%` : "感度差を計算できません"}</div>
+              <span class="eyebrow"><span class="eyebrow-line"></span>PRO SENS / ${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))}</span>
+              <div class="match-distance">${Number.isFinite(playerDistance) ? playerDistance.toFixed(1) : "--"}<small>cm / 360°</small></div>
+              <div class="match-delta">${Number.isFinite(difference) ? `あなたとの差 ${difference.toFixed(1)} cm · ${percent.toFixed(1)}%` : "感度差を計算できません"}</div>
             </div>
             <span class="match-badge">${matchQuality}</span>
           </div>
@@ -834,7 +929,27 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
               <p>${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))} · ${escapeHtml(playerRoles.join(" / ") || "プレイヤー")}</p>
             </div>
           </div>
-          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">${playerSpec ? `他のタイトルから振り向きが近いプレイヤーを抽出しました。${escapeHtml(playerGame)}で ${Number.isFinite(playerDpi) && Number.isFinite(playerSens) ? `${playerDpi} DPI / ${playerSens}` : "感度情報なし"} （${Number.isFinite(playerDistance) ? `${playerDistance.toFixed(1)} cm / 360°` : "cm / 360° データなし"}）を使用しています。` : "感度データが一部欠けているため参考情報を表示しています。"}</p>
+          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">
+            本人設定：<strong>${Number.isFinite(playerDpi) && Number.isFinite(playerSens) ? `${playerDpi} DPI / 感度 ${playerSens}` : "感度情報なし"}</strong>（振り向き ${Number.isFinite(playerDistance) ? `${playerDistance.toFixed(1)} cm` : "--"}）
+          </p>
+
+          ${tryProSensFormatted ? `
+            <div style="margin: 0.5rem 0 0.85rem; padding: 0.65rem 0.75rem; border-radius: 8px; background: rgba(212, 255, 51, 0.08); border: 1px dashed rgba(212, 255, 51, 0.35); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <div style="font-size: 0.75rem; color: #e4e4e7; line-height: 1.35;">
+                🎯 <strong>${escapeHtml(playerName)}</strong> の振り向きを<br>
+                あなたの <strong>${escapeHtml(userGameSpec ? userGameSpec.label : game)} (${dpi} DPI)</strong> で試すなら:
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.45rem;">
+                <strong style="font-size: 1.05rem; color: #d4ff33; font-family: monospace;">${tryProSensFormatted}</strong>
+                <button type="button"
+                        onclick="copySensValue(this, '${tryProSensFormatted}')"
+                        style="cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 5px; font-size: 0.68rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #e4e4e7;">
+                  📋 コピー
+                </button>
+              </div>
+            </div>
+          ` : ""}
+
           <div class="match-devices" style="margin-top: auto;">
             <div class="match-device js-yt-trigger"
                  data-player="${escapeHtml(playerName)}"
