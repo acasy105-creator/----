@@ -160,6 +160,8 @@ const getGameRanks = (game) => {
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 
 // ============================================================================
+// 💡 全ページ共通：YouTubeレビュー動画取得＆アフィリエイト導線描画関数
+// ============================================================================
 // ⚖️ 主要ゲーミングマウス スペックデータベース ＆ VS比較エンジン
 // ============================================================================
 const MOUSE_SPECS_DB = {
@@ -174,34 +176,34 @@ const MOUSE_SPECS_DB = {
   "ZOWIE EC2-CW": { weight: 77, shape: "エルゴノミクス（非対称）", size: "123 × 65 × 42 mm", grip: "かぶせ / つかみ", hz: 1000, sensor: "PAW3370" },
   "Vaxee XE Wireless": { weight: 76, shape: "左右対称", size: "124 × 66 × 39.5 mm", grip: "かぶせ / つかみ", hz: 4000, sensor: "PAW3395" },
   "Lamzu Atlantis": { weight: 55, shape: "左右対称（ワイドバック）", size: "123 × 66 × 38 mm", grip: "つかみ", hz: 4000, sensor: "PAW3395" },
-  // 比較基準としてよく使われる定番・エントリーモデル
   "Logicool G703h (定番エルゴ / 95g)": { weight: 95, shape: "エルゴノミクス（非対称）", size: "124 × 68 × 43 mm", grip: "かぶせ / つかみ", hz: 1000, sensor: "HERO 25K" },
   "Logicool G304 (定番エントリー / 99g)": { weight: 99, shape: "左右対称（小型）", size: "116.6 × 62.2 × 38.2 mm", grip: "つかみ / つまみ", hz: 1000, sensor: "HERO 12K" },
   "Razer Viper Ultimate (旧定番 / 74g)": { weight: 74, shape: "左右対称（低背）", size: "126.7 × 66.2 × 37.8 mm", grip: "つかみ / つまみ", hz: 1000, sensor: "Focus+" },
   "Logicool G502 X (多ボタン / 102g)": { weight: 102, shape: "エルゴノミクス（多ボタン）", size: "131.4 × 41.1 × 79.2 mm", grip: "かぶせ", hz: 1000, sensor: "HERO 25K" }
 };
 
-// ユーザーの現在使用中のマウスを保持（ローカルストレージ対応）
 let currentUserMouseName = localStorage.getItem("frag_user_mouse") || "Logicool G703h (定番エルゴ / 95g)";
 
 function findMouseSpec(deviceName) {
   if (!deviceName) return null;
   if (MOUSE_SPECS_DB[deviceName]) return { name: deviceName, ...MOUSE_SPECS_DB[deviceName] };
   const target = deviceName.toLowerCase();
-  const matchedKey = Object.keys(MOUSE_SPECS_DB).find((k) =>
-    k.toLowerCase().includes(target) || target.includes(k.toLowerCase())
+  const matchedKey = Object.keys(MOUSE_SPECS_DB).find((key) =>
+    key.toLowerCase().includes(target) || target.includes(key.toLowerCase())
   );
   return matchedKey ? { name: matchedKey, ...MOUSE_SPECS_DB[matchedKey] } : null;
 }
 
 function buildMouseComparisonHtml(targetDeviceName, containerId) {
   const targetSpec = findMouseSpec(targetDeviceName);
-  if (!targetSpec) return ""; // マウス以外のデバイス（パッド・ヘッドセット等）の場合は非表示
+  if (!targetSpec) return "";
 
-  const userSpec = findMouseSpec(currentUserMouseName) || { name: currentUserMouseName, ...MOUSE_SPECS_DB["Logicool G703h (定番エルゴ / 95g)"] };
-  const weightDiff = targetSpec.weight - userSpec.weight; // マイナスなら軽くなる
+  const userSpec = findMouseSpec(currentUserMouseName) || {
+    name: currentUserMouseName,
+    ...MOUSE_SPECS_DB["Logicool G703h (定番エルゴ / 95g)"]
+  };
+  const weightDiff = targetSpec.weight - userSpec.weight;
   const weightPct = Math.round((Math.abs(weightDiff) / userSpec.weight) * 100);
-
   let diffBadgeHtml = "";
   let feelingComment = "";
 
@@ -223,10 +225,9 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
   }
 
   const optionsHtml = Object.keys(MOUSE_SPECS_DB)
-    .filter((k) => k !== "Logitech G PRO X SUPERLIGHT 2")
+    .filter((key) => key !== "Logitech G PRO X SUPERLIGHT 2")
     .map((mouseKey) => `<option value="${escapeHtml(mouseKey)}" ${mouseKey === userSpec.name ? "selected" : ""}>${escapeHtml(mouseKey)} (${MOUSE_SPECS_DB[mouseKey].weight}g)</option>`)
     .join("");
-
   const userBarWidth = Math.min(100, Math.round((userSpec.weight / 110) * 100));
   const targetBarWidth = Math.min(100, Math.round((targetSpec.weight / 110) * 100));
 
@@ -235,31 +236,22 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
         <div>
           <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>SPEC COMPARISON // 買い替え体感シミュレーター</span>
-          <h4 style="margin: 0.3rem 0 0; font-size: 1rem; color: #fff; font-weight: 700;">
-            あなたの現在のマウス vs 「${escapeHtml(targetDeviceName)}」
-          </h4>
+          <h4 style="margin: 0.3rem 0 0; font-size: 1rem; color: #fff; font-weight: 700;">あなたの現在のマウス vs 「${escapeHtml(targetDeviceName)}」</h4>
         </div>
         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
           <label style="font-size: 0.75rem; color: #a1a1aa;">あなたの今のマウス:</label>
-          <select onchange="window.handleUserMouseChange(this.value, '${escapeHtml(targetDeviceName)}', '${escapeHtml(containerId)}')"
-                  style="padding: 0.35rem 0.65rem; border-radius: 6px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.22); color: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+          <select onchange="window.handleUserMouseChange(this.value, '${escapeHtml(targetDeviceName)}', '${escapeHtml(containerId)}')" style="padding: 0.35rem 0.65rem; border-radius: 6px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.22); color: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
             ${optionsHtml}
           </select>
         </div>
       </div>
-
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; align-items: stretch;">
-        <!-- 左：現在のマウス -->
         <div style="padding: 0.9rem 1rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.07);">
           <div style="font-size: 0.7rem; color: #a1a1aa; margin-bottom: 0.2rem;">CURRENT MOUSE（現在）</div>
           <div style="font-size: 0.95rem; font-weight: 700; color: #e4e4e7; margin-bottom: 0.65rem;">${escapeHtml(userSpec.name)}</div>
           <div style="margin-bottom: 0.5rem;">
-            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;">
-              <span style="color:#a1a1aa;">重量</span><strong>${userSpec.weight} g</strong>
-            </div>
-            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;">
-              <div style="width: ${userBarWidth}%; height: 100%; background: #71717a;"></div>
-            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;"><span style="color:#a1a1aa;">重量</span><strong>${userSpec.weight} g</strong></div>
+            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;"><div style="width: ${userBarWidth}%; height: 100%; background: #71717a;"></div></div>
           </div>
           <div style="font-size: 0.76rem; color: #a1a1aa; display: grid; gap: 0.25rem; margin-top: 0.6rem;">
             <div>形状: <strong style="color:#e4e4e7;">${escapeHtml(userSpec.shape)}</strong></div>
@@ -267,21 +259,12 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
             <div>最大レポートレート: <strong style="color:#e4e4e7;">${userSpec.hz} Hz</strong></div>
           </div>
         </div>
-
-        <!-- 右：候補のプロ使用マウス -->
         <div style="padding: 0.9rem 1rem; border-radius: 8px; background: rgba(191, 87, 255, 0.1); border: 1px solid rgba(191, 87, 255, 0.45);">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.2rem;">
-            <span style="font-size: 0.7rem; color: #e9d5ff; font-weight: 700;">TARGET PRO MOUSE（候補）</span>
-            ${diffBadgeHtml}
-          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.2rem;"><span style="font-size: 0.7rem; color: #e9d5ff; font-weight: 700;">TARGET PRO MOUSE（候補）</span>${diffBadgeHtml}</div>
           <div style="font-size: 0.95rem; font-weight: 800; color: #fff; margin-bottom: 0.65rem;">${escapeHtml(targetDeviceName)}</div>
           <div style="margin-bottom: 0.5rem;">
-            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;">
-              <span style="color:#e9d5ff;">重量</span><strong style="color:#d4ff33; font-size:0.88rem;">${targetSpec.weight} g</strong>
-            </div>
-            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;">
-              <div style="width: ${targetBarWidth}%; height: 100%; background: #d4ff33;"></div>
-            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;"><span style="color:#e9d5ff;">重量</span><strong style="color:#d4ff33; font-size:0.88rem;">${targetSpec.weight} g</strong></div>
+            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;"><div style="width: ${targetBarWidth}%; height: 100%; background: #d4ff33;"></div></div>
           </div>
           <div style="font-size: 0.76rem; color: #e4e4e7; display: grid; gap: 0.25rem; margin-top: 0.6rem;">
             <div>形状: <strong style="color:#fff;">${escapeHtml(targetSpec.shape)}</strong>（推奨: ${escapeHtml(targetSpec.grip)}）</div>
@@ -290,11 +273,8 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
           </div>
         </div>
       </div>
-
       <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-        <p style="margin: 0; font-size: 0.8rem; color: #e4e4e7; line-height: 1.45; flex: 1; min-width: 240px;">
-          💡 <strong>乗り換え体感予測：</strong>${escapeHtml(feelingComment)}
-        </p>
+        <p style="margin: 0; font-size: 0.8rem; color: #e4e4e7; line-height: 1.45; flex: 1; min-width: 240px;">💡 <strong>乗り換え体感予測：</strong>${escapeHtml(feelingComment)}</p>
         ${createAffiliateButtonsHtml(targetDeviceName, false)}
       </div>
     </div>`;
@@ -309,9 +289,6 @@ window.handleUserMouseChange = function (newMouseName, targetDeviceName, contain
   }
 };
 
-// ============================================================================
-// 💡 全ページ共通：YouTubeレビュー動画取得＆VSスペック比較＆アフィリエイト導線描画関数
-// ============================================================================
 async function renderYouTubeSection({ sectionId, anchorElement, position = "afterend", titlePrefix, deviceName, hintText = "" }) {
   const apiBaseUrl = document.querySelector('meta[name="frag-api-base-url"]')?.content;
   if (!apiBaseUrl || !anchorElement) return;
