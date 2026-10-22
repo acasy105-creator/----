@@ -1,10 +1,18 @@
 // ============================================================================
-// 💰 アフィリエイト設定（Amazonアソシエイト / 楽天アフィリエイト用）
-// ※取得したトラッキングIDを入力すると、サイト内の全購入ボタンに自動でIDが付与されます
+// 0. 共通ユーティリティ ＆ アフィリエイト設定（Amazon / 楽天）
 // ============================================================================
+const escapeHtml = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+
 const AFFILIATE_CONFIG = {
-  amazonTag: "acasy105-22", // 例: "fraggear-22" （未取得の間はそのままでOK）
-  rakutenAffiliateId: "a_id=5858550"           // 楽天アフィリエイトID（任意）
+  amazonTag: "your-amazon-tag-22", // ご自身のAmazonアソシエイトID（例: "fraggear-22"）
+  rakutenAffiliateId: ""           // 楽天アフィリエイトID（任意）
 };
 
 function getAmazonAffiliateUrl(deviceName) {
@@ -92,7 +100,6 @@ const gameRoles = {
   ]
 };
 
-// 💡 ゲームタイトルごとに実在するランク体系を定義
 const gameRanks = {
   valorant: [
     { value: "アイアン", text: "アイアン (Iron)", tier: "entry" },
@@ -157,12 +164,9 @@ const getGameRanks = (game) => {
   const spec = getGameSpec(game);
   return spec ? (gameRanks[spec.roleKey] || []) : [];
 };
-const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 
 // ============================================================================
-// 💡 全ページ共通：YouTubeレビュー動画取得＆アフィリエイト導線描画関数
-// ============================================================================
-// ⚖️ 主要ゲーミングマウス スペックデータベース ＆ VS比較エンジン
+// ② 主要ゲーミングマウス スペックデータベース ＆ VS比較エンジン
 // ============================================================================
 const MOUSE_SPECS_DB = {
   "Logicool G PRO X SUPERLIGHT 2": { weight: 60, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 8000, sensor: "HERO 2" },
@@ -187,9 +191,9 @@ let currentUserMouseName = localStorage.getItem("frag_user_mouse") || "Logicool 
 function findMouseSpec(deviceName) {
   if (!deviceName) return null;
   if (MOUSE_SPECS_DB[deviceName]) return { name: deviceName, ...MOUSE_SPECS_DB[deviceName] };
-  const target = deviceName.toLowerCase();
-  const matchedKey = Object.keys(MOUSE_SPECS_DB).find((key) =>
-    key.toLowerCase().includes(target) || target.includes(key.toLowerCase())
+  const target = String(deviceName).toLowerCase();
+  const matchedKey = Object.keys(MOUSE_SPECS_DB).find((k) =>
+    k.toLowerCase().includes(target) || target.includes(k.toLowerCase())
   );
   return matchedKey ? { name: matchedKey, ...MOUSE_SPECS_DB[matchedKey] } : null;
 }
@@ -198,60 +202,67 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
   const targetSpec = findMouseSpec(targetDeviceName);
   if (!targetSpec) return "";
 
-  const userSpec = findMouseSpec(currentUserMouseName) || {
-    name: currentUserMouseName,
-    ...MOUSE_SPECS_DB["Logicool G703h (定番エルゴ / 95g)"]
-  };
+  const userSpec = findMouseSpec(currentUserMouseName) || { name: currentUserMouseName, ...MOUSE_SPECS_DB["Logicool G703h (定番エルゴ / 95g)"] };
   const weightDiff = targetSpec.weight - userSpec.weight;
   const weightPct = Math.round((Math.abs(weightDiff) / userSpec.weight) * 100);
+
   let diffBadgeHtml = "";
   let feelingComment = "";
 
   if (weightDiff < 0) {
     diffBadgeHtml = `<span style="padding: 0.25rem 0.65rem; border-radius: 999px; background: rgba(212, 255, 51, 0.18); border: 1px solid #d4ff33; color: #d4ff33; font-size: 0.78rem; font-weight: 800;">⚡ 今より ${Math.abs(weightDiff)}g（${weightPct}%）軽くなる！</span>`;
     feelingComment = Math.abs(weightDiff) >= 15
-      ? `現在より ${Math.abs(weightDiff)}g も軽量化されるため、振り始めの重さや視点移動後の慣性（行き過ぎ）が劇的に減り、別次元の初動スピードと疲労軽減を体感できます。`
-      : `現在より ${Math.abs(weightDiff)}g 軽くなるため、今の感覚を大きく崩さずにマイクロフリック（微調整）のキレと取り回しを向上できます。`;
+      ? `現在より ${Math.abs(weightDiff)}g も軽量化されるため、振り始めの重さや視点移動後の慣性が劇的に減り、別次元の初動スピードと疲労軽減を体感できます。`
+      : `現在より ${Math.abs(weightDiff)}g 軽くなるため、今の感覚を大きく崩さずにマイクロフリック（微調整）のキレを向上できます。`;
   } else if (weightDiff > 0) {
     diffBadgeHtml = `<span style="padding: 0.25rem 0.65rem; border-radius: 999px; background: rgba(56, 189, 248, 0.18); border: 1px solid #38bdf8; color: #bae6fd; font-size: 0.78rem; font-weight: 800;">🛡 今より +${weightDiff}g（安定感重視）</span>`;
-    feelingComment = `現在より +${weightDiff}g 重みが増すため、手元の細かい震えや視点の浮きが抑えられ、クロスヘアをピタッと止めるストッピングの安定感が増します。`;
+    feelingComment = `現在より +${weightDiff}g 重みが増すため、手元の細かい震えや視点の浮きが抑えられ、クロスヘアをピタッと止める安定感が増します。`;
   } else {
     diffBadgeHtml = `<span style="padding: 0.25rem 0.65rem; border-radius: 999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.25); color: #fff; font-size: 0.78rem; font-weight: 800;">＝ 同じ重量クラス（${targetSpec.weight}g）</span>`;
     feelingComment = `現在のマウスと同じ重量帯のため、重さの違和感ゼロでスムーズに移行できます。`;
   }
 
   if (userSpec.shape.slice(0, 4) !== targetSpec.shape.slice(0, 4)) {
-    feelingComment += ` また、形状が「${userSpec.shape}」から「${targetSpec.shape}」へ変わるため、握り込んだ際のフィット感にも新鮮な変化があります。`;
+    feelingComment += ` また、形状が「${userSpec.shape}」から「${targetSpec.shape}」へ変わるため、ホールド感にも変化があります。`;
   }
 
   const optionsHtml = Object.keys(MOUSE_SPECS_DB)
-    .filter((key) => key !== "Logitech G PRO X SUPERLIGHT 2")
+    .filter((k) => k !== "Logitech G PRO X SUPERLIGHT 2")
     .map((mouseKey) => `<option value="${escapeHtml(mouseKey)}" ${mouseKey === userSpec.name ? "selected" : ""}>${escapeHtml(mouseKey)} (${MOUSE_SPECS_DB[mouseKey].weight}g)</option>`)
     .join("");
+
   const userBarWidth = Math.min(100, Math.round((userSpec.weight / 110) * 100));
   const targetBarWidth = Math.min(100, Math.round((targetSpec.weight / 110) * 100));
 
   return `
-    <div id="${escapeHtml(containerId)}" style="margin-bottom: 1.5rem; padding: 1.25rem 1.4rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.05) 0%, rgba(191,87,255,0.06) 100%); border: 1px solid rgba(255,255,255,0.12);">
+    <div id="${escapeHtml(containerId)}" data-target-device="${escapeHtml(targetDeviceName)}" style="margin-bottom: 1.5rem; padding: 1.25rem 1.4rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.05) 0%, rgba(191,87,255,0.06) 100%); border: 1px solid rgba(255,255,255,0.12);">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
         <div>
           <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>SPEC COMPARISON // 買い替え体感シミュレーター</span>
-          <h4 style="margin: 0.3rem 0 0; font-size: 1rem; color: #fff; font-weight: 700;">あなたの現在のマウス vs 「${escapeHtml(targetDeviceName)}」</h4>
+          <h4 style="margin: 0.3rem 0 0; font-size: 1rem; color: #fff; font-weight: 700;">
+            あなたの現在のマウス vs 「${escapeHtml(targetDeviceName)}」
+          </h4>
         </div>
         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
           <label style="font-size: 0.75rem; color: #a1a1aa;">あなたの今のマウス:</label>
-          <select onchange="window.handleUserMouseChange(this.value, '${escapeHtml(targetDeviceName)}', '${escapeHtml(containerId)}')" style="padding: 0.35rem 0.65rem; border-radius: 6px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.22); color: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+          <select class="js-user-mouse-select" data-container-id="${escapeHtml(containerId)}"
+                  style="padding: 0.35rem 0.65rem; border-radius: 6px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.22); color: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
             ${optionsHtml}
           </select>
         </div>
       </div>
+
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; align-items: stretch;">
         <div style="padding: 0.9rem 1rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.07);">
           <div style="font-size: 0.7rem; color: #a1a1aa; margin-bottom: 0.2rem;">CURRENT MOUSE（現在）</div>
           <div style="font-size: 0.95rem; font-weight: 700; color: #e4e4e7; margin-bottom: 0.65rem;">${escapeHtml(userSpec.name)}</div>
           <div style="margin-bottom: 0.5rem;">
-            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;"><span style="color:#a1a1aa;">重量</span><strong>${userSpec.weight} g</strong></div>
-            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;"><div style="width: ${userBarWidth}%; height: 100%; background: #71717a;"></div></div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;">
+              <span style="color:#a1a1aa;">重量</span><strong>${userSpec.weight} g</strong>
+            </div>
+            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;">
+              <div style="width: ${userBarWidth}%; height: 100%; background: #71717a;"></div>
+            </div>
           </div>
           <div style="font-size: 0.76rem; color: #a1a1aa; display: grid; gap: 0.25rem; margin-top: 0.6rem;">
             <div>形状: <strong style="color:#e4e4e7;">${escapeHtml(userSpec.shape)}</strong></div>
@@ -259,12 +270,20 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
             <div>最大レポートレート: <strong style="color:#e4e4e7;">${userSpec.hz} Hz</strong></div>
           </div>
         </div>
+
         <div style="padding: 0.9rem 1rem; border-radius: 8px; background: rgba(191, 87, 255, 0.1); border: 1px solid rgba(191, 87, 255, 0.45);">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.2rem;"><span style="font-size: 0.7rem; color: #e9d5ff; font-weight: 700;">TARGET PRO MOUSE（候補）</span>${diffBadgeHtml}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.2rem;">
+            <span style="font-size: 0.7rem; color: #e9d5ff; font-weight: 700;">TARGET PRO MOUSE（候補）</span>
+            ${diffBadgeHtml}
+          </div>
           <div style="font-size: 0.95rem; font-weight: 800; color: #fff; margin-bottom: 0.65rem;">${escapeHtml(targetDeviceName)}</div>
           <div style="margin-bottom: 0.5rem;">
-            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;"><span style="color:#e9d5ff;">重量</span><strong style="color:#d4ff33; font-size:0.88rem;">${targetSpec.weight} g</strong></div>
-            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;"><div style="width: ${targetBarWidth}%; height: 100%; background: #d4ff33;"></div></div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;">
+              <span style="color:#e9d5ff;">重量</span><strong style="color:#d4ff33; font-size:0.88rem;">${targetSpec.weight} g</strong>
+            </div>
+            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;">
+              <div style="width: ${targetBarWidth}%; height: 100%; background: #d4ff33;"></div>
+            </div>
           </div>
           <div style="font-size: 0.76rem; color: #e4e4e7; display: grid; gap: 0.25rem; margin-top: 0.6rem;">
             <div>形状: <strong style="color:#fff;">${escapeHtml(targetSpec.shape)}</strong>（推奨: ${escapeHtml(targetSpec.grip)}）</div>
@@ -273,21 +292,51 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
           </div>
         </div>
       </div>
+
       <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-        <p style="margin: 0; font-size: 0.8rem; color: #e4e4e7; line-height: 1.45; flex: 1; min-width: 240px;">💡 <strong>乗り換え体感予測：</strong>${escapeHtml(feelingComment)}</p>
+        <p style="margin: 0; font-size: 0.8rem; color: #e4e4e7; line-height: 1.45; flex: 1; min-width: 240px;">
+          💡 <strong>乗り換え体感予測：</strong>${escapeHtml(feelingComment)}
+        </p>
         ${createAffiliateButtonsHtml(targetDeviceName, false)}
       </div>
     </div>`;
 }
 
-window.handleUserMouseChange = function (newMouseName, targetDeviceName, containerId) {
-  currentUserMouseName = newMouseName;
-  localStorage.setItem("frag_user_mouse", newMouseName);
-  const el = document.getElementById(containerId);
-  if (el) {
-    el.outerHTML = buildMouseComparisonHtml(targetDeviceName, containerId);
+// プルダウン変更時のイベント委譲（クォート文字による構文エラーを完全防止）
+document.addEventListener("change", (e) => {
+  const selectEl = e.target.closest(".js-user-mouse-select");
+  if (!selectEl) return;
+  currentUserMouseName = selectEl.value;
+  localStorage.setItem("frag_user_mouse", currentUserMouseName);
+  const containerId = selectEl.dataset.containerId;
+  const containerEl = document.getElementById(containerId);
+  if (containerEl) {
+    const targetDevice = containerEl.dataset.targetDevice;
+    containerEl.outerHTML = buildMouseComparisonHtml(targetDevice, containerId);
   }
-};
+});
+
+// ============================================================================
+// ④ YouTubeインライン再生プレイヤー ＆ 全ページ共通レビュー描画関数
+// ============================================================================
+document.addEventListener("click", (e) => {
+  const playTrigger = e.target.closest(".js-inline-video-trigger");
+  if (!playTrigger) return;
+  const videoId = playTrigger.dataset.videoId;
+  if (!videoId) return;
+
+  // クリックされたサムネイル枠をそのままYouTube埋め込みプレイヤー(iframe)に置き換える
+  playTrigger.outerHTML = `
+    <div style="position: relative; width: 100%; aspect-ratio: 16/9; background: #000;">
+      <iframe
+        src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0"
+        title="YouTube video player"
+        style="width: 100%; height: 100%; border: 0; display: block;"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen>
+      </iframe>
+    </div>`;
+});
 
 async function renderYouTubeSection({ sectionId, anchorElement, position = "afterend", titlePrefix, deviceName, hintText = "" }) {
   const apiBaseUrl = document.querySelector('meta[name="frag-api-base-url"]')?.content;
@@ -344,22 +393,34 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
               ${hintText ? `<span style="font-size: 0.75rem; color: #a1a1aa;">${escapeHtml(hintText)}</span>` : ""}
             </div>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
             ${validVideos.map((v) => `
-              <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; background: rgba(0,0,0,0.35); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;" onmouseover="this.style.transform='translateY(-3px)'; this.style.borderColor='rgba(255,255,255,0.15)'" onmouseout="this.style.transform='none'; this.style.borderColor='rgba(255,255,255,0.06)'">
-                <div style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden;">
-                  <img src="${escapeHtml(v.thumbnailUrl || "")}" alt="${escapeHtml(v.title || "動画タイトル")}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+              <article style="display: flex; flex-direction: column; background: rgba(0,0,0,0.38); border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;">
+                <!-- 💡 サムネイルをクリックするとその場でYouTubeがインライン再生される -->
+                <div class="js-inline-video-trigger" data-video-id="${escapeHtml(v.videoId)}"
+                     style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden; cursor: pointer; background: #000;"
+                     title="クリックしてこの場で動画を再生">
+                  <img src="${escapeHtml(v.thumbnailUrl || "")}" alt="${escapeHtml(v.title || "動画タイトル")}" style="width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.88; transition: transform 0.25s, opacity 0.25s;" onmouseover="this.style.transform='scale(1.03)'; this.style.opacity='1';" onmouseout="this.style.transform='none'; this.style.opacity='0.88';">
+                  <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; background: radial-gradient(circle, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.55) 100%);">
+                    <span style="padding: 0.45rem 0.95rem; border-radius: 999px; background: rgba(220, 38, 38, 0.92); color: #fff; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em; box-shadow: 0 4px 14px rgba(0,0,0,0.5); display: inline-flex; align-items: center; gap: 0.35rem;">
+                      ▶ ページ内で再生
+                    </span>
+                  </div>
                 </div>
-                <div style="padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                  <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.75rem; color: #f4f4f5;">
+                <div style="padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 0.75rem;">
+                  <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #f4f4f5;">
                     ${escapeHtml(v.title || "動画タイトル")}
                   </div>
-                  <div style="font-size: 0.75rem; color: #a1a1aa; display: flex; align-items: center; justify-content: space-between;">
+                  <div style="font-size: 0.75rem; color: #a1a1aa; display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">
                     <span>${escapeHtml(v.channelTitle || "YouTube")}</span>
-                    <span style="color: #ff0000; font-weight: 500; font-size: 0.7rem;">▶ WATCH</span>
+                    <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer"
+                       style="color: #a1a1aa; text-decoration: none; font-weight: 600; font-size: 0.7rem; transition: color 0.15s;"
+                       onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#a1a1aa'">
+                      YouTubeで開く ↗
+                    </a>
                   </div>
                 </div>
-              </a>
+              </article>
             `).join("")}
           </div>`;
       } else {
@@ -377,8 +438,11 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
   }
 }
 
-// ロール選択肢の更新
+// ============================================================================
+// ロール＆ランク選択肢の初期化・連動
+// ============================================================================
 function populateRoleOptions(select, game, includeAll = false) {
+  if (!select) return;
   const roleSets = game ? [getGameRoles(game)] : Object.values(gameRoles);
   const roles = [...new Map(roleSets.flat().map((role) => [role.value, role])).values()];
   select.innerHTML = includeAll ? '<option value="">すべてのロール</option>' : "";
@@ -387,7 +451,6 @@ function populateRoleOptions(select, game, includeAll = false) {
   ).join(""));
 }
 
-// 💡 ランク選択肢をゲームタイトルに合わせて動的に更新（中間のゴールド等を初期選択）
 function populateRankOptions(select, game) {
   if (!select) return;
   const ranks = getGameRanks(game);
@@ -529,11 +592,11 @@ function renderPlayers() {
              data-player="${escapeHtml(playerName)}"
              data-device="${escapeHtml(device || '')}"
              style="${hasValidDevice ? 'cursor: pointer; transition: background 0.2s; border-radius: 4px; padding: 0.35rem 0.4rem;' : ''}"
-             ${hasValidDevice ? 'title="クリックしてこのデバイスのレビュー動画を表示"' : ''}>
+             ${hasValidDevice ? 'title="クリックしてこのデバイスの比較＆レビュー動画を表示"' : ''}>
           <span>${escapeHtml(category)}</span>
           <span style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; justify-content: flex-end;">
             <strong>${escapeHtml(device || "データなし")}</strong>
-            ${hasValidDevice ? '<small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画</small>' : ''}
+            ${hasValidDevice ? '<small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>' : ''}
             ${hasValidDevice ? `<a href="${escapeHtml(getAmazonAffiliateUrl(device))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;" title="Amazonで見る">🛒 Amazon</a>` : ''}
           </span>
         </div>`;
@@ -565,7 +628,7 @@ function renderPlayers() {
         position: "beforebegin",
         titlePrefix: `${trigger.dataset.player} の使用デバイス`,
         deviceName: trigger.dataset.device,
-        hintText: "※各カードの「▶ 動画」をクリックで切り替え"
+        hintText: "※各カードの「▶ 動画・比較」をクリックで切り替え"
       });
     });
   });
@@ -582,7 +645,7 @@ function renderPlayers() {
       position: "beforebegin",
       titlePrefix: `${filtered[0].name} の使用デバイス`,
       deviceName: filtered[0].devices["マウス"],
-      hintText: "※各カードの「▶ 動画」をクリックで切り替え"
+      hintText: "※各カードの「▶ 動画・比較」をクリックで切り替え"
     });
   }
 }
@@ -593,7 +656,7 @@ function renderPlayers() {
 });
 
 // ============================================================================
-// 2. プロ使用率（ランキングクリックでレビュー動画＆購入リンク表示）
+// 2. プロ使用率（ランキングクリックで比較シミュレーター＆動画＆購入リンク表示）
 // ============================================================================
 function renderRankings(game) {
   const normalizedGame = normalizeGameName(game);
@@ -622,13 +685,13 @@ function renderRankings(game) {
     return `<article class="category-card"><div class="category-heading"><h3>${category}</h3><span>${ranked.length} MODELS</span></div>${ranked.length ? ranked.map(([name, count], index) => {
       const percentage = observedProfiles ? Math.round(count / observedProfiles * 100) : 0;
       return `
-        <div class="rank-row js-ranking-yt-trigger" data-device="${escapeHtml(name)}" style="cursor: pointer; padding: 0.4rem; border-radius: 6px; transition: background 0.2s;" title="クリックしてレビュー動画を表示">
+        <div class="rank-row js-ranking-yt-trigger" data-device="${escapeHtml(name)}" style="cursor: pointer; padding: 0.4rem; border-radius: 6px; transition: background 0.2s;" title="クリックしてスペック比較＆レビュー動画を表示">
           <span class="rank-num">${String(index + 1).padStart(2, "0")}</span>
           <div>
             <div class="rank-name" style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
               <span>${escapeHtml(name)}</span>
               <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画</small>
+                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>
                 <a href="${escapeHtml(getAmazonAffiliateUrl(name))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.35rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;">🛒 Amazon</a>
               </span>
             </div>
@@ -651,7 +714,7 @@ function renderRankings(game) {
         position: "afterend",
         titlePrefix: `${normalizedGame} 人気デバイス`,
         deviceName: trigger.dataset.device,
-        hintText: "※ランキングの各モデルをクリックで動画切り替え"
+        hintText: "※ランキングの各モデルをクリックで切り替え"
       });
     });
   });
@@ -668,7 +731,7 @@ function renderRankings(game) {
       position: "afterend",
       titlePrefix: `${normalizedGame} 使用率1位モデル`,
       deviceName: topDeviceForInitialVideo,
-      hintText: "※ランキングの各モデルをクリックで動画切り替え"
+      hintText: "※ランキングの各モデルをクリックで切り替え"
     });
   }
 }
@@ -695,7 +758,6 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
   let targetDeviceCategory = "マウス";
   let customCandidateModels = null;
 
-  // 💡 8パターンの精密診断ロジック
   if (/足音|聞こえ|音|定位|ヘッド|イヤホン|耳|sound|footstep|audio/.test(normalized)) {
     recommendation = {
       score: "98",
@@ -738,14 +800,14 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
   } else if (/重い|疲れ|手首痛|腱鞘炎|軽い|軽量|フリック|振り向き/.test(normalized)) {
     recommendation = {
       score: "95",
-      category: "超軽量ワイヤレスマウス（40g〜50g台）",
+      category: "超軽量ワイヤレスマウス（30g〜50g台）",
       title: "慣性を極限まで減らす超軽量シェルへのアップデート",
       detail: "マウスの重量が60g以下になると、振り始めのエネルギーと止める際の慣性が大幅に減少します。ローセンシで大きく腕を振るプレイヤーや、長時間ランクを回して手首・前腕に疲労が溜まりやすい方に最も効果が出やすい投資です。",
       actionPoint: "軽量マウスに変えた直後は視点が浮きやすいため、ゲーム内感度を2〜5%ほど下げて微調整するとすぐに馴染みます。"
     };
     targetDeviceCategory = "マウス";
     customCandidateModels = ["Finalmouse UltralightX", "WLmouse Beast X", "Logicool G PRO X SUPERLIGHT 2"];
-  } else if (/キーボード|ストッピング|キャラコン|移動|キー|ラピトリ|ラピッドトリガー|設定/.test(normalized)) {
+  } else if (/キーボード|キャラコン|移動|キー|ラピトリ|ラピッドトリガー|設定/.test(normalized)) {
     recommendation = {
       score: "93",
       category: "ラピッドトリガー対応ゲーミングキーボード",
@@ -776,7 +838,6 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
     targetDeviceCategory = "マウス";
   }
 
-  // 💡 ランク帯（Tier）とロールに応じたカスタムコーチング文の生成
   const rankObj = getGameRanks(game).find((r) => r.value === rank);
   const rankTier = rankObj ? rankObj.tier : "mid";
   const roleText = getGameRoles(game).find((roleOption) => roleOption.value === role)?.text || role;
@@ -794,7 +855,6 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
     tierAdviceDetail = `${rank}帯のハイレベルな撃ち合いでは、ポーリングレート（4000Hz/8000Hz）の低遅延性能や、手汗・湿気に左右されないサーフェス環境など、再現性と応答速度のわずかな差が勝敗に直結します。`;
   }
 
-  // 該当ゲームのプロ・配信者が実際に使っている人気モデルを抽出
   const normalizedGame = normalizeGameName(game);
   const candidatePlayers = players.filter((p) => normalizeGameName(p?.game) === normalizedGame);
   let candidateDevices = customCandidateModels ? [...customCandidateModels] : [...new Set(
@@ -850,7 +910,7 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
               <div style="display: flex; flex-direction: column; gap: 0.45rem;">
                 <button type="button" class="js-consult-yt-trigger" data-device="${escapeHtml(dev)}"
                   style="cursor: pointer; width: 100%; padding: 0.45rem 0.6rem; border-radius: 6px; font-size: 0.78rem; font-weight: bold; color: #fff; border: 1px solid ${idx === 0 ? '#bf57ff' : 'rgba(255,255,255,0.15)'}; background: ${idx === 0 ? 'rgba(191, 87, 255, 0.22)' : 'rgba(255,255,255,0.05)'}; transition: all 0.2s;">
-                  ▶ レビュー動画を見る
+                  ▶ 動画・比較を見る
                 </button>
                 ${createAffiliateButtonsHtml(dev, true)}
               </div>
@@ -876,7 +936,7 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
         position: "afterend",
         titlePrefix: `推奨モデル（${targetDeviceCategory}）`,
         deviceName: trigger.dataset.device,
-        hintText: "※上の候補カードの「▶ レビュー動画を見る」で切り替え"
+        hintText: "※上の候補カードの「▶ 動画・比較を見る」で切り替え"
       });
     });
   });
@@ -887,15 +947,13 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
     position: "afterend",
     titlePrefix: `推奨モデル（${targetDeviceCategory}）`,
     deviceName: topCandidateDevices[0],
-    hintText: "※上の候補カードの「▶ レビュー動画を見る」で切り替え"
+    hintText: "※上の候補カードの「▶ 動画・比較を見る」で切り替え"
   });
 });
 
 // ============================================================================
-// 4. 感度マッチ（双方向・感度コンバーター ＆ プロ感度逆算コピー ＆ マウス動画切替）
+// 4. 感度マッチ（①双方向・感度コンバーター ＆ プロ感度逆算コピー ＆ マウス比較・動画）
 // ============================================================================
-
-// 💡 振り向き(cm/360°)とDPIから、指定ゲームのゲーム内感度を逆算する関数
 const fromCm360ToSens = (cm360, dpi, game) => {
   const spec = getGameSpec(game);
   if (!spec || !Number.isFinite(cm360) || !Number.isFinite(dpi) || cm360 <= 0 || dpi <= 0) {
@@ -904,7 +962,6 @@ const fromCm360ToSens = (cm360, dpi, game) => {
   return (360 * 2.54) / (dpi * cm360 * spec.yaw);
 };
 
-// 💡 ワンクリックで数値をクリップボードにコピーし、ボタン表示を切り替える関数
 window.copySensValue = function (buttonEl, textValue) {
   if (!navigator.clipboard) return;
   navigator.clipboard.writeText(String(textValue)).then(() => {
@@ -937,7 +994,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
   const resultContainer = document.getElementById("match-result");
   resultContainer.innerHTML = '<div class="no-results" style="grid-column: 1 / -1; width:100%; text-align:center;">APIからマッチする選手を検索中...</div>';
 
-  // 既存のコンバーター帯・YouTubeレビュー帯があれば消去
   const existingConverter = document.getElementById("sens-converter-panel");
   if (existingConverter) existingConverter.remove();
   const existingYt = document.getElementById("youtube-reviews-section");
@@ -946,7 +1002,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
   const userDistance = toCm360(dpi, sensitivity, game);
   const userGameSpec = getGameSpec(game);
 
-  // 💡 ① 双方向・感度コンバーターパネルを結果上部に生成
   if (Number.isFinite(userDistance)) {
     const converterCardsHtml = Object.keys(gameSpecs).map((targetGameKey) => {
       const targetSpec = gameSpecs[targetGameKey];
@@ -955,7 +1010,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       const sensFormatted = Number.isFinite(convertedSens) ? convertedSens.toFixed(3) : "--";
       const eDpi = Number.isFinite(convertedSens) ? Math.round(dpi * convertedSens) : "--";
 
-      // 別DPI（400 / 800 / 1600）にした場合の早見表
       const dpiPresets = [400, 800, 1600].map((presetDpi) => {
         const s = fromCm360ToSens(userDistance, presetDpi, targetGameKey);
         return `<span style="font-size: 0.7rem; color: ${presetDpi === dpi ? '#d4ff33' : '#a1a1aa'};">${presetDpi}DPI: <strong>${Number.isFinite(s) ? s.toFixed(3) : '--'}</strong></span>`;
@@ -1040,7 +1094,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       const padName = typeof safeDevices["マウスパッド"] === "string" && safeDevices["マウスパッド"].trim() ? safeDevices["マウスパッド"] : "データなし";
       const isFirst = index === 0;
 
-      // 💡 このプロ選手の振り向きを「ユーザーの現在のゲーム＆DPI」で再現するための逆算感度
       const tryProSensInUserEnv = fromCm360ToSens(playerDistance, dpi, game);
       const tryProSensFormatted = Number.isFinite(tryProSensInUserEnv) ? tryProSensInUserEnv.toFixed(3) : null;
 
@@ -1087,10 +1140,10 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
                  data-player="${escapeHtml(playerName)}"
                  data-mouse="${escapeHtml(mouseName)}"
                  style="cursor: pointer; transition: all 0.2s; border: 1px solid ${isFirst ? '#bf57ff' : 'rgba(255,255,255,0.08)'}; background: ${isFirst ? 'rgba(191, 87, 255, 0.12)' : 'transparent'}; border-radius: 6px; padding: 0.55rem;"
-                 title="クリックしてこのマウスのレビュー動画を表示">
+                 title="クリックしてこのマウスの比較＆レビュー動画を表示">
               <span style="display: flex; justify-content: space-between; align-items: center;">
                 PLAYER MOUSE
-                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画切替</small>
+                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>
               </span>
               <strong style="display:block; margin-bottom: 0.4rem;">${escapeHtml(mouseName)}</strong>
               ${createAffiliateButtonsHtml(mouseName, true)}
@@ -1121,7 +1174,7 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
           position: "afterend",
           titlePrefix: `${trigger.dataset.player} の使用マウス`,
           deviceName: trigger.dataset.mouse,
-          hintText: "※各カードの「PLAYER MOUSE」をクリックで動画切り替え"
+          hintText: "※各カードの「PLAYER MOUSE」をクリックで切り替え"
         });
       });
     });
@@ -1132,7 +1185,7 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       position: "afterend",
       titlePrefix: `${matchedPlayers[0].name} の使用マウス`,
       deviceName: matchedPlayers[0].devices?.["マウス"],
-      hintText: "※各カードの「PLAYER MOUSE」をクリックで動画切り替え"
+      hintText: "※各カードの「PLAYER MOUSE」をクリックで切り替え"
     });
 
   } catch (error) {
