@@ -1,5 +1,5 @@
 // ============================================================================
-// 0. 共通ユーティリティ ＆ アフィリエイト設定（Amazon / 楽天）
+// 0. 共通ユーティリティ ＆ アフィリエイト設定（Amazon / もしも楽天市場）
 // ============================================================================
 const escapeHtml = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -11,8 +11,8 @@ const escapeHtml = (value) =>
   })[char]);
 
 const AFFILIATE_CONFIG = {
-  amazonTag: "acasy105-22", // ご自身のAmazonアソシエイトID（例: "fraggear-22"）
-  rakutenAffiliateId: "5858550"           // 楽天アフィリエイトID（任意）
+  amazonTag: "acasy105-22",       // ご自身のAmazonアソシエイトID
+  rakutenAffiliateId: "5858550"   // もしもアフィリエイトの楽天 a_id（または楽天アフィリエイトID）
 };
 
 function getAmazonAffiliateUrl(deviceName) {
@@ -24,10 +24,15 @@ function getAmazonAffiliateUrl(deviceName) {
 function getRakutenAffiliateUrl(deviceName) {
   const query = encodeURIComponent(deviceName);
   const searchUrl = `https://search.rakuten.co.jp/search/mall/${query}/`;
-  if (AFFILIATE_CONFIG.rakutenAffiliateId) {
-    return `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(AFFILIATE_CONFIG.rakutenAffiliateId)}/?pc=${encodeURIComponent(searchUrl)}`;
+  const id = String(AFFILIATE_CONFIG.rakutenAffiliateId || "").trim();
+  if (!id) return searchUrl;
+
+  // 数字のみの場合は「もしもアフィリエイト」の楽天市場提携リンク(a_id)として生成
+  if (/^\d+$/.test(id)) {
+    return `https://af.moshimo.com/af/c/click?a_id=${encodeURIComponent(id)}&p_id=54&pc_id=54&pl_id=616&url=${encodeURIComponent(searchUrl)}`;
   }
-  return searchUrl;
+  // 楽天アフィリエイト本家IDの場合
+  return `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(id)}/?pc=${encodeURIComponent(searchUrl)}`;
 }
 
 function createAffiliateButtonsHtml(deviceName, compact = false) {
@@ -155,6 +160,13 @@ const toCm360 = (dpi, sensitivity, game) => {
     return Number.NaN;
   }
   return 360 * 2.54 / (dpi * sensitivity * spec.yaw);
+};
+const fromCm360ToSens = (cm360, dpi, game) => {
+  const spec = getGameSpec(game);
+  if (!spec || !Number.isFinite(cm360) || !Number.isFinite(dpi) || cm360 <= 0 || dpi <= 0) {
+    return Number.NaN;
+  }
+  return (360 * 2.54) / (dpi * cm360 * spec.yaw);
 };
 const getGameRoles = (game) => {
   const spec = getGameSpec(game);
@@ -302,7 +314,6 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
     </div>`;
 }
 
-// プルダウン変更時のイベント委譲（クォート文字による構文エラーを完全防止）
 document.addEventListener("change", (e) => {
   const selectEl = e.target.closest(".js-user-mouse-select");
   if (!selectEl) return;
@@ -325,7 +336,6 @@ document.addEventListener("click", (e) => {
   const videoId = playTrigger.dataset.videoId;
   if (!videoId) return;
 
-  // クリックされたサムネイル枠をそのままYouTube埋め込みプレイヤー(iframe)に置き換える
   playTrigger.outerHTML = `
     <div style="position: relative; width: 100%; aspect-ratio: 16/9; background: #000;">
       <iframe
@@ -396,7 +406,6 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
             ${validVideos.map((v) => `
               <article style="display: flex; flex-direction: column; background: rgba(0,0,0,0.38); border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;">
-                <!-- 💡 サムネイルをクリックするとその場でYouTubeがインライン再生される -->
                 <div class="js-inline-video-trigger" data-video-id="${escapeHtml(v.videoId)}"
                      style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden; cursor: pointer; background: #000;"
                      title="クリックしてこの場で動画を再生">
@@ -436,6 +445,372 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
     console.error("YouTube API取得エラー:", ytError);
     ytSection.innerHTML = `${comparisonHtml}<div class="no-results" style="text-align:center; padding: 1rem;">動画の取得に失敗しました。</div>`;
   }
+}
+
+// ============================================================================
+// ⑤ お気に入り（比較トレイ） ＆ ③ 環境シンクロ率・X(Twitter)シェア基盤
+// ============================================================================
+const FAVORITES_STORAGE_KEY = "frag_saved_favorites_v1";
+
+function loadFavoritesState() {
+  try {
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (!raw) return { players: [], devices: [] };
+    const parsed = JSON.parse(raw);
+    return {
+      players: Array.isArray(parsed?.players) ? parsed.players : [],
+      devices: Array.isArray(parsed?.devices) ? parsed.devices : []
+    };
+  } catch (e) {
+    return { players: [], devices: [] };
+  }
+}
+
+let favoritesState = loadFavoritesState();
+let isCompareTrayOpen = false;
+let showOnlyFavoritePlayers = false;
+
+function saveFavoritesState() {
+  localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoritesState));
+  renderCompareTrayUI();
+  refreshAllInteractiveEnhancements();
+}
+
+window.toggleFavoritePlayer = function (playerName, event) {
+  if (event) event.stopPropagation();
+  if (!playerName) return;
+  const idx = favoritesState.players.indexOf(playerName);
+  if (idx >= 0) favoritesState.players.splice(idx, 1);
+  else favoritesState.players.push(playerName);
+  saveFavoritesState();
+  if (showOnlyFavoritePlayers) renderPlayers();
+};
+
+window.toggleFavoriteDevice = function (deviceName, event) {
+  if (event) event.stopPropagation();
+  if (!deviceName || deviceName === "データなし") return;
+  const idx = favoritesState.devices.indexOf(deviceName);
+  if (idx >= 0) favoritesState.devices.splice(idx, 1);
+  else favoritesState.devices.push(deviceName);
+  saveFavoritesState();
+};
+
+window.clearAllFavorites = function () {
+  favoritesState = { players: [], devices: [] };
+  showOnlyFavoritePlayers = false;
+  saveFavoritesState();
+  renderPlayers();
+};
+
+window.toggleCompareTrayDrawer = function (forceState) {
+  isCompareTrayOpen = typeof forceState === "boolean" ? forceState : !isCompareTrayOpen;
+  renderCompareTrayUI();
+};
+
+function getUserBaselineEnv() {
+  const game = document.getElementById("match-game")?.value || "VALORANT";
+  const dpi = Number(document.getElementById("match-dpi")?.value) || 800;
+  const sens = Number(document.getElementById("match-sens")?.value) || 0.3;
+  const cm = toCm360(dpi, sens, game);
+  const mouse = currentUserMouseName || "Logicool G703h (定番エルゴ / 95g)";
+  return { game, dpi, sens, cm, mouse };
+}
+
+function calculateEnvSyncRate(player, userEnv = getUserBaselineEnv()) {
+  const pDpi = Number(player?.dpi);
+  const pSens = Number(player?.sens);
+  const pCm = Number(player?.cmPer360) || toCm360(pDpi, pSens, player?.game);
+
+  let sensScore = 70;
+  if (Number.isFinite(pCm) && Number.isFinite(userEnv.cm) && userEnv.cm > 0) {
+    const diffRatio = Math.abs(pCm - userEnv.cm) / userEnv.cm;
+    sensScore = Math.max(15, Math.round(75 * Math.exp(-diffRatio * 2.2)));
+  }
+
+  const pMouse = String(player?.devices?.["マウス"] || "");
+  const uSpec = findMouseSpec(userEnv.mouse);
+  const pSpec = findMouseSpec(pMouse);
+
+  let gearScore = 12;
+  if (pMouse && userEnv.mouse.toLowerCase().includes(pMouse.toLowerCase())) {
+    gearScore = 24;
+  } else if (uSpec && pSpec) {
+    const weightGap = Math.abs(uSpec.weight - pSpec.weight);
+    const shapeBonus = uSpec.shape.slice(0, 4) === pSpec.shape.slice(0, 4) ? 6 : 2;
+    gearScore = Math.max(6, Math.round(18 - weightGap * 0.25) + shapeBonus);
+  }
+
+  return Math.min(99, Math.max(25, sensScore + gearScore));
+}
+
+window.shareToX = function (shareText, event) {
+  if (event) event.stopPropagation();
+  const pageUrl = window.location.href.split("#")[0];
+  const hashtags = "FRAG_GEAR,FPS感度,ゲーミングデバイス";
+  const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pageUrl)}&hashtags=${encodeURIComponent(hashtags)}`;
+  window.open(intentUrl, "_blank", "noopener,noreferrer,width=600,height=520");
+};
+
+window.openPlayerSyncModal = function (playerName, event) {
+  if (event) event.stopPropagation();
+  const player = players.find((p) => p?.name === playerName);
+  if (!player) return;
+
+  const userEnv = getUserBaselineEnv();
+  const syncRate = calculateEnvSyncRate(player, userEnv);
+  const pDpi = Number(player?.dpi);
+  const pSens = Number(player?.sens);
+  const pCm = Number(player?.cmPer360) || toCm360(pDpi, pSens, player?.game);
+  const diffCm = Number.isFinite(pCm) && Number.isFinite(userEnv.cm) ? Math.abs(pCm - userEnv.cm) : Number.NaN;
+  const convertedSensForUser = fromCm360ToSens(pCm, userEnv.dpi, userEnv.game);
+  const pMouse = player?.devices?.["マウス"] || "データなし";
+  const pPad = player?.devices?.["マウスパッド"] || "データなし";
+
+  const shareText = `【FRAG // 環境シンクロ診断】\n私と「${player.name}」の環境シンクロ率は【${syncRate}%】でした！⚡\n・${player.name}の振り向き: ${Number.isFinite(pCm) ? pCm.toFixed(1) : "--"}cm/360°\n・使用マウス: ${pMouse}\n`;
+
+  let modalRoot = document.getElementById("frag-sync-modal-root");
+  if (!modalRoot) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="frag-sync-modal-root"></div>`);
+    modalRoot = document.getElementById("frag-sync-modal-root");
+  }
+
+  modalRoot.innerHTML = `
+    <div onclick="document.getElementById('frag-sync-modal-root').innerHTML=''"
+         style="position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.78); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 1.25rem; box-sizing: border-box;">
+      <div onclick="event.stopPropagation()"
+           style="width: 100%; max-width: 540px; border-radius: 14px; background: #0f0f13; border: 1px solid rgba(212,255,51,0.45); box-shadow: 0 20px 50px rgba(0,0,0,0.85); padding: 1.6rem; position: relative; color: #fff;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+          <div>
+            <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>ENVIRONMENT SYNC CARD</span>
+            <h3 style="margin: 0.3rem 0 0; font-size: 1.25rem; font-weight: 800;">
+              あなた × ${escapeHtml(player.name)}
+            </h3>
+          </div>
+          <button type="button" onclick="document.getElementById('frag-sync-modal-root').innerHTML=''"
+                  style="cursor: pointer; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700;">✕</button>
+        </div>
+
+        <div style="margin: 1.2rem 0; padding: 1.2rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.12) 0%, rgba(191,87,255,0.12) 100%); border: 1px solid rgba(212,255,51,0.35); text-align: center;">
+          <div style="font-size: 0.75rem; color: #d4ff33; font-weight: 800; letter-spacing: 0.08em;">ENVIRONMENT SYNC RATE // 環境シンクロ率</div>
+          <div style="font-size: 3rem; font-weight: 900; color: #fff; line-height: 1.1; margin: 0.25rem 0;">
+            ${syncRate}<span style="font-size: 1.4rem; color: #d4ff33;">%</span>
+          </div>
+          <div style="font-size: 0.78rem; color: #e4e4e7;">
+            あなたの基準振り向き（${Number.isFinite(userEnv.cm) ? userEnv.cm.toFixed(1) : "--"}cm）との差: <strong>${Number.isFinite(diffCm) ? `${diffCm.toFixed(1)} cm` : "--"}</strong>
+          </div>
+        </div>
+
+        <div style="display: grid; gap: 0.6rem; font-size: 0.82rem; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 1.2rem;">
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#a1a1aa;">本人感度 (${escapeHtml(player.game)}):</span>
+            <strong>${pDpi} DPI / 感度 ${pSens} (${Number.isFinite(pCm) ? pCm.toFixed(1) : "--"} cm/360°)</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#a1a1aa;">あなたの ${escapeHtml(userEnv.game)} (${userEnv.dpi}DPI) 換算:</span>
+            <strong style="color:#d4ff33;">感度 ${Number.isFinite(convertedSensForUser) ? convertedSensForUser.toFixed(3) : "--"}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#a1a1aa;">使用マウス:</span>
+            <strong>${escapeHtml(pMouse)}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#a1a1aa;">使用マウスパッド:</span>
+            <strong>${escapeHtml(pPad)}</strong>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          ${createAffiliateButtonsHtml(pMouse, false)}
+          <button type="button"
+                  data-share-text="${escapeHtml(shareText)}"
+                  onclick="window.shareToX(this.dataset.shareText, event)"
+                  style="cursor: pointer; padding: 0.55rem 1.1rem; border-radius: 8px; background: #fff; color: #000; border: none; font-size: 0.82rem; font-weight: 800; display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto;">
+            𝕏 シンクロ率をポストする
+          </button>
+        </div>
+      </div>
+    </div>`;
+};
+
+function renderCompareTrayUI() {
+  let root = document.getElementById("frag-compare-tray-root");
+  if (!root) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="frag-compare-tray-root"></div>`);
+    root = document.getElementById("frag-compare-tray-root");
+  }
+
+  const totalCount = favoritesState.players.length + favoritesState.devices.length;
+  const savedPlayerObjects = favoritesState.players.map((name) =>
+    players.find((p) => p?.name === name) || { name, game: "-", dpi: null, sens: null, devices: {} }
+  );
+
+  const playerComparisonCardsHtml = savedPlayerObjects.length > 0
+    ? savedPlayerObjects.map((p) => {
+        const dpi = Number(p?.dpi);
+        const sens = Number(p?.sens);
+        const cm = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, p?.game) : Number.NaN;
+        const mouse = p?.devices?.["マウス"] || "データなし";
+        const pad = p?.devices?.["マウスパッド"] || "データなし";
+        const headset = p?.devices?.["ヘッドセット"] || "データなし";
+
+        return `
+          <div style="min-width: 240px; max-width: 280px; flex: 0 0 auto; padding: 1rem; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; gap: 0.65rem;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                <div>
+                  <div style="font-size: 0.7rem; color: #d4ff33; font-weight: 700;">${escapeHtml(p?.game || "")}</div>
+                  <div style="font-size: 0.98rem; font-weight: 800; color: #fff;">${escapeHtml(p?.name || "")}</div>
+                </div>
+                <button type="button" data-player-name="${escapeHtml(p?.name || "")}"
+                        onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)"
+                        style="cursor: pointer; background: transparent; border: none; color: #a1a1aa; font-size: 0.85rem; padding: 0.1rem 0.3rem;"
+                        title="トレイから外す">✕</button>
+              </div>
+              <div style="margin-top: 0.5rem; padding: 0.45rem 0.6rem; border-radius: 6px; background: rgba(212,255,51,0.08); border: 1px solid rgba(212,255,51,0.25); font-size: 0.78rem; color: #fff;">
+                振り向き: <strong style="color:#d4ff33; font-size:0.9rem;">${Number.isFinite(cm) ? `${cm.toFixed(1)} cm` : "--"}</strong>
+                <div style="font-size: 0.7rem; color: #a1a1aa; margin-top: 0.1rem;">${Number.isFinite(dpi) && Number.isFinite(sens) ? `${dpi} DPI / 感度 ${sens}` : "感度情報なし"}</div>
+              </div>
+              <div style="margin-top: 0.6rem; font-size: 0.75rem; color: #d4d4d8; display: grid; gap: 0.3rem;">
+                <div>🖱 マウス: <strong style="color:#fff;">${escapeHtml(mouse)}</strong></div>
+                <div>⬛ パッド: <strong style="color:#fff;">${escapeHtml(pad)}</strong></div>
+                <div>🎧 音響: <strong style="color:#fff;">${escapeHtml(headset)}</strong></div>
+              </div>
+            </div>
+            ${mouse !== "データなし" ? `<div style="padding-top: 0.45rem; border-top: 1px solid rgba(255,255,255,0.06);">${createAffiliateButtonsHtml(mouse, true)}</div>` : ""}
+          </div>`;
+      }).join("")
+    : `<div style="font-size: 0.8rem; color: #a1a1aa; padding: 0.75rem 0;">まだ選手が保存されていません。各カードの「☆ 比較に保存」を押すとここで横並び比較できます。</div>`;
+
+  const savedDeviceCardsHtml = favoritesState.devices.length > 0
+    ? favoritesState.devices.map((devName) => {
+        const spec = findMouseSpec(devName);
+        const usersCount = players.filter((p) => Object.values(p?.devices || {}).includes(devName)).length;
+        return `
+          <div style="min-width: 230px; max-width: 270px; flex: 0 0 auto; padding: 0.9rem 1rem; border-radius: 10px; background: rgba(191,87,255,0.08); border: 1px solid rgba(191,87,255,0.35); display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                <div style="font-size: 0.9rem; font-weight: 800; color: #fff; line-height: 1.35;">${escapeHtml(devName)}</div>
+                <button type="button" data-device-name="${escapeHtml(devName)}"
+                        onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)"
+                        style="cursor: pointer; background: transparent; border: none; color: #a1a1aa; font-size: 0.85rem; padding: 0.1rem 0.3rem;"
+                        title="トレイから外す">✕</button>
+              </div>
+              <div style="font-size: 0.74rem; color: #e9d5ff; margin-top: 0.35rem;">
+                プロ・配信者採用数: <strong>${usersCount} 名</strong>
+              </div>
+              ${spec ? `
+                <div style="font-size: 0.72rem; color: #d4d4d8; margin-top: 0.35rem; display: grid; gap: 0.15rem;">
+                  <div>重量: <strong style="color:#d4ff33;">${spec.weight}g</strong> / ${escapeHtml(spec.shape)}</div>
+                  <div>寸法: ${escapeHtml(spec.size)}</div>
+                </div>
+              ` : ""}
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap; padding-top: 0.4rem; border-top: 1px solid rgba(255,255,255,0.08);">
+              ${createAffiliateButtonsHtml(devName, true)}
+            </div>
+          </div>`;
+      }).join("")
+    : `<div style="font-size: 0.8rem; color: #a1a1aa; padding: 0.75rem 0;">まだデバイスが保存されていません。デバイス名横の「☆」ボタンで欲しいものリストに追加できます。</div>`;
+
+  root.innerHTML = `
+    <button type="button"
+            onclick="window.toggleCompareTrayDrawer()"
+            style="position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 9998; cursor: pointer; padding: 0.75rem 1.2rem; border-radius: 999px; background: ${totalCount > 0 ? 'linear-gradient(135deg, #d4ff33 0%, #a3e635 100%)' : 'rgba(24, 24, 27, 0.95)'}; color: ${totalCount > 0 ? '#09090b' : '#e4e4e7'}; border: 1px solid ${totalCount > 0 ? '#d4ff33' : 'rgba(255,255,255,0.2)'}; font-weight: 800; font-size: 0.85rem; box-shadow: 0 10px 25px rgba(0,0,0,0.65); display: flex; align-items: center; gap: 0.5rem; transition: transform 0.2s;">
+      <span>★ お気に入り・比較トレイ</span>
+      <span style="padding: 0.15rem 0.55rem; border-radius: 999px; background: ${totalCount > 0 ? '#09090b' : 'rgba(255,255,255,0.12)'}; color: ${totalCount > 0 ? '#d4ff33' : '#a1a1aa'}; font-size: 0.75rem;">
+        ${totalCount}
+      </span>
+    </button>
+
+    ${isCompareTrayOpen ? `
+      <div style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 9999; max-height: 75vh; overflow-y: auto; background: rgba(12, 12, 16, 0.98); border-top: 2px solid #d4ff33; box-shadow: 0 -12px 40px rgba(0,0,0,0.85); padding: 1.5rem 2rem; backdrop-filter: blur(12px); box-sizing: border-box;">
+        <div style="max-width: 1280px; margin: 0 auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <div>
+              <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>FAVORITES &amp; COMPARISON TRAY // ローカル自動保存</span>
+              <h3 style="margin: 0.25rem 0 0; font-size: 1.1rem; color: #fff; font-weight: 800;">
+                ピン留めしたプレイヤー（${favoritesState.players.length}名）＆ 欲しいデバイス（${favoritesState.devices.length}点）の横並び比較
+              </h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+              ${totalCount > 0 ? `
+                <button type="button" onclick="window.clearAllFavorites()"
+                        style="cursor: pointer; padding: 0.4rem 0.8rem; border-radius: 6px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; font-size: 0.75rem; font-weight: 700;">
+                  🗑 すべてクリア
+                </button>
+              ` : ""}
+              <button type="button" onclick="window.toggleCompareTrayDrawer(false)"
+                      style="cursor: pointer; padding: 0.45rem 1rem; border-radius: 6px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; font-size: 0.8rem; font-weight: 700;">
+                ✕ 閉じる
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1.25rem;">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #d4ff33; margin-bottom: 0.6rem;">
+              👤 保存したプレイヤーの感度・使用ギア比較（横スクロール）
+            </div>
+            <div style="display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 0.5rem;">
+              ${playerComparisonCardsHtml}
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 0.78rem; font-weight: 700; color: #e9d5ff; margin-bottom: 0.6rem;">
+              🛒 欲しいものリスト（保存したデバイス・スペック＆購入リンク）
+            </div>
+            <div style="display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 0.5rem;">
+              ${savedDeviceCardsHtml}
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : ""}
+  `;
+}
+
+function refreshAllInteractiveEnhancements() {
+  const filterBar = document.getElementById("creator-type-filter-bar");
+  if (filterBar && !document.getElementById("fav-only-filter-btn")) {
+    filterBar.insertAdjacentHTML(
+      "beforeend",
+      `<button type="button" id="fav-only-filter-btn"
+         style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid rgba(250, 204, 21, 0.35); background: rgba(250, 204, 21, 0.08); color: #fde047; transition: all 0.2s; margin-left: auto;">
+         ★ 保存済み選手のみ (${favoritesState.players.length})
+       </button>`
+    );
+    document.getElementById("fav-only-filter-btn").addEventListener("click", () => {
+      showOnlyFavoritePlayers = !showOnlyFavoritePlayers;
+      renderPlayers();
+    });
+  }
+
+  const favFilterBtn = document.getElementById("fav-only-filter-btn");
+  if (favFilterBtn) {
+    favFilterBtn.innerHTML = `★ 保存済み選手のみ (${favoritesState.players.length})`;
+    favFilterBtn.style.background = showOnlyFavoritePlayers ? "rgba(250, 204, 21, 0.25)" : "rgba(250, 204, 21, 0.08)";
+    favFilterBtn.style.borderColor = showOnlyFavoritePlayers ? "#facc15" : "rgba(250, 204, 21, 0.35)";
+    favFilterBtn.style.color = showOnlyFavoritePlayers ? "#fff" : "#fde047";
+  }
+
+  document.querySelectorAll(".js-fav-player-btn").forEach((btn) => {
+    const playerName = btn.dataset.playerName;
+    const isFav = favoritesState.players.includes(playerName);
+    btn.innerHTML = isFav ? "★ 保存中" : "☆ 比較に保存";
+    btn.style.border = isFav ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.16)";
+    btn.style.background = isFav ? "rgba(250, 204, 21, 0.2)" : "rgba(255,255,255,0.04)";
+    btn.style.color = isFav ? "#fde047" : "#a1a1aa";
+  });
+
+  document.querySelectorAll(".js-fav-device-btn").forEach((btn) => {
+    const deviceName = btn.dataset.deviceName;
+    const isFav = favoritesState.devices.includes(deviceName);
+    const isFullLabel = btn.dataset.fullLabel === "true";
+    btn.innerHTML = isFullLabel ? (isFav ? "★ 欲しいものリスト保存中" : "☆ 欲しいものリストに保存") : (isFav ? "★" : "☆");
+    btn.style.border = isFav ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.18)";
+    btn.style.background = isFav ? "rgba(250, 204, 21, 0.22)" : "rgba(255,255,255,0.05)";
+    btn.style.color = isFav ? "#fde047" : "#d4d4d8";
+  });
 }
 
 // ============================================================================
@@ -494,7 +869,7 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 });
 
 // ============================================================================
-// 1. プレイヤー検索（プロ / ストリーマー / VTuber フィルター＆動画＆購入ボタン）
+// 1. プレイヤー検索（属性フィルター＆動画＆購入＆お気に入り＆シンクロ診断）
 // ============================================================================
 let currentCreatorTypeFilter = "all";
 
@@ -561,8 +936,9 @@ function renderPlayers() {
     const matchesRole = !role || (Array.isArray(player?.roles) && player.roles.includes(role));
     const creatorTypes = getPlayerCreatorTypes(player);
     const matchesCreatorType = currentCreatorTypeFilter === "all" || creatorTypes.has(currentCreatorTypeFilter);
+    const matchesFav = !showOnlyFavoritePlayers || favoritesState.players.includes(playerName);
 
-    return hasText && matchesGame && matchesRole && matchesCreatorType;
+    return hasText && matchesGame && matchesRole && matchesCreatorType && matchesFav;
   });
 
   document.getElementById("search-count").textContent = `${String(filtered.length).padStart(2, "0")} PLAYERS`;
@@ -594,10 +970,11 @@ function renderPlayers() {
              style="${hasValidDevice ? 'cursor: pointer; transition: background 0.2s; border-radius: 4px; padding: 0.35rem 0.4rem;' : ''}"
              ${hasValidDevice ? 'title="クリックしてこのデバイスの比較＆レビュー動画を表示"' : ''}>
           <span>${escapeHtml(category)}</span>
-          <span style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; justify-content: flex-end;">
+          <span style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end;">
             <strong>${escapeHtml(device || "データなし")}</strong>
             ${hasValidDevice ? '<small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>' : ''}
             ${hasValidDevice ? `<a href="${escapeHtml(getAmazonAffiliateUrl(device))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;" title="Amazonで見る">🛒 Amazon</a>` : ''}
+            ${hasValidDevice ? `<button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(device)}" onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)" title="欲しいものリストに保存" style="cursor:pointer; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.65rem; font-weight:800;">☆</button>` : ''}
           </span>
         </div>`;
     }).join("");
@@ -608,13 +985,35 @@ function renderPlayers() {
 
     return `
       <article class="player-card">
-        <div class="player-card-top"><span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span><div><h3>${escapeHtml(playerName)}</h3><div class="player-game">${escapeHtml(spec ? spec.label : String(player?.game || ""))}</div></div></div>
+        <div class="player-card-top" style="position: relative;">
+          <span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span>
+          <div>
+            <h3>${escapeHtml(playerName)}</h3>
+            <div class="player-game">${escapeHtml(spec ? spec.label : String(player?.game || ""))}</div>
+          </div>
+          <button type="button" class="js-fav-player-btn"
+                  data-player-name="${escapeHtml(playerName)}"
+                  onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)"
+                  style="margin-left: auto; cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; white-space: nowrap;">
+            ☆ 比較に保存
+          </button>
+        </div>
         <div class="player-tags" style="display: flex; flex-wrap: wrap; gap: 0.35rem;">${creatorBadges}${gameRoleTags || ""}</div>
         <div class="device-list">${deviceEntries || '<div class="device-row"><span>デバイス</span><span>データなし</span></div>'}</div>
         <div class="player-sens">${Number.isFinite(cmValue) ? `${dpi} DPI / 感度 ${sens} （${cmValue.toFixed(1)} cm / 360°）` : "感度データなし"}</div>
-        ${player?.sourceUrl ? `<a class="player-source" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source || "出典")} ↗</a>` : ""}
+        <div style="margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          ${player?.sourceUrl ? `<a class="player-source" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source || "出典")} ↗</a>` : "<span></span>"}
+          <button type="button"
+                  data-player-name="${escapeHtml(playerName)}"
+                  onclick="window.openPlayerSyncModal(this.dataset.playerName, event)"
+                  style="cursor: pointer; padding: 0.35rem 0.7rem; border-radius: 6px; background: rgba(191,87,255,0.14); border: 1px solid rgba(191,87,255,0.4); color: #e9d5ff; font-size: 0.72rem; font-weight: 700;">
+            ⚡ 環境シンクロ診断・𝕏共有
+          </button>
+        </div>
       </article>`;
   }).join("") : '<div class="no-results">条件に一致するプレイヤーが見つかりませんでした。</div>';
+
+  refreshAllInteractiveEnhancements();
 
   const triggers = resultsEl.querySelectorAll(".js-search-yt-trigger");
   triggers.forEach((trigger) => {
@@ -693,6 +1092,7 @@ function renderRankings(game) {
               <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
                 <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>
                 <a href="${escapeHtml(getAmazonAffiliateUrl(name))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.35rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;">🛒 Amazon</a>
+                <button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(name)}" onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)" title="欲しいものリストに保存" style="cursor:pointer; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.65rem; font-weight:800;">☆</button>
               </span>
             </div>
             <div class="rank-bar-wrap"><div class="rank-bar" style="width:${percentage}%"></div></div>
@@ -701,6 +1101,8 @@ function renderRankings(game) {
         </div>`;
     }).join("") : '<p class="ranking-empty">このカテゴリのデータはありません。</p>'}</article>`;
   }).join("");
+
+  refreshAllInteractiveEnhancements();
 
   const triggers = rankingContentEl.querySelectorAll(".js-ranking-yt-trigger");
   triggers.forEach((trigger) => {
@@ -744,7 +1146,7 @@ document.querySelectorAll(".game-tab").forEach((button) => {
 });
 
 // ============================================================================
-// 3. デバイス相談（8種類の詳細分析バリエーション × ランク帯別アドバイス × 収益化導線）
+// 3. デバイス相談（8種類の詳細分析バリエーション × ランク帯別アドバイス × X共有）
 // ============================================================================
 document.getElementById("consult-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -874,13 +1276,22 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
   const safeRank = escapeHtml(rank || "ランクなし");
   const safeRoleText = escapeHtml(roleText || "ロール");
   const safeIssue = escapeHtml(issue || "全体的なエイム・環境の改善");
+  const consultShareText = `【FRAG // デバイス診断結果】\n${game}（${rank} / ${roleText}）の環境に最適な改善ポイントは「${recommendation.category}」でした！\n🎯 推奨モデル: ${topCandidateDevices[0]}\n`;
 
   const consultResultEl = document.getElementById("consult-result");
   consultResultEl.innerHTML = `
     <div class="consult-result-content">
-      <div class="analysis-top">
+      <div class="analysis-top" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
         <span class="eyebrow"><span class="eyebrow-line"></span>YOUR GEAR INSIGHT</span>
-        <span class="analysis-score">MATCH <strong>${escapeHtml(recommendation.score)}%</strong></span>
+        <div style="display:flex; align-items:center; gap:0.65rem;">
+          <span class="analysis-score">MATCH <strong>${escapeHtml(recommendation.score)}%</strong></span>
+          <button type="button"
+                  data-share-text="${escapeHtml(consultShareText)}"
+                  onclick="window.shareToX(this.dataset.shareText, event)"
+                  style="cursor: pointer; padding: 0.35rem 0.75rem; border-radius: 6px; background: #fff; color: #09090b; border: none; font-size: 0.74rem; font-weight: 800;">
+            𝕏 診断結果をポスト
+          </button>
+        </div>
       </div>
       <div class="analysis-title">${escapeHtml(recommendation.category)}を見直してみましょう。</div>
       <p class="analysis-description">${safeGameName} / <strong>${safeRank}</strong> / ${safeRoleText} のプレイ状況と「${safeIssue}」という悩みから、最適な改善アプローチを算出しました。</p>
@@ -912,6 +1323,11 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
                   style="cursor: pointer; width: 100%; padding: 0.45rem 0.6rem; border-radius: 6px; font-size: 0.78rem; font-weight: bold; color: #fff; border: 1px solid ${idx === 0 ? '#bf57ff' : 'rgba(255,255,255,0.15)'}; background: ${idx === 0 ? 'rgba(191, 87, 255, 0.22)' : 'rgba(255,255,255,0.05)'}; transition: all 0.2s;">
                   ▶ 動画・比較を見る
                 </button>
+                <button type="button" class="js-fav-device-btn" data-full-label="true" data-device-name="${escapeHtml(dev)}"
+                  onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)"
+                  style="cursor: pointer; width: 100%; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">
+                  ☆ 欲しいものリストに保存
+                </button>
                 ${createAffiliateButtonsHtml(dev, true)}
               </div>
             </div>
@@ -920,6 +1336,8 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
       </div>
       <p class="result-warning">※ 提案モデルはプロ・ストリーマーの採用実績に基づく参考候補です。購入前にサイズ・重量・在庫状況をご確認ください。</p>
     </div>`;
+
+  refreshAllInteractiveEnhancements();
 
   const triggers = consultResultEl.querySelectorAll(".js-consult-yt-trigger");
   triggers.forEach((trigger) => {
@@ -952,16 +1370,8 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
 });
 
 // ============================================================================
-// 4. 感度マッチ（①双方向・感度コンバーター ＆ プロ感度逆算コピー ＆ マウス比較・動画）
+// 4. 感度マッチ（①双方向コンバーター ＆ ③環境シンクロ率・X共有 ＆ 比較・動画）
 // ============================================================================
-const fromCm360ToSens = (cm360, dpi, game) => {
-  const spec = getGameSpec(game);
-  if (!spec || !Number.isFinite(cm360) || !Number.isFinite(dpi) || cm360 <= 0 || dpi <= 0) {
-    return Number.NaN;
-  }
-  return (360 * 2.54) / (dpi * cm360 * spec.yaw);
-};
-
 window.copySensValue = function (buttonEl, textValue) {
   if (!navigator.clipboard) return;
   navigator.clipboard.writeText(String(textValue)).then(() => {
@@ -1076,6 +1486,8 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       return;
     }
 
+    const userEnv = { game, dpi, sens: sensitivity, cm: userDistance, mouse: currentUserMouseName };
+
     resultContainer.innerHTML = matchedPlayers.map((player, index) => {
       const safePlayer = player && typeof player === "object" ? player : {};
       const playerGame = normalizeGameName(safePlayer.game || game);
@@ -1096,6 +1508,8 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
 
       const tryProSensInUserEnv = fromCm360ToSens(playerDistance, dpi, game);
       const tryProSensFormatted = Number.isFinite(tryProSensInUserEnv) ? tryProSensInUserEnv.toFixed(3) : null;
+      const syncRate = calculateEnvSyncRate(safePlayer, userEnv);
+      const shareText = `【FRAG // 感度＆環境シンクロ診断】\n私のFPS感度は「${playerName}」とシンクロ率【${syncRate}%】でした！（振り向き ${Number.isFinite(userDistance) ? userDistance.toFixed(1) : "--"}cm / 360°）\n注目の使用マウス: ${mouseName}\n`;
 
       return `
         <article class="match-card" style="box-sizing: border-box;">
@@ -1107,12 +1521,18 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
             </div>
             <span class="match-badge">${matchQuality}</span>
           </div>
-          <div class="match-player">
+          <div class="match-player" style="position: relative;">
             <span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span>
             <div>
               <h2>${escapeHtml(playerName)}</h2>
               <p>${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))} · ${escapeHtml(playerRoles.join(" / ") || "プレイヤー")}</p>
             </div>
+            <button type="button" class="js-fav-player-btn"
+                    data-player-name="${escapeHtml(playerName)}"
+                    onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)"
+                    style="margin-left: auto; cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; white-space: nowrap;">
+              ☆ 比較に保存
+            </button>
           </div>
           <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">
             本人設定：<strong>${Number.isFinite(playerDpi) && Number.isFinite(playerSens) ? `${playerDpi} DPI / 感度 ${playerSens}` : "感度情報なし"}</strong>（振り向き ${Number.isFinite(playerDistance) ? `${playerDistance.toFixed(1)} cm` : "--"}）
@@ -1154,9 +1574,22 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
               ${createAffiliateButtonsHtml(padName, true)}
             </div>
           </div>
-          ${safePlayer.sourceUrl ? `<a class="player-source" style="margin-top: 1rem; display: inline-block;" href="${escapeHtml(safePlayer.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(safePlayer.source || "出典")} ↗</a>` : ""}
+
+          <div style="margin-top: 0.9rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span style="padding: 0.25rem 0.6rem; border-radius: 6px; background: rgba(212,255,51,0.14); border: 1px solid rgba(212,255,51,0.4); color: #d4ff33; font-size: 0.74rem; font-weight: 800;">
+              ⚡ 環境シンクロ率 ${syncRate}%
+            </span>
+            <button type="button"
+                    data-share-text="${escapeHtml(shareText)}"
+                    onclick="window.shareToX(this.dataset.shareText, event)"
+                    style="cursor: pointer; padding: 0.32rem 0.75rem; border-radius: 6px; background: rgba(255,255,255,0.92); color: #09090b; border: none; font-size: 0.73rem; font-weight: 800;">
+              𝕏 結果をポスト
+            </button>
+          </div>
         </article>`;
     }).join("");
+
+    refreshAllInteractiveEnhancements();
 
     const triggers = resultContainer.querySelectorAll(".js-yt-trigger");
     triggers.forEach((trigger) => {
@@ -1194,6 +1627,8 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
   }
 });
 
+// 初回起動処理
+renderCompareTrayUI();
 renderPlayers();
 renderRankings("VALORANT");
 
@@ -1235,6 +1670,7 @@ async function loadLiquipediaPlayers() {
     renderPlayers();
     const selectedRankingGame = document.querySelector(".game-tab.selected")?.dataset.game || "VALORANT";
     renderRankings(selectedRankingGame);
+    renderCompareTrayUI();
   } catch (error) {
     sourceStatus.textContent = "API接続失敗";
     sourceSummary.textContent = "APIエラー・デモデータを表示中";
