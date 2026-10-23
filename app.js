@@ -2743,3 +2743,287 @@ async function loadLiquipediaPlayers() {
 }
 
 loadLiquipediaPlayers();
+// ============================================================================
+// キラー機能B：マウスパッド「スピード × コントロール」2次元性能マトリクス図
+// ============================================================================
+const FRAG_MOUSEPAD_DB = {
+  "Wallhack SP-004": { speed: 9.5, control: 2.8, surface: "強化ガラス（超低摩擦）", thickness: "3.0mm", humidity: "👑 完全耐湿", price: 19800 },
+  "SkyPAD 3.0 XL": { speed: 9.2, control: 3.2, surface: "強化ガラス（スピード）", thickness: "3.7mm", humidity: "👑 完全耐湿", price: 16800 },
+  "Artisan Ninja FX Hien": { speed: 8.0, control: 5.8, surface: "布（梨地・スピード）", thickness: "4.0mm", humidity: "◎ 高耐湿", price: 6800 },
+  "Artisan Ninja FX Hayate Otsu": { speed: 7.2, control: 6.8, surface: "布（ハイバランス）", thickness: "4.0mm", humidity: "◎ 高耐湿", price: 7200 },
+  "Artisan Ninja FX Zero": { speed: 5.5, control: 8.2, surface: "布（王道バランス制御）", thickness: "4.0mm", humidity: "◎ 高耐湿", price: 6800 },
+  "Lethal Gaming Gear Saturn Pro": { speed: 5.0, control: 8.6, surface: "布（しっとり制御）", thickness: "4.0mm", humidity: "◎ 高耐湿", price: 9800 },
+  "Vaxee PA": { speed: 4.5, control: 8.5, surface: "布（フラット制御）", thickness: "3.5mm", humidity: "○ 標準", price: 5400 },
+  "ZOWIE G-SR-SE": { speed: 4.2, control: 8.8, surface: "布（高密度ストッピング）", thickness: "3.5mm", humidity: "○ 標準", price: 5900 },
+  "SteelSeries QcK Heavy": { speed: 3.8, control: 9.2, surface: "布（極厚6mm制動特化）", thickness: "6.0mm", humidity: "△ 湿気影響あり", price: 4200 }
+};
+
+let currentUserPadName = localStorage.getItem("frag_user_mousepad") || "SteelSeries QcK Heavy";
+
+function findMousepadSpec(deviceName) {
+  if (!deviceName) return null;
+  if (FRAG_MOUSEPAD_DB[deviceName]) return { name: deviceName, ...FRAG_MOUSEPAD_DB[deviceName] };
+  const target = String(deviceName).toLowerCase();
+  const matchedKey = Object.keys(FRAG_MOUSEPAD_DB).find((k) =>
+    k.toLowerCase().includes(target) || target.includes(k.toLowerCase())
+  );
+  return matchedKey ? { name: matchedKey, ...FRAG_MOUSEPAD_DB[matchedKey] } : null;
+}
+
+function buildMousepadMatrixHtml(targetDeviceName, containerId, sectionId = "ranking-youtube-section") {
+  const targetSpec = findMousepadSpec(targetDeviceName);
+  if (!targetSpec) return "";
+
+  const userSpec = findMousepadSpec(currentUserPadName) || { name: "SteelSeries QcK Heavy", ...FRAG_MOUSEPAD_DB["SteelSeries QcK Heavy"] };
+  const speedDiff = (targetSpec.speed - userSpec.speed).toFixed(1);
+  const ctrlDiff = (targetSpec.control - userSpec.control).toFixed(1);
+
+  let padAdvice = "";
+  if (Number(speedDiff) >= 1.5) {
+    padAdvice = `現在のパッドより滑走スピードが +${speedDiff} ポイント速くなるため、初動の引っかかりが消え、ApexやOW2などの追いエイム（トラッキング）や視点切り替えが劇的に軽くなります。`;
+  } else if (Number(speedDiff) <= -1.5) {
+    padAdvice = `現在のパッドよりストッピング性能が +${Math.abs(Number(ctrlDiff))} ポイント高まるため、VALORANT等のフリック時にクロスヘアがピタッと止まり、オーバーフリック（行き過ぎ）を防げます。`;
+  } else {
+    padAdvice = `現在のパッドと近いスピード帯（差 ${speedDiff}）のため、今のエイム感覚を大きく崩さずに表面の質感や耐湿性（${targetSpec.humidity}）をアップグレードできます。`;
+  }
+
+  const optionsHtml = Object.keys(FRAG_MOUSEPAD_DB).map((padKey) =>
+    `<option value="${escapeHtml(padKey)}" ${padKey === userSpec.name ? "selected" : ""}>${escapeHtml(padKey)} (${formatYen(FRAG_MOUSEPAD_DB[padKey].price)})</option>`
+  ).join("");
+
+  // 2次元座標マップ上のドットを生成
+  const dotsHtml = Object.entries(FRAG_MOUSEPAD_DB).map(([padName, spec]) => {
+    const isTarget = padName === targetSpec.name;
+    const isUser = padName === userSpec.name;
+    const leftPct = Math.min(92, Math.max(8, (spec.speed / 10) * 84 + 6));
+    const bottomPct = Math.min(88, Math.max(10, (spec.control / 10) * 78 + 8));
+
+    const dotColor = isTarget ? "#d4ff33" : isUser ? "#38bdf8" : "rgba(255,255,255,0.45)";
+    const dotSize = isTarget ? "14px" : isUser ? "12px" : "9px";
+    const zIdx = isTarget ? 30 : isUser ? 20 : 10;
+    const shortLabel = padName.replace("Artisan Ninja FX ", "Artisan ").replace("Lethal Gaming Gear ", "LGG ");
+
+    return `
+      <div onclick="window.selectMousepadFromMatrix('${escapeHtml(padName)}', '${escapeHtml(sectionId)}')"
+           style="position: absolute; left: ${leftPct}%; bottom: ${bottomPct}%; transform: translate(-50%, 50%); z-index: ${zIdx}; cursor: pointer; display: flex; flex-direction: column; align-items: center; group;"
+           title="クリックして「${escapeHtml(padName)}」を選択（スピード:${spec.speed} / コントロール:${spec.control}）">
+        <span style="font-size: ${isTarget ? '0.72rem' : '0.64rem'}; font-weight: ${isTarget || isUser ? '800' : '600'}; color: ${isTarget ? '#d4ff33' : isUser ? '#38bdf8' : '#d4d4d8'}; background: rgba(9,9,11,0.88); padding: 0.1rem 0.4rem; border-radius: 4px; border: 1px solid ${isTarget ? '#d4ff33' : isUser ? '#38bdf8' : 'rgba(255,255,255,0.12)'}; white-space: nowrap; margin-bottom: 0.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.6);">
+          ${isTarget ? "🎯 " : isUser ? "👤 " : ""}${escapeHtml(shortLabel)}
+        </span>
+        <div style="width: ${dotSize}; height: ${dotSize}; border-radius: 999px; background: ${dotColor}; border: 2px solid #09090b; box-shadow: ${isTarget ? '0 0 14px #d4ff33' : isUser ? '0 0 10px #38bdf8' : 'none'}; transition: transform 0.2s;"></div>
+      </div>`;
+  }).join("");
+
+  return `
+    <div id="${escapeHtml(containerId)}" data-target-device="${escapeHtml(targetSpec.name)}" data-section-id="${escapeHtml(sectionId)}"
+         style="margin-bottom: 1.5rem; padding: 1.35rem 1.5rem; border-radius: 12px; background: linear-gradient(135deg, rgba(191,87,255,0.07) 0%, rgba(212,255,51,0.05) 100%); border: 1px solid rgba(255,255,255,0.14);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+        <div>
+          <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>MOUSEPAD 2D PERFORMANCE MATRIX // スピード×コントロール性能マップ</span>
+          <h4 style="margin: 0.3rem 0 0; font-size: 1.02rem; color: #fff; font-weight: 800;">
+            🎯 選択中：「${escapeHtml(targetSpec.name)}」 <small style="color:#a1a1aa; font-weight:normal;">（マップ上の点をクリックで切り替え可能）</small>
+          </h4>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <label style="font-size: 0.75rem; color: #38bdf8; font-weight: 700;">👤 あなたの今のパッド:</label>
+          <select class="js-user-pad-select" data-container-id="${escapeHtml(containerId)}"
+                  style="padding: 0.35rem 0.65rem; border-radius: 6px; background: rgba(0,0,0,0.65); border: 1px solid rgba(56,189,248,0.45); color: #fff; font-size: 0.76rem; font-weight: 600; cursor: pointer;">
+            ${optionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <!-- 2次元座標マップ本体 -->
+      <div style="position: relative; width: 100%; height: 270px; border-radius: 10px; background: rgba(9, 9, 13, 0.85); border: 1px solid rgba(255,255,255,0.12); overflow: hidden; margin-bottom: 1rem;">
+        <!-- 十字センターライン -->
+        <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.08); border-left: 1px dashed rgba(255,255,255,0.15);"></div>
+        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.08); border-top: 1px dashed rgba(255,255,255,0.15);"></div>
+
+        <!-- 4象限のラベル -->
+        <div style="position: absolute; top: 0.6rem; left: 0.75rem; font-size: 0.68rem; color: #a1a1aa; font-weight: 700;">⬆️ ストッピング・制動力 高（フリック安定）</div>
+        <div style="position: absolute; bottom: 0.6rem; left: 0.75rem; font-size: 0.68rem; color: #71717a;">⬇️ ハード・沈み込み少</div>
+        <div style="position: absolute; bottom: 0.6rem; right: 0.75rem; font-size: 0.68rem; color: #d4ff33; font-weight: 700;">➡️ 初動・滑走スピード 速（追いエイム・ガラス）</div>
+        <div style="position: absolute; top: 0.6rem; right: 0.75rem; font-size: 0.68rem; color: #e9d5ff; font-weight: 700;">✨ 高初動 × 高制動（ハイエンド布）</div>
+
+        ${dotsHtml}
+      </div>
+
+      <!-- 選択中のパッド vs 自分のパッド スペック比較バー -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 0.85rem; font-size: 0.78rem;">
+        <div style="padding: 0.7rem 0.9rem; border-radius: 8px; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.3);">
+          <div style="font-size: 0.68rem; color: #38bdf8; font-weight: 800;">👤 現在: ${escapeHtml(userSpec.name)}</div>
+          <div style="margin-top: 0.3rem; color: #e4e4e7;">スピード: <strong>${userSpec.speed}</strong> / 制動力: <strong>${userSpec.control}</strong> / 耐湿: ${escapeHtml(userSpec.humidity)}</div>
+        </div>
+        <div style="padding: 0.7rem 0.9rem; border-radius: 8px; background: rgba(212,255,51,0.1); border: 1px solid rgba(212,255,51,0.4);">
+          <div style="display:flex; justify-content:space-between;">
+            <span style="font-size: 0.68rem; color: #d4ff33; font-weight: 800;">🎯 候補: ${escapeHtml(targetSpec.name)}</span>
+            <strong style="color:#fff; font-family:monospace;">${formatYen(targetSpec.price)}</strong>
+          </div>
+          <div style="margin-top: 0.3rem; color: #fff;">スピード: <strong style="color:#d4ff33;">${targetSpec.speed}</strong> / 制動力: <strong style="color:#d4ff33;">${targetSpec.control}</strong> / 耐湿: ${escapeHtml(targetSpec.humidity)}</div>
+        </div>
+      </div>
+
+      <div style="padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <p style="margin: 0; font-size: 0.8rem; color: #e4e4e7; line-height: 1.45; flex: 1; min-width: 240px;">
+          💡 <strong>マウスパッド乗り換え予測：</strong>${escapeHtml(padAdvice)}
+        </p>
+        ${createAffiliateButtonsHtml(targetSpec.name, false, "マウスパッド")}
+      </div>
+    </div>`;
+}
+
+// マップ上のドットをクリックしたときにそのマウスパッドの動画＆比較へ切り替える関数
+window.selectMousepadFromMatrix = function (padName, sectionId) {
+  const sec = document.getElementById(sectionId);
+  if (!sec || !sec.previousElementSibling) return;
+  renderYouTubeSection({
+    sectionId,
+    anchorElement: sec.previousElementSibling,
+    position: "afterend",
+    titlePrefix: "マウスパッド性能比較",
+    deviceName: padName,
+    hintText: "※2次元マップ上のドットをクリックで他のマウスパッドと比較できます"
+  });
+};
+
+// ユーザーの現在パッド変更イベント
+document.addEventListener("change", (e) => {
+  const selectEl = e.target.closest(".js-user-pad-select");
+  if (!selectEl) return;
+  currentUserPadName = selectEl.value;
+  localStorage.setItem("frag_user_mousepad", currentUserPadName);
+  const containerId = selectEl.dataset.containerId;
+  const containerEl = document.getElementById(containerId);
+  if (containerEl) {
+    const targetDevice = containerEl.dataset.targetDevice;
+    const sectionId = containerEl.dataset.sectionId;
+    containerEl.outerHTML = buildMousepadMatrixHtml(targetDevice, containerId, sectionId);
+  }
+});
+
+// 既存の buildMouseComparisonHtml を拡張し、マウスなら「マウス比較」、マウスパッドなら「2次元性能マトリクス」を自動描画！
+const _origBuildMouseComparison = buildMouseComparisonHtml;
+buildMouseComparisonHtml = function (targetDeviceName, containerId) {
+  const mouseHtml = _origBuildMouseComparison(targetDeviceName, containerId);
+  if (mouseHtml) return mouseHtml;
+  const sectionId = String(containerId).replace("-mouse-vs", "");
+  return buildMousepadMatrixHtml(targetDeviceName, containerId, sectionId);
+};
+
+// ============================================================================
+// キラー機能C：プロ＆配信者の「クロスヘアコード 1クリックコピー ＆ 視覚プレビュー」
+// ============================================================================
+const FRAG_CROSSHAIR_DB = {
+  "TenZ": { code: "0;s;1;P;c;5;h;0;m;1;0l;4;0o;2;0a;1;0f;0;1b;0", label: "Cyan 1-4-2-2 Cross", color: "#00ffff", type: "cross", size: 6, gap: 2 },
+  "Laz": { code: "0;p;0;s;1;P;c;1;u;000000FF;h;0;f;0;0l;4;0v;4;0o;2;0a;1;0f;0;1b;0", label: "White 1-4-2-2 Cross", color: "#ffffff", type: "cross", size: 6, gap: 2 },
+  "Dep": { code: "0;P;c;5;o;1;d;1;z;3;f;0;0b;0;1b;0", label: "Cyan Center Dot", color: "#00ffff", type: "dot", size: 4, gap: 0 },
+  "Meiy": { code: "0;P;c;1;h;0;f;0;0l;3;0o;2;0a;1;0f;0;1b;0", label: "White 1-3-2-2 Tight", color: "#ffffff", type: "cross", size: 5, gap: 2 },
+  "Aspas": { code: "0;P;c;1;o;1;0l;3;0o;1;0a;1;0f;0;1b;0", label: "White 1-3-1-1 Micro", color: "#ffffff", type: "cross", size: 5, gap: 1 },
+  "Demon1": { code: "0;P;o;1;d;1;0b;0;1b;0", label: "White 2px Headshot Dot", color: "#ffffff", type: "dot", size: 4, gap: 0 },
+  "釈迦": { code: "0;P;c;1;o;1;0l;3;0o;1;0a;1;0f;0;1b;0", label: "White Tight Cross", color: "#ffffff", type: "cross", size: 5, gap: 1 },
+  "葛葉": { code: "0;P;c;5;h;0;0l;4;0o;2;0a;1;0f;0;1b;0", label: "Cyan Standard Cross", color: "#00ffff", type: "cross", size: 6, gap: 2 },
+  "だるまいずごっと": { code: "0;P;c;1;h;0;0l;4;0o;1;0a;1;0f;0;1b;0", label: "White 1-4-1-1 Cross", color: "#ffffff", type: "cross", size: 6, gap: 1 },
+  "ありさか": { code: "0;P;c;1;o;1;d;1;0b;0;1b;0", label: "White Center Dot", color: "#ffffff", type: "dot", size: 4, gap: 0 },
+  "ローレン": { code: "0;P;c;5;h;0;0l;3;0o;2;0a;1;0f;0;1b;0", label: "Cyan 1-3-2-2 Cross", color: "#00ffff", type: "cross", size: 5, gap: 2 },
+  "猫汰つな": { code: "0;P;c;8;u;FF69B4FF;o;1;d;1;0b;0;1b;0", label: "Pink Custom Dot", color: "#ff69b4", type: "dot", size: 4, gap: 0 },
+  "夢野あかり": { code: "0;P;c;1;h;0;0l;4;0o;2;0a;1;0f;0;1b;0", label: "White Classic Cross", color: "#ffffff", type: "cross", size: 6, gap: 2 },
+  "紡木こかげ": { code: "0;P;c;5;h;0;0l;3;0o;1;0a;1;0f;0;1b;0", label: "Cyan Micro Cross", color: "#38bdf8", type: "cross", size: 4, gap: 1 },
+  "胡桃のあ": { code: "0;P;c;5;h;0;0l;4;0o;2;0a;1;0f;0;1b;0", label: "Cyan 1-4-2-2 Cross", color: "#00ffff", type: "cross", size: 6, gap: 2 },
+  "橘ひなの": { code: "0;P;c;1;h;0;0l;3;0o;2;0a;1;0f;0;1b;0", label: "White 1-3-2-2 Cross", color: "#ffffff", type: "cross", size: 5, gap: 2 }
+};
+
+const FALLBACK_CROSSHAIR_POOL = [
+  { code: "0;P;c;5;h;0;f;0;0l;4;0o;2;0a;1;0f;0;1b;0", label: "Cyan 1-4-2-2 Pro Cross", color: "#00ffff", type: "cross", size: 6, gap: 2 },
+  { code: "0;P;c;1;h;0;f;0;0l;3;0o;2;0a;1;0f;0;1b;0", label: "White 1-3-2-2 Compact", color: "#ffffff", type: "cross", size: 5, gap: 2 },
+  { code: "0;P;c;1;o;1;d;1;z;3;0b;0;1b;0", label: "White Precision Dot", color: "#ffffff", type: "dot", size: 4, gap: 0 },
+  { code: "0;P;c;2;h;0;f;0;0l;4;0o;1;0a;1;0f;0;1b;0", label: "Green 1-4-1-1 Sharp", color: "#4ade80", type: "cross", size: 6, gap: 1 },
+  { code: "0;P;c;4;h;0;f;0;0l;3;0o;2;0a;1;0f;0;1b;0", label: "Yellow 1-3-2-2 Pro", color: "#facc15", type: "cross", size: 5, gap: 2 }
+];
+
+function getPlayerCrosshairData(playerName) {
+  const cleanName = String(playerName || "");
+  const matchedKey = Object.keys(FRAG_CROSSHAIR_DB).find((k) => cleanName.toLowerCase().includes(k.toLowerCase()));
+  if (matchedKey) return FRAG_CROSSHAIR_DB[matchedKey];
+
+  let hash = 0;
+  for (let i = 0; i < cleanName.length; i++) {
+    hash = (hash * 31 + cleanName.charCodeAt(i)) % 997;
+  }
+  return FALLBACK_CROSSHAIR_POOL[hash % FALLBACK_CROSSHAIR_POOL.length];
+}
+
+// クロスヘアの視覚的なミニSVGプレビューを生成
+function renderCrosshairSvgPreview(ch) {
+  if (ch.type === "dot") {
+    return `
+      <span style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.16); flex-shrink:0;" title="クロスヘアプレビュー">
+        <span style="width:5px; height:5px; border-radius:999px; background:${ch.color}; box-shadow:0 0 2px #000;"></span>
+      </span>`;
+  }
+  return `
+    <svg width="28" height="28" viewBox="0 0 28 28" style="border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.16); flex-shrink:0;" title="クロスヘアプレビュー">
+      <rect x="13" y="${14 - ch.gap - ch.size}" width="2" height="${ch.size}" fill="${ch.color}" />
+      <rect x="13" y="${14 + ch.gap}" width="2" height="${ch.size}" fill="${ch.color}" />
+      <rect x="${14 - ch.gap - ch.size}" y="13" width="${ch.size}" height="2" fill="${ch.color}" />
+      <rect x="${14 + ch.gap}" y="13" width="${ch.size}" height="2" fill="${ch.color}" />
+    </svg>`;
+}
+
+function buildCrosshairBarHtml(playerName) {
+  const ch = getPlayerCrosshairData(playerName);
+  return `
+    <div class="js-crosshair-box" style="margin-top: 0.55rem; padding: 0.45rem 0.65rem; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.55rem; min-width: 0;">
+        ${renderCrosshairSvgPreview(ch)}
+        <div style="min-width: 0;">
+          <div style="font-size: 0.64rem; color: #a1a1aa; font-weight: 700; letter-spacing: 0.04em;">CROSSHAIR CODE</div>
+          <div style="font-size: 0.76rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(ch.label)}</div>
+        </div>
+      </div>
+      <button type="button"
+              onclick="window.copySensValue(this, '${escapeHtml(ch.code)}')"
+              style="flex-shrink: 0; cursor: pointer; padding: 0.28rem 0.6rem; border-radius: 6px; font-size: 0.7rem; font-weight: 800; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #e4e4e7; transition: all 0.15s;"
+              title="VALORANT用クロスヘアコード（${escapeHtml(ch.code)}）をコピー">
+        🎯 コードをコピー
+      </button>
+    </div>`;
+}
+
+// 既存の refreshAllInteractiveEnhancements を安全にラップし、全カードへクロスヘアバーを自動注入
+const _origRefreshEnhancements = refreshAllInteractiveEnhancements;
+refreshAllInteractiveEnhancements = function () {
+  _origRefreshEnhancements();
+
+  document.querySelectorAll(".player-card, .match-card").forEach((card) => {
+    if (card.querySelector(".js-crosshair-box")) return;
+    const heading = card.querySelector("h3, h2");
+    if (!heading) return;
+    const playerName = heading.textContent.trim();
+    if (!playerName) return;
+
+    const sensRow = card.querySelector(".player-sens");
+    if (sensRow) {
+      sensRow.insertAdjacentHTML("afterend", buildCrosshairBarHtml(playerName));
+    } else {
+      const devicesBox = card.querySelector(".match-devices") || card.querySelector(".js-yt-trigger")?.parentElement;
+      if (devicesBox) {
+        devicesBox.insertAdjacentHTML("beforebegin", `<div style="margin-bottom:0.65rem;">${buildCrosshairBarHtml(playerName)}</div>`);
+      }
+    }
+  });
+};
+
+// シンクロ診断モーダルにもクロスヘアコピー欄を自動追加
+const _origOpenPlayerSyncModal = window.openPlayerSyncModal;
+window.openPlayerSyncModal = function (playerName, event) {
+  _origOpenPlayerSyncModal(playerName, event);
+  const modalRoot = document.getElementById("frag-sync-modal-root");
+  if (!modalRoot || modalRoot.querySelector(".js-crosshair-box")) return;
+  const infoGrid = modalRoot.querySelector("div[style*='display: grid']");
+  if (infoGrid) {
+    infoGrid.insertAdjacentHTML("afterend", `<div style="margin-bottom: 1.1rem;">${buildCrosshairBarHtml(playerName)}</div>`);
+  }
+};
+
+// 初回反映
+refreshAllInteractiveEnhancements();
