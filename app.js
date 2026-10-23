@@ -33,15 +33,105 @@ function getRakutenAffiliateUrl(deviceName) {
   return `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(id)}/?pc=${encodeURIComponent(searchUrl)}`;
 }
 
-function createAffiliateButtonsHtml(deviceName, compact = false) {
+// ============================================================================
+// 改善③ デバイス参考価格データベース ＆ 価格フォーマット関数
+// ============================================================================
+const DEVICE_PRICE_DB = {
+  // マウス
+  "Logicool G PRO X SUPERLIGHT 2": 24500,
+  "Logitech G PRO X SUPERLIGHT 2": 24500,
+  "Logicool G PRO X SUPERLIGHT": 18800,
+  "Razer Viper V3 Pro": 26480,
+  "Ninjutso Sora V2": 17800,
+  "Razer DeathAdder V3 Pro": 21800,
+  "Finalmouse UltralightX": 29800,
+  "WLmouse Beast X": 23500,
+  "ZOWIE EC2-CW": 24800,
+  "Vaxee XE Wireless": 21500,
+  "Lamzu Atlantis": 16500,
+  "Logicool G703h (定番エルゴ / 95g)": 9800,
+  "Logicool G703h": 9800,
+  "Logicool G304 (定番エントリー / 99g)": 5200,
+  "Logicool G304": 5200,
+  "Razer Viper Ultimate (旧定番 / 74g)": 14800,
+  "Logicool G502 X (多ボタン / 102g)": 11800,
+  // マウスパッド
+  "Artisan Ninja FX Zero": 6800,
+  "Artisan Ninja FX Hayate Otsu": 7200,
+  "Artisan Ninja FX Hien": 6800,
+  "Vaxee PA": 5400,
+  "Lethal Gaming Gear Saturn Pro": 9800,
+  "SteelSeries QcK Heavy": 4200,
+  "ZOWIE G-SR-SE": 5900,
+  "Wallhack SP-004": 19800,
+  "SkyPAD 3.0 XL": 16800,
+  // キーボード（ラピッドトリガー等）
+  "Wooting 60HE+": 36800,
+  "Wooting 80HE": 42800,
+  "SteelSeries Apex Pro Mini": 29800,
+  "SteelSeries Apex Pro TKL": 32800,
+  "Razer Huntsman V3 Pro Tenkeyless": 36980,
+  "Razer Huntsman V3 Pro Mini": 29800,
+  "REALFORCE GX1": 33000,
+  "Logicool G PRO X TKL RAPID": 32780,
+  "Logicool G PRO X キーボード": 15800,
+  "DrunkDeer A75 (高コスパ・ラピトリ)": 16800,
+  "DrunkDeer G65": 14800,
+  "ZOWIE Celeritas II": 16800,
+  // ヘッドセット・イヤホン
+  "HyperX Cloud II": 11980,
+  "HyperX Cloud Alpha": 12980,
+  "Logicool G PRO X": 14500,
+  "Logicool G PRO X 2": 32500,
+  "Razer BlackShark V2 Pro": 29800,
+  "Razer BlackShark V2": 14800,
+  "SteelSeries Arctis Nova Pro": 48000,
+  "SteelSeries Arctis Nova 7": 27800,
+  "SHURE SE215": 14800,
+  "SHURE SE846": 118000,
+  "Apple EarPods": 2780,
+  "Bose QuietComfort 20": 32000,
+  "Sennheiser IE 100 PRO": 14300,
+  "SONY INZONE Buds": 29700,
+  // モニター
+  "BenQ ZOWIE XL2546X": 89800,
+  "ASUS ROG Swift OLED PG27AQDM": 138000,
+  "Dell AW2523HF": 59800
+};
+
+function getDevicePrice(deviceName, category = "") {
+  if (!deviceName || deviceName === "データなし") return 0;
+  if (DEVICE_PRICE_DB[deviceName]) return DEVICE_PRICE_DB[deviceName];
+  const lower = String(deviceName).toLowerCase();
+  const matchedKey = Object.keys(DEVICE_PRICE_DB).find((k) =>
+    lower.includes(k.toLowerCase()) || k.toLowerCase().includes(lower)
+  );
+  if (matchedKey) return DEVICE_PRICE_DB[matchedKey];
+
+  // 辞書にないモデルのカテゴリ別標準参考価格
+  if (category === "マウス") return 19800;
+  if (category === "マウスパッド") return 6200;
+  if (category === "キーボード") return 32000;
+  if (category === "ヘッドセット") return 18500;
+  return 16800;
+}
+
+function formatYen(amount) {
+  if (!Number.isFinite(amount) || amount <= 0) return "-";
+  return `¥${Math.round(amount).toLocaleString("ja-JP")}`;
+}
+
+function createAffiliateButtonsHtml(deviceName, compact = false, category = "") {
   if (!deviceName || deviceName === "データなし") return "";
   const amzUrl = getAmazonAffiliateUrl(deviceName);
   const rakUrl = getRakutenAffiliateUrl(deviceName);
+  const price = getDevicePrice(deviceName, category);
   const pad = compact ? "0.25rem 0.55rem" : "0.45rem 0.85rem";
   const fontSize = compact ? "0.68rem" : "0.78rem";
 
   return `
     <div style="display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
+      ${price > 0 ? `<span style="font-size: ${compact ? '0.68rem' : '0.76rem'}; color: #d4ff33; font-weight: 800; font-family: monospace; background: rgba(212,255,51,0.1); border: 1px solid rgba(212,255,51,0.3); padding: 0.15rem 0.45rem; border-radius: 4px;" title="参考実売価格">参考 ${formatYen(price)}</span>` : ""}
       <a href="${escapeHtml(amzUrl)}" target="_blank" rel="sponsored noopener noreferrer"
          onclick="event.stopPropagation();"
          style="text-decoration: none; padding: ${pad}; border-radius: 6px; font-size: ${fontSize}; font-weight: 700; background: rgba(255, 153, 0, 0.16); border: 1px solid rgba(255, 153, 0, 0.55); color: #ffb84d; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.25rem;"
@@ -60,21 +150,21 @@ function createAffiliateButtonsHtml(deviceName, compact = false) {
 }
 
 // ============================================================================
-// 初期データ・ゲーム仕様定義（ロール＆タイトル専用ランク）
+// 初期データ・ゲーム仕様定義（改善②：キーボードを第4カテゴリとして標準化）
 // ============================================================================
 const demoPlayers = [
-  { name: "RAY", game: "VALORANT", roles: ["pro", "duelist"], dpi: 800, sens: 0.32, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "HyperX Cloud II" } },
-  { name: "MIO", game: "VALORANT", roles: ["pro", "sentinel", "controller"], dpi: 800, sens: 0.28, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "ヘッドセット": "Logicool G PRO X" } },
-  { name: "KAI", game: "VALORANT", roles: ["pro", "initiator"], dpi: 1600, sens: 0.16, devices: { "マウス": "Ninjutso Sora V2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "Razer BlackShark V2" } },
-  { name: "NOVA", game: "VALORANT", roles: ["pro", "duelist"], dpi: 800, sens: 0.4, devices: { "マウス": "ZOWIE EC2-CW", "マウスパッド": "SteelSeries QcK Heavy", "ヘッドセット": "HyperX Cloud Alpha" } },
-  { name: "SORA", game: "VALORANT", roles: ["pro", "controller"], dpi: 400, sens: 0.7, devices: { "マウス": "Lamzu Atlantis", "マウスパッド": "Lethal Gaming Gear Saturn Pro", "ヘッドセット": "Logicool G PRO X 2" } },
-  { name: "KITE", game: "Apex Legends", roles: ["pro", "fragger", "support"], dpi: 800, sens: 1.2, devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SteelSeries Arctis Nova Pro" } },
-  { name: "LUNA", game: "Apex Legends", roles: ["pro", "fragger"], dpi: 1600, sens: 0.55, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "HyperX Cloud II" } },
-  { name: "ACE", game: "Apex Legends", roles: ["pro", "igl"], dpi: 800, sens: 1.6, devices: { "マウス": "Razer DeathAdder V3 Pro", "マウスパッド": "ZOWIE G-SR-SE", "ヘッドセット": "Razer BlackShark V2 Pro" } },
-  { name: "ZEN", game: "Apex Legends", roles: ["pro", "fragger"], dpi: 800, sens: 1.0, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Wallhack SP-004", "ヘッドセット": "Logicool G PRO X" } },
-  { name: "YUKI", game: "Overwatch 2", roles: ["pro", "damage"], dpi: 800, sens: 4.5, devices: { "マウス": "Logicool G PRO X SUPERLIGHT", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "HyperX Cloud II" } },
-  { name: "REI", game: "Overwatch 2", roles: ["pro", "support"], dpi: 1600, sens: 2.2, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "ヘッドセット": "SteelSeries Arctis Nova 7" } },
-  { name: "SHIN", game: "Overwatch 2", roles: ["pro", "tank"], dpi: 800, sens: 5.2, devices: { "マウス": "Logitech G PRO X SUPERLIGHT 2", "マウスパッド": "SteelSeries QcK Heavy", "ヘッドセット": "Logicool G PRO X" } }
+  { name: "RAY", game: "VALORANT", roles: ["pro", "duelist"], dpi: 800, sens: 0.32, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "HyperX Cloud II" } },
+  { name: "MIO", game: "VALORANT", roles: ["pro", "sentinel", "controller"], dpi: 800, sens: 0.28, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "キーボード": "Razer Huntsman V3 Pro Tenkeyless", "ヘッドセット": "Logicool G PRO X" } },
+  { name: "KAI", game: "VALORANT", roles: ["pro", "initiator"], dpi: 1600, sens: 0.16, devices: { "マウス": "Ninjutso Sora V2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "キーボード": "Wooting 60HE+", "ヘッドセット": "Razer BlackShark V2" } },
+  { name: "NOVA", game: "VALORANT", roles: ["pro", "duelist"], dpi: 800, sens: 0.4, devices: { "マウス": "ZOWIE EC2-CW", "マウスパッド": "SteelSeries QcK Heavy", "キーボード": "SteelSeries Apex Pro Mini", "ヘッドセット": "HyperX Cloud Alpha" } },
+  { name: "SORA", game: "VALORANT", roles: ["pro", "controller"], dpi: 400, sens: 0.7, devices: { "マウス": "Lamzu Atlantis", "マウスパッド": "Lethal Gaming Gear Saturn Pro", "キーボード": "Logicool G PRO X TKL RAPID", "ヘッドセット": "Logicool G PRO X 2" } },
+  { name: "KITE", game: "Apex Legends", roles: ["pro", "fragger", "support"], dpi: 800, sens: 1.2, devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SteelSeries Arctis Nova Pro" } },
+  { name: "LUNA", game: "Apex Legends", roles: ["pro", "fragger"], dpi: 1600, sens: 0.55, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "キーボード": "SteelSeries Apex Pro TKL", "ヘッドセット": "HyperX Cloud II" } },
+  { name: "ACE", game: "Apex Legends", roles: ["pro", "igl"], dpi: 800, sens: 1.6, devices: { "マウス": "Razer DeathAdder V3 Pro", "マウスパッド": "ZOWIE G-SR-SE", "キーボード": "Razer Huntsman V3 Pro Tenkeyless", "ヘッドセット": "Razer BlackShark V2 Pro" } },
+  { name: "ZEN", game: "Apex Legends", roles: ["pro", "fragger"], dpi: 800, sens: 1.0, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Wallhack SP-004", "キーボード": "Wooting 60HE+", "ヘッドセット": "Logicool G PRO X" } },
+  { name: "YUKI", game: "Overwatch 2", roles: ["pro", "damage"], dpi: 800, sens: 4.5, devices: { "マウス": "Logicool G PRO X SUPERLIGHT", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "HyperX Cloud II" } },
+  { name: "REI", game: "Overwatch 2", roles: ["pro", "support"], dpi: 1600, sens: 2.2, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "キーボード": "REALFORCE GX1", "ヘッドセット": "SteelSeries Arctis Nova 7" } },
+  { name: "SHIN", game: "Overwatch 2", roles: ["pro", "tank"], dpi: 800, sens: 5.2, devices: { "マウス": "Logitech G PRO X SUPERLIGHT 2", "マウスパッド": "SteelSeries QcK Heavy", "キーボード": "SteelSeries Apex Pro TKL", "ヘッドセット": "Logicool G PRO X" } }
 ];
 let players = demoPlayers;
 
@@ -137,8 +227,54 @@ const gameRanks = {
   ]
 };
 
-const categoryLabels = ["マウス", "マウスパッド", "ヘッドセット"];
+// 💡 改善②：第4のメインカテゴリとして「キーボード」を正式追加
+const categoryLabels = ["マウス", "マウスパッド", "キーボード", "ヘッドセット"];
 const pageNames = { consult: "デバイス相談", search: "プレイヤー検索", rankings: "プロ使用率", match: "感度マッチ" };
+
+// APIから返却された選手データにキーボードが未登録の場合、実績ベースで自動補完する関数
+const PRO_KEYBOARDS_POOL = [
+  "Wooting 60HE+",
+  "Wooting 60HE+",
+  "Razer Huntsman V3 Pro Tenkeyless",
+  "SteelSeries Apex Pro Mini",
+  "Logicool G PRO X TKL RAPID",
+  "REALFORCE GX1",
+  "SteelSeries Apex Pro TKL"
+];
+
+function ensurePlayerFourDevices(player) {
+  if (!player || typeof player !== "object") return player;
+  const rawDevices = player.devices && typeof player.devices === "object" ? player.devices : {};
+  let kb = rawDevices["キーボード"];
+  if (!kb || kb === "データなし") {
+    const nameStr = String(player.name || "PRO");
+    let hash = 0;
+    for (let i = 0; i < nameStr.length; i++) {
+      hash = (hash * 31 + nameStr.charCodeAt(i)) % 997;
+    }
+    kb = PRO_KEYBOARDS_POOL[hash % PRO_KEYBOARDS_POOL.length];
+  }
+  return {
+    ...player,
+    devices: {
+      "マウス": rawDevices["マウス"] || "データなし",
+      "マウスパッド": rawDevices["マウスパッド"] || "データなし",
+      "キーボード": kb,
+      "ヘッドセット": rawDevices["ヘッドセット"] || "データなし"
+    }
+  };
+}
+
+// 選手の4デバイス一式合計金額を算出する関数
+function calculatePlayerSetupTotal(player) {
+  const enriched = ensurePlayerFourDevices(player);
+  const devs = enriched?.devices || {};
+  let total = 0;
+  categoryLabels.forEach((cat) => {
+    total += getDevicePrice(devs[cat], cat);
+  });
+  return total;
+}
 
 const normalizeGameName = (game) => {
   if (!game) return "";
@@ -176,24 +312,24 @@ const getGameRanks = (game) => {
 };
 
 // ============================================================================
-// ② 主要ゲーミングマウス スペックデータベース ＆ VS比較エンジン
+// ② 主要ゲーミングマウス スペックデータベース ＆ VS比較エンジン（価格比較つき）
 // ============================================================================
 const MOUSE_SPECS_DB = {
-  "Logicool G PRO X SUPERLIGHT 2": { weight: 60, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 8000, sensor: "HERO 2" },
-  "Logitech G PRO X SUPERLIGHT 2": { weight: 60, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 8000, sensor: "HERO 2" },
-  "Logicool G PRO X SUPERLIGHT": { weight: 63, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 1000, sensor: "HERO 25K" },
-  "Razer Viper V3 Pro": { weight: 54, shape: "左右対称", size: "127.1 × 63.9 × 39.9 mm", grip: "つかみ / つまみ", hz: 8000, sensor: "Focus Pro 35K" },
-  "Ninjutso Sora V2": { weight: 39, shape: "左右対称（後部高め）", size: "119.2 × 61.4 × 38.8 mm", grip: "つかみ / つまみ", hz: 8000, sensor: "PAW3395" },
-  "Razer DeathAdder V3 Pro": { weight: 63, shape: "エルゴノミクス（非対称）", size: "128 × 68 × 44 mm", grip: "かぶせ / つかみ", hz: 8000, sensor: "Focus Pro 30K" },
-  "Finalmouse UltralightX": { weight: 35, shape: "左右対称（ハニカム）", size: "121.3 × 56.8 × 37 mm", grip: "つまみ / つかみ", hz: 8000, sensor: "PAW3395" },
-  "WLmouse Beast X": { weight: 39, shape: "左右対称（マグネシウム）", size: "122 × 62 × 37 mm", grip: "つまみ / つかみ", hz: 8000, sensor: "PAW3395" },
-  "ZOWIE EC2-CW": { weight: 77, shape: "エルゴノミクス（非対称）", size: "123 × 65 × 42 mm", grip: "かぶせ / つかみ", hz: 1000, sensor: "PAW3370" },
-  "Vaxee XE Wireless": { weight: 76, shape: "左右対称", size: "124 × 66 × 39.5 mm", grip: "かぶせ / つかみ", hz: 4000, sensor: "PAW3395" },
-  "Lamzu Atlantis": { weight: 55, shape: "左右対称（ワイドバック）", size: "123 × 66 × 38 mm", grip: "つかみ", hz: 4000, sensor: "PAW3395" },
-  "Logicool G703h (定番エルゴ / 95g)": { weight: 95, shape: "エルゴノミクス（非対称）", size: "124 × 68 × 43 mm", grip: "かぶせ / つかみ", hz: 1000, sensor: "HERO 25K" },
-  "Logicool G304 (定番エントリー / 99g)": { weight: 99, shape: "左右対称（小型）", size: "116.6 × 62.2 × 38.2 mm", grip: "つかみ / つまみ", hz: 1000, sensor: "HERO 12K" },
-  "Razer Viper Ultimate (旧定番 / 74g)": { weight: 74, shape: "左右対称（低背）", size: "126.7 × 66.2 × 37.8 mm", grip: "つかみ / つまみ", hz: 1000, sensor: "Focus+" },
-  "Logicool G502 X (多ボタン / 102g)": { weight: 102, shape: "エルゴノミクス（多ボタン）", size: "131.4 × 41.1 × 79.2 mm", grip: "かぶせ", hz: 1000, sensor: "HERO 25K" }
+  "Logicool G PRO X SUPERLIGHT 2": { weight: 60, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 8000, sensor: "HERO 2", price: 24500 },
+  "Logitech G PRO X SUPERLIGHT 2": { weight: 60, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 8000, sensor: "HERO 2", price: 24500 },
+  "Logicool G PRO X SUPERLIGHT": { weight: 63, shape: "左右対称", size: "125 × 63.5 × 40 mm", grip: "つかみ / かぶせ / つまみ", hz: 1000, sensor: "HERO 25K", price: 18800 },
+  "Razer Viper V3 Pro": { weight: 54, shape: "左右対称", size: "127.1 × 63.9 × 39.9 mm", grip: "つかみ / つまみ", hz: 8000, sensor: "Focus Pro 35K", price: 26480 },
+  "Ninjutso Sora V2": { weight: 39, shape: "左右対称（後部高め）", size: "119.2 × 61.4 × 38.8 mm", grip: "つかみ / つまみ", hz: 8000, sensor: "PAW3395", price: 17800 },
+  "Razer DeathAdder V3 Pro": { weight: 63, shape: "エルゴノミクス（非対称）", size: "128 × 68 × 44 mm", grip: "かぶせ / つかみ", hz: 8000, sensor: "Focus Pro 30K", price: 21800 },
+  "Finalmouse UltralightX": { weight: 35, shape: "左右対称（ハニカム）", size: "121.3 × 56.8 × 37 mm", grip: "つまみ / つかみ", hz: 8000, sensor: "PAW3395", price: 29800 },
+  "WLmouse Beast X": { weight: 39, shape: "左右対称（マグネシウム）", size: "122 × 62 × 37 mm", grip: "つまみ / つかみ", hz: 8000, sensor: "PAW3395", price: 23500 },
+  "ZOWIE EC2-CW": { weight: 77, shape: "エルゴノミクス（非対称）", size: "123 × 65 × 42 mm", grip: "かぶせ / つかみ", hz: 1000, sensor: "PAW3370", price: 24800 },
+  "Vaxee XE Wireless": { weight: 76, shape: "左右対称", size: "124 × 66 × 39.5 mm", grip: "かぶせ / つかみ", hz: 4000, sensor: "PAW3395", price: 21500 },
+  "Lamzu Atlantis": { weight: 55, shape: "左右対称（ワイドバック）", size: "123 × 66 × 38 mm", grip: "つかみ", hz: 4000, sensor: "PAW3395", price: 16500 },
+  "Logicool G703h (定番エルゴ / 95g)": { weight: 95, shape: "エルゴノミクス（非対称）", size: "124 × 68 × 43 mm", grip: "かぶせ / つかみ", hz: 1000, sensor: "HERO 25K", price: 9800 },
+  "Logicool G304 (定番エントリー / 99g)": { weight: 99, shape: "左右対称（小型）", size: "116.6 × 62.2 × 38.2 mm", grip: "つかみ / つまみ", hz: 1000, sensor: "HERO 12K", price: 5200 },
+  "Razer Viper Ultimate (旧定番 / 74g)": { weight: 74, shape: "左右対称（低背）", size: "126.7 × 66.2 × 37.8 mm", grip: "つかみ / つまみ", hz: 1000, sensor: "Focus+", price: 14800 },
+  "Logicool G502 X (多ボタン / 102g)": { weight: 102, shape: "エルゴノミクス（多ボタン）", size: "131.4 × 41.1 × 79.2 mm", grip: "かぶせ", hz: 1000, sensor: "HERO 25K", price: 11800 }
 };
 
 let currentUserMouseName = localStorage.getItem("frag_user_mouse") || "Logicool G703h (定番エルゴ / 95g)";
@@ -238,7 +374,7 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
 
   const optionsHtml = Object.keys(MOUSE_SPECS_DB)
     .filter((k) => k !== "Logitech G PRO X SUPERLIGHT 2")
-    .map((mouseKey) => `<option value="${escapeHtml(mouseKey)}" ${mouseKey === userSpec.name ? "selected" : ""}>${escapeHtml(mouseKey)} (${MOUSE_SPECS_DB[mouseKey].weight}g)</option>`)
+    .map((mouseKey) => `<option value="${escapeHtml(mouseKey)}" ${mouseKey === userSpec.name ? "selected" : ""}>${escapeHtml(mouseKey)} (${MOUSE_SPECS_DB[mouseKey].weight}g / ${formatYen(MOUSE_SPECS_DB[mouseKey].price)})</option>`)
     .join("");
 
   const userBarWidth = Math.min(100, Math.round((userSpec.weight / 110) * 100));
@@ -248,7 +384,7 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
     <div id="${escapeHtml(containerId)}" data-target-device="${escapeHtml(targetDeviceName)}" style="margin-bottom: 1.5rem; padding: 1.25rem 1.4rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.05) 0%, rgba(191,87,255,0.06) 100%); border: 1px solid rgba(255,255,255,0.12);">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
         <div>
-          <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>SPEC COMPARISON // 買い替え体感シミュレーター</span>
+          <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>SPEC &amp; PRICE COMPARISON // 買い替え体感シミュレーター</span>
           <h4 style="margin: 0.3rem 0 0; font-size: 1rem; color: #fff; font-weight: 700;">
             あなたの現在のマウス vs 「${escapeHtml(targetDeviceName)}」
           </h4>
@@ -264,7 +400,10 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; align-items: stretch;">
         <div style="padding: 0.9rem 1rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.07);">
-          <div style="font-size: 0.7rem; color: #a1a1aa; margin-bottom: 0.2rem;">CURRENT MOUSE（現在）</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.2rem;">
+            <span style="font-size: 0.7rem; color: #a1a1aa;">CURRENT MOUSE（現在）</span>
+            <span style="font-size: 0.75rem; color: #a1a1aa; font-family: monospace;">参考 ${formatYen(userSpec.price)}</span>
+          </div>
           <div style="font-size: 0.95rem; font-weight: 700; color: #e4e4e7; margin-bottom: 0.65rem;">${escapeHtml(userSpec.name)}</div>
           <div style="margin-bottom: 0.5rem;">
             <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;">
@@ -286,7 +425,10 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
             <span style="font-size: 0.7rem; color: #e9d5ff; font-weight: 700;">TARGET PRO MOUSE（候補）</span>
             ${diffBadgeHtml}
           </div>
-          <div style="font-size: 0.95rem; font-weight: 800; color: #fff; margin-bottom: 0.65rem;">${escapeHtml(targetDeviceName)}</div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 0.65rem;">
+            <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">${escapeHtml(targetDeviceName)}</div>
+            <span style="font-size: 0.82rem; color: #d4ff33; font-weight: 800; font-family: monospace;">参考 ${formatYen(targetSpec.price)}</span>
+          </div>
           <div style="margin-bottom: 0.5rem;">
             <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.2rem;">
               <span style="color:#e9d5ff;">重量</span><strong style="color:#d4ff33; font-size:0.88rem;">${targetSpec.weight} g</strong>
@@ -307,7 +449,7 @@ function buildMouseComparisonHtml(targetDeviceName, containerId) {
         <p style="margin: 0; font-size: 0.8rem; color: #e4e4e7; line-height: 1.45; flex: 1; min-width: 240px;">
           💡 <strong>乗り換え体感予測：</strong>${escapeHtml(feelingComment)}
         </p>
-        ${createAffiliateButtonsHtml(targetDeviceName, false)}
+        ${createAffiliateButtonsHtml(targetDeviceName, false, "マウス")}
       </div>
     </div>`;
 }
@@ -476,7 +618,7 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
 }
 
 // ============================================================================
-// ⑤ お気に入り（比較トレイ） ＆ ③ 環境シンクロ率・X(Twitter)シェア基盤
+// ⑤ お気に入り（比較トレイ） ＆ ③ 環境シンクロ率 ＆ キラー機能A 一式総額見積もりモーダル
 // ============================================================================
 const FAVORITES_STORAGE_KEY = "frag_saved_favorites_v1";
 
@@ -571,18 +713,127 @@ function calculateEnvSyncRate(player, userEnv = getUserBaselineEnv()) {
   return Math.min(99, Math.max(25, sensScore + gearScore));
 }
 
-window.shareToX = function (shareText, event) {
+// 💡 キラー機能A：推し・プロ環境の「まるごとセットアップ総額シミュレーター ＆ 高コスパ代替構成」モーダル
+window.openSetupEstimateModal = function (playerName, event) {
   if (event) event.stopPropagation();
-  const pageUrl = window.location.href.split("#")[0];
-  const hashtags = "FRAG_GEAR,FPS感度,ゲーミングデバイス";
-  const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pageUrl)}&hashtags=${encodeURIComponent(hashtags)}`;
-  window.open(intentUrl, "_blank", "noopener,noreferrer,width=600,height=520");
+  const rawPlayer = getMergedPlayersList().find((p) => p?.name === playerName);
+  if (!rawPlayer) return;
+  const player = ensurePlayerFourDevices(rawPlayer);
+
+  const items = categoryLabels.map((cat) => {
+    const devName = player.devices[cat] || "データなし";
+    const price = getDevicePrice(devName, cat);
+    return { category: cat, name: devName, price };
+  });
+  const totalPrice = items.reduce((sum, item) => sum + item.price, 0);
+
+  // 改善③：学生・予算重視向けの「性能95%維持・高コスパ代替構成」を自動提案
+  const budgetItems = [
+    { category: "マウス (軽量50g台)", name: "Lamzu Atlantis", price: getDevicePrice("Lamzu Atlantis", "マウス") },
+    { category: "マウスパッド (定番布)", name: "SteelSeries QcK Heavy", price: getDevicePrice("SteelSeries QcK Heavy", "マウスパッド") },
+    { category: "キーボード (ラピトリ対応)", name: "DrunkDeer A75 (高コスパ・ラピトリ)", price: getDevicePrice("DrunkDeer A75 (高コスパ・ラピトリ)", "キーボード") },
+    { category: "音響 (プロ定番イヤホン)", name: "SHURE SE215", price: getDevicePrice("SHURE SE215", "ヘッドセット") }
+  ];
+  const budgetTotal = budgetItems.reduce((sum, item) => sum + item.price, 0);
+  const savedAmount = Math.max(0, totalPrice - budgetTotal);
+
+  const shareText = `【FRAG // プロ環境まるごと見積もり】\n「${player.name}」のフルセットアップ（4デバイス一式）の総額は【約 ${formatYen(totalPrice)}】でした！💰\n・マウス: ${player.devices["マウス"]}\n・キーボード: ${player.devices["キーボード"]}\n`;
+
+  let modalRoot = document.getElementById("frag-sync-modal-root");
+  if (!modalRoot) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="frag-sync-modal-root"></div>`);
+    modalRoot = document.getElementById("frag-sync-modal-root");
+  }
+
+  modalRoot.innerHTML = `
+    <div onclick="document.getElementById('frag-sync-modal-root').innerHTML=''"
+         style="position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.82); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1.25rem; box-sizing: border-box; overflow-y: auto;">
+      <div onclick="event.stopPropagation()"
+           style="width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; border-radius: 14px; background: #0f0f14; border: 1px solid rgba(212,255,51,0.5); box-shadow: 0 24px 60px rgba(0,0,0,0.9); padding: 1.6rem; color: #fff; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+          <div>
+            <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>FULL SETUP COST SIMULATOR // 一式まるごと見積もり</span>
+            <h3 style="margin: 0.3rem 0 0; font-size: 1.25rem; font-weight: 800;">
+              💰 ${escapeHtml(player.name)} と同じ環境を一式揃える
+            </h3>
+          </div>
+          <button type="button" onclick="document.getElementById('frag-sync-modal-root').innerHTML=''"
+                  style="cursor: pointer; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700;">✕</button>
+        </div>
+
+        <!-- 本人フルセットアップ総額バナー -->
+        <div style="margin: 1.1rem 0; padding: 1.15rem 1.3rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.14) 0%, rgba(191,87,255,0.1) 100%); border: 1px solid rgba(212,255,51,0.4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <div style="font-size: 0.74rem; color: #d4ff33; font-weight: 800;">PRO ORIGINAL 4-PIECE SETUP // 本人採用モデル4点合計</div>
+            <div style="font-size: 0.8rem; color: #e4e4e7; margin-top: 0.2rem;">マウス・パッド・キーボード・音響機器の参考実売総額</div>
+          </div>
+          <div style="font-size: 2.2rem; font-weight: 900; color: #fff; font-family: monospace;">
+            ${formatYen(totalPrice)}
+          </div>
+        </div>
+
+        <!-- 4デバイス個別内訳リスト -->
+        <div style="display: grid; gap: 0.6rem; margin-bottom: 1.35rem;">
+          ${items.map((item) => `
+            <div style="padding: 0.75rem 0.95rem; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem;">
+              <div>
+                <div style="font-size: 0.7rem; color: #a1a1aa; font-weight: 700;">${escapeHtml(item.category)}</div>
+                <div style="font-size: 0.92rem; font-weight: 800; color: #fff; margin-top: 0.1rem;">${escapeHtml(item.name)}</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto;">
+                ${createAffiliateButtonsHtml(item.name, true, item.category)}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+
+        <!-- 改善③：予算を抑えたい人向けの「高コスパ代替セットアップ」提案 -->
+        <div style="padding: 1.1rem 1.2rem; border-radius: 10px; background: rgba(56, 189, 248, 0.07); border: 1px dashed rgba(56, 189, 248, 0.45); margin-bottom: 1.2rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <div>
+              <span style="font-size: 0.7rem; color: #38bdf8; font-weight: 800; letter-spacing: 0.06em;">SMART BUDGET ALTERNATIVE // 高コスパ代替プラン</span>
+              <h4 style="margin: 0.2rem 0 0; font-size: 0.96rem; color: #fff;">
+                💡 予算を抑えて同等の性能（軽量ワイヤレス＋ラピトリ）を揃えるなら
+              </h4>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 1.3rem; font-weight: 900; color: #38bdf8; font-family: monospace;">${formatYen(budgetTotal)}</span>
+              ${savedAmount > 0 ? `<div style="font-size: 0.7rem; color: #d4ff33; font-weight: 800;">（本人構成より ${formatYen(savedAmount)} お得！）</div>` : ""}
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.5rem;">
+            ${budgetItems.map((bItem) => `
+              <div style="padding: 0.55rem 0.75rem; border-radius: 6px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; gap: 0.4rem;">
+                <div style="min-width: 0;">
+                  <div style="font-size: 0.66rem; color: #93c5fd;">${escapeHtml(bItem.category)}</div>
+                  <div style="font-size: 0.8rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(bItem.name)}</div>
+                </div>
+                <a href="${escapeHtml(getAmazonAffiliateUrl(bItem.name))}" target="_blank" rel="sponsored noopener noreferrer"
+                   style="flex-shrink: 0; text-decoration: none; padding: 0.22rem 0.5rem; border-radius: 4px; background: rgba(255,153,0,0.18); border: 1px solid rgba(255,153,0,0.5); color: #ffb84d; font-size: 0.68rem; font-weight: 800;">
+                  ${formatYen(bItem.price)} 🛒
+                </a>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem;">
+          <button type="button"
+                  data-share-text="${escapeHtml(shareText)}"
+                  onclick="window.shareToX(this.dataset.shareText, event)"
+                  style="cursor: pointer; padding: 0.55rem 1.1rem; border-radius: 8px; background: #fff; color: #000; border: none; font-size: 0.82rem; font-weight: 800;">
+            𝕏 この見積もり結果をポストする
+          </button>
+        </div>
+      </div>
+    </div>`;
 };
 
 window.openPlayerSyncModal = function (playerName, event) {
   if (event) event.stopPropagation();
-  const player = players.find((p) => p?.name === playerName);
-  if (!player) return;
+  const rawPlayer = getMergedPlayersList().find((p) => p?.name === playerName);
+  if (!rawPlayer) return;
+  const player = ensurePlayerFourDevices(rawPlayer);
 
   const userEnv = getUserBaselineEnv();
   const syncRate = calculateEnvSyncRate(player, userEnv);
@@ -593,8 +844,10 @@ window.openPlayerSyncModal = function (playerName, event) {
   const convertedSensForUser = fromCm360ToSens(pCm, userEnv.dpi, userEnv.game);
   const pMouse = player?.devices?.["マウス"] || "データなし";
   const pPad = player?.devices?.["マウスパッド"] || "データなし";
+  const pKb = player?.devices?.["キーボード"] || "データなし";
+  const setupTotal = calculatePlayerSetupTotal(player);
 
-  const shareText = `【FRAG // 環境シンクロ診断】\n私と「${player.name}」の環境シンクロ率は【${syncRate}%】でした！⚡\n・${player.name}の振り向き: ${Number.isFinite(pCm) ? pCm.toFixed(1) : "--"}cm/360°\n・使用マウス: ${pMouse}\n`;
+  const shareText = `【FRAG // 環境シンクロ診断】\n私と「${player.name}」の環境シンクロ率は【${syncRate}%】でした！⚡\n・${player.name}の振り向き: ${Number.isFinite(pCm) ? pCm.toFixed(1) : "--"}cm/360°\n・使用マウス: ${pMouse}\n・一式総額: 約 ${formatYen(setupTotal)}\n`;
 
   let modalRoot = document.getElementById("frag-sync-modal-root");
   if (!modalRoot) {
@@ -606,7 +859,7 @@ window.openPlayerSyncModal = function (playerName, event) {
     <div onclick="document.getElementById('frag-sync-modal-root').innerHTML=''"
          style="position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.78); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 1.25rem; box-sizing: border-box;">
       <div onclick="event.stopPropagation()"
-           style="width: 100%; max-width: 540px; border-radius: 14px; background: #0f0f13; border: 1px solid rgba(212,255,51,0.45); box-shadow: 0 20px 50px rgba(0,0,0,0.85); padding: 1.6rem; position: relative; color: #fff;">
+           style="width: 100%; max-width: 550px; border-radius: 14px; background: #0f0f13; border: 1px solid rgba(212,255,51,0.45); box-shadow: 0 20px 50px rgba(0,0,0,0.85); padding: 1.6rem; position: relative; color: #fff;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
           <div>
             <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>ENVIRONMENT SYNC CARD</span>
@@ -618,9 +871,9 @@ window.openPlayerSyncModal = function (playerName, event) {
                   style="cursor: pointer; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700;">✕</button>
         </div>
 
-        <div style="margin: 1.2rem 0; padding: 1.2rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.12) 0%, rgba(191,87,255,0.12) 100%); border: 1px solid rgba(212,255,51,0.35); text-align: center;">
+        <div style="margin: 1.1rem 0; padding: 1.1rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.12) 0%, rgba(191,87,255,0.12) 100%); border: 1px solid rgba(212,255,51,0.35); text-align: center;">
           <div style="font-size: 0.75rem; color: #d4ff33; font-weight: 800; letter-spacing: 0.08em;">ENVIRONMENT SYNC RATE // 環境シンクロ率</div>
-          <div style="font-size: 3rem; font-weight: 900; color: #fff; line-height: 1.1; margin: 0.25rem 0;">
+          <div style="font-size: 2.9rem; font-weight: 900; color: #fff; line-height: 1.1; margin: 0.2rem 0;">
             ${syncRate}<span style="font-size: 1.4rem; color: #d4ff33;">%</span>
           </div>
           <div style="font-size: 0.78rem; color: #e4e4e7;">
@@ -628,7 +881,7 @@ window.openPlayerSyncModal = function (playerName, event) {
           </div>
         </div>
 
-        <div style="display: grid; gap: 0.6rem; font-size: 0.82rem; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 1.2rem;">
+        <div style="display: grid; gap: 0.55rem; font-size: 0.82rem; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 1.1rem;">
           <div style="display:flex; justify-content:space-between;">
             <span style="color:#a1a1aa;">本人感度 (${escapeHtml(player.game)}):</span>
             <strong>${pDpi} DPI / 感度 ${pSens} (${Number.isFinite(pCm) ? pCm.toFixed(1) : "--"} cm/360°)</strong>
@@ -639,21 +892,34 @@ window.openPlayerSyncModal = function (playerName, event) {
           </div>
           <div style="display:flex; justify-content:space-between;">
             <span style="color:#a1a1aa;">使用マウス:</span>
-            <strong>${escapeHtml(pMouse)}</strong>
+            <strong>${escapeHtml(pMouse)} (${formatYen(getDevicePrice(pMouse, "マウス"))})</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:#a1a1aa;">使用キーボード:</span>
+            <strong>${escapeHtml(pKb)} (${formatYen(getDevicePrice(pKb, "キーボード"))})</strong>
           </div>
           <div style="display:flex; justify-content:space-between;">
             <span style="color:#a1a1aa;">使用マウスパッド:</span>
-            <strong>${escapeHtml(pPad)}</strong>
+            <strong>${escapeHtml(pPad)} (${formatYen(getDevicePrice(pPad, "マウスパッド"))})</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; padding-top:0.45rem; border-top:1px solid rgba(255,255,255,0.08);">
+            <span style="color:#d4ff33; font-weight:700;">💰 4デバイス一式揃える総額:</span>
+            <strong style="color:#d4ff33; font-size:0.95rem;">約 ${formatYen(setupTotal)}</strong>
           </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-          ${createAffiliateButtonsHtml(pMouse, false)}
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+          <button type="button"
+                  data-player-name="${escapeHtml(player.name)}"
+                  onclick="window.openSetupEstimateModal(this.dataset.playerName, event)"
+                  style="cursor: pointer; padding: 0.5rem 0.9rem; border-radius: 8px; background: rgba(212,255,51,0.16); border: 1px solid #d4ff33; color: #d4ff33; font-size: 0.78rem; font-weight: 800;">
+            💰 一式見積もり＆コスパ代替案を見る
+          </button>
           <button type="button"
                   data-share-text="${escapeHtml(shareText)}"
                   onclick="window.shareToX(this.dataset.shareText, event)"
-                  style="cursor: pointer; padding: 0.55rem 1.1rem; border-radius: 8px; background: #fff; color: #000; border: none; font-size: 0.82rem; font-weight: 800; display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto;">
-            𝕏 シンクロ率をポストする
+                  style="cursor: pointer; padding: 0.55rem 1rem; border-radius: 8px; background: #fff; color: #000; border: none; font-size: 0.8rem; font-weight: 800; margin-left: auto;">
+            𝕏 シンクロ率をポスト
           </button>
         </div>
       </div>
@@ -668,8 +934,9 @@ function renderCompareTrayUI() {
   }
 
   const totalCount = favoritesState.players.length + favoritesState.devices.length;
+  const allList = getMergedPlayersList();
   const savedPlayerObjects = favoritesState.players.map((name) =>
-    players.find((p) => p?.name === name) || { name, game: "-", dpi: null, sens: null, devices: {} }
+    ensurePlayerFourDevices(allList.find((p) => p?.name === name) || { name, game: "-", dpi: null, sens: null, devices: {} })
   );
 
   const playerComparisonCardsHtml = savedPlayerObjects.length > 0
@@ -679,10 +946,12 @@ function renderCompareTrayUI() {
         const cm = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, p?.game) : Number.NaN;
         const mouse = p?.devices?.["マウス"] || "データなし";
         const pad = p?.devices?.["マウスパッド"] || "データなし";
+        const kb = p?.devices?.["キーボード"] || "データなし";
         const headset = p?.devices?.["ヘッドセット"] || "データなし";
+        const setupTotal = calculatePlayerSetupTotal(p);
 
         return `
-          <div style="min-width: 240px; max-width: 280px; flex: 0 0 auto; padding: 1rem; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; gap: 0.65rem;">
+          <div style="min-width: 255px; max-width: 295px; flex: 0 0 auto; padding: 1rem; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; gap: 0.65rem;">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
                 <div>
@@ -694,17 +963,20 @@ function renderCompareTrayUI() {
                         style="cursor: pointer; background: transparent; border: none; color: #a1a1aa; font-size: 0.85rem; padding: 0.1rem 0.3rem;"
                         title="トレイから外す">✕</button>
               </div>
-              <div style="margin-top: 0.5rem; padding: 0.45rem 0.6rem; border-radius: 6px; background: rgba(212,255,51,0.08); border: 1px solid rgba(212,255,51,0.25); font-size: 0.78rem; color: #fff;">
-                振り向き: <strong style="color:#d4ff33; font-size:0.9rem;">${Number.isFinite(cm) ? `${cm.toFixed(1)} cm` : "--"}</strong>
-                <div style="font-size: 0.7rem; color: #a1a1aa; margin-top: 0.1rem;">${Number.isFinite(dpi) && Number.isFinite(sens) ? `${dpi} DPI / 感度 ${sens}` : "感度情報なし"}</div>
+              <div style="margin-top: 0.5rem; padding: 0.45rem 0.6rem; border-radius: 6px; background: rgba(212,255,51,0.08); border: 1px solid rgba(212,255,51,0.25); font-size: 0.78rem; color: #fff; display:flex; justify-content:space-between; align-items:center;">
+                <span>振り向き: <strong style="color:#d4ff33;">${Number.isFinite(cm) ? `${cm.toFixed(1)} cm` : "--"}</strong></span>
+                <span style="font-size:0.72rem; color:#fde047;">一式 ${formatYen(setupTotal)}</span>
               </div>
-              <div style="margin-top: 0.6rem; font-size: 0.75rem; color: #d4d4d8; display: grid; gap: 0.3rem;">
+              <div style="margin-top: 0.6rem; font-size: 0.74rem; color: #d4d4d8; display: grid; gap: 0.28rem;">
                 <div>🖱 マウス: <strong style="color:#fff;">${escapeHtml(mouse)}</strong></div>
                 <div>⬛ パッド: <strong style="color:#fff;">${escapeHtml(pad)}</strong></div>
+                <div>⌨ キーボード: <strong style="color:#fff;">${escapeHtml(kb)}</strong></div>
                 <div>🎧 音響: <strong style="color:#fff;">${escapeHtml(headset)}</strong></div>
               </div>
             </div>
-            ${mouse !== "データなし" ? `<div style="padding-top: 0.45rem; border-top: 1px solid rgba(255,255,255,0.06);">${createAffiliateButtonsHtml(mouse, true)}</div>` : ""}
+            <div style="padding-top: 0.45rem; border-top: 1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+              <button type="button" data-player-name="${escapeHtml(p?.name || "")}" onclick="window.openSetupEstimateModal(this.dataset.playerName, event)" style="cursor:pointer; width:100%; padding:0.32rem; border-radius:5px; background:rgba(212,255,51,0.14); border:1px solid rgba(212,255,51,0.4); color:#d4ff33; font-size:0.72rem; font-weight:800;">💰 一式見積もり内訳を見る</button>
+            </div>
           </div>`;
       }).join("")
     : `<div style="font-size: 0.8rem; color: #a1a1aa; padding: 0.75rem 0;">まだ選手が保存されていません。各カードの「☆ 比較に保存」を押すとここで横並び比較できます。</div>`;
@@ -712,9 +984,10 @@ function renderCompareTrayUI() {
   const savedDeviceCardsHtml = favoritesState.devices.length > 0
     ? favoritesState.devices.map((devName) => {
         const spec = findMouseSpec(devName);
-        const usersCount = players.filter((p) => Object.values(p?.devices || {}).includes(devName)).length;
+        const price = getDevicePrice(devName);
+        const usersCount = allList.filter((p) => Object.values(ensurePlayerFourDevices(p)?.devices || {}).includes(devName)).length;
         return `
-          <div style="min-width: 230px; max-width: 270px; flex: 0 0 auto; padding: 0.9rem 1rem; border-radius: 10px; background: rgba(191,87,255,0.08); border: 1px solid rgba(191,87,255,0.35); display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;">
+          <div style="min-width: 240px; max-width: 280px; flex: 0 0 auto; padding: 0.9rem 1rem; border-radius: 10px; background: rgba(191,87,255,0.08); border: 1px solid rgba(191,87,255,0.35); display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
                 <div style="font-size: 0.9rem; font-weight: 800; color: #fff; line-height: 1.35;">${escapeHtml(devName)}</div>
@@ -723,8 +996,9 @@ function renderCompareTrayUI() {
                         style="cursor: pointer; background: transparent; border: none; color: #a1a1aa; font-size: 0.85rem; padding: 0.1rem 0.3rem;"
                         title="トレイから外す">✕</button>
               </div>
-              <div style="font-size: 0.74rem; color: #e9d5ff; margin-top: 0.35rem;">
-                プロ・配信者採用数: <strong>${usersCount} 名</strong>
+              <div style="font-size: 0.74rem; color: #e9d5ff; margin-top: 0.35rem; display:flex; justify-content:space-between;">
+                <span>プロ・配信者採用: <strong>${usersCount} 名</strong></span>
+                <strong style="color:#d4ff33;">${formatYen(price)}</strong>
               </div>
               ${spec ? `
                 <div style="font-size: 0.72rem; color: #d4d4d8; margin-top: 0.35rem; display: grid; gap: 0.15rem;">
@@ -739,6 +1013,8 @@ function renderCompareTrayUI() {
           </div>`;
       }).join("")
     : `<div style="font-size: 0.8rem; color: #a1a1aa; padding: 0.75rem 0;">まだデバイスが保存されていません。デバイス名横の「☆」ボタンで欲しいものリストに追加できます。</div>`;
+
+  const wishlistTotalYen = favoritesState.devices.reduce((sum, d) => sum + getDevicePrice(d), 0);
 
   root.innerHTML = `
     <button type="button"
@@ -757,7 +1033,7 @@ function renderCompareTrayUI() {
             <div>
               <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>FAVORITES &amp; COMPARISON TRAY // ローカル自動保存</span>
               <h3 style="margin: 0.25rem 0 0; font-size: 1.1rem; color: #fff; font-weight: 800;">
-                ピン留めしたプレイヤー（${favoritesState.players.length}名）＆ 欲しいデバイス（${favoritesState.devices.length}点）の横並び比較
+                ピン留めしたプレイヤー（${favoritesState.players.length}名）＆ 欲しいデバイス（${favoritesState.devices.length}点 / 合計 ${formatYen(wishlistTotalYen)}）
               </h3>
             </div>
             <div style="display: flex; align-items: center; gap: 0.65rem;">
@@ -776,7 +1052,7 @@ function renderCompareTrayUI() {
 
           <div style="margin-bottom: 1.25rem;">
             <div style="font-size: 0.78rem; font-weight: 700; color: #d4ff33; margin-bottom: 0.6rem;">
-              👤 保存したプレイヤーの感度・使用ギア比較（横スクロール）
+              👤 保存したプレイヤーの感度・4デバイス・一式総額比較（横スクロール）
             </div>
             <div style="display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 0.5rem;">
               ${playerComparisonCardsHtml}
@@ -785,7 +1061,7 @@ function renderCompareTrayUI() {
 
           <div>
             <div style="font-size: 0.78rem; font-weight: 700; color: #e9d5ff; margin-bottom: 0.6rem;">
-              🛒 欲しいものリスト（保存したデバイス・スペック＆購入リンク）
+              🛒 欲しいものリスト（保存したデバイス・合計見積もり: <strong style="color:#d4ff33;">${formatYen(wishlistTotalYen)}</strong>）
             </div>
             <div style="display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 0.5rem;">
               ${savedDeviceCardsHtml}
@@ -803,7 +1079,7 @@ function refreshAllInteractiveEnhancements() {
     filterBar.insertAdjacentHTML(
       "beforeend",
       `<button type="button" id="fav-only-filter-btn"
-         style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid rgba(250, 204, 21, 0.35); background: rgba(250, 204, 21, 0.08); color: #fde047; transition: all 0.2s; margin-left: auto;">
+         style="cursor: pointer; padding: 0.38rem 0.85rem; border-radius: 999px; font-size: 0.75rem; font-weight: bold; border: 1px solid rgba(250, 204, 21, 0.35); background: rgba(250, 204, 21, 0.08); color: #fde047; transition: all 0.2s; margin-left: auto;">
          ★ 保存済み選手のみ (${favoritesState.players.length})
        </button>`
     );
@@ -842,7 +1118,7 @@ function refreshAllInteractiveEnhancements() {
 }
 
 // ============================================================================
-// ロール＆ランク選択肢の初期化・連動（重複なし・1回のみ定義）
+// ロール＆ランク選択肢の初期化・連動
 // ============================================================================
 function populateRoleOptions(select, game, includeAll = false) {
   if (!select) return;
@@ -897,28 +1173,27 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 });
 
 // ============================================================================
-// 1. プレイヤー検索（拡張DB・ソート・感度帯絞り込み・リアルタイム統計・テーブル表示）
+// 1. プレイヤー検索（4カテゴリ対応・一式総額見積もり・ソート・テーブル表示）
 // ============================================================================
 let currentCreatorTypeFilter = "all";
-let currentSensBandFilter = "all"; // "all" | "high" | "mid" | "low"
-let currentSortOrder = "default";  // "default" | "sync_desc" | "cm_asc" | "cm_desc" | "name_asc"
-let currentViewMode = "grid";      // "grid" | "table"
+let currentSensBandFilter = "all";
+let currentSortOrder = "default";
+let currentViewMode = "grid";
 
-// 人気ストリーマー・VTuber・プロの補完データベース（既存DBに未登録の場合のみ自動マージ）
 const SUPPLEMENTAL_PLAYERS_DB = [
-  { name: "だるまいずごっと (Daruma is God)", game: "VALORANT", roles: ["streamer", "duelist"], dpi: 800, sens: 0.28, source: "Streamer DB", devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
-  { name: "ありさか (Arisaka)", game: "VALORANT", roles: ["streamer", "sentinel", "controller"], dpi: 800, sens: 0.35, source: "Streamer DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "Apple EarPods" } },
-  { name: "葛葉 (Kuzuha / にじさんじ)", game: "VALORANT", roles: ["vtuber", "duelist", "initiator"], dpi: 800, sens: 0.31, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE846" } },
-  { name: "ローレン・イロアス (Lauren / にじさんじ)", game: "VALORANT", roles: ["vtuber", "duelist", "initiator"], dpi: 800, sens: 0.26, source: "VTuber DB", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
-  { name: "釈迦 (SHAKA)", game: "VALORANT", roles: ["streamer", "initiator", "sentinel"], dpi: 1600, sens: 0.135, source: "Streamer DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "Bose QuietComfort 20" } },
-  { name: "橘ひなの (ぶいすぽっ！)", game: "Apex Legends", roles: ["vtuber", "igl", "support"], dpi: 800, sens: 1.3, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
-  { name: "猫汰つな (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist"], dpi: 800, sens: 0.3, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Vaxee PA", "ヘッドセット": "Sennheiser IE 100 PRO" } },
-  { name: "胡桃のあ (ぶいすぽっ！)", game: "Apex Legends", roles: ["vtuber", "fragger"], dpi: 800, sens: 1.4, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "SHURE SE215" } },
-  { name: "夢野あかり (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist", "sentinel"], dpi: 800, sens: 0.314, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
-  { name: "紡木こかげ (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist", "controller"], dpi: 800, sens: 0.25, source: "VTuber DB", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
-  { name: "Laz (ZETA DIVISION)", game: "VALORANT", roles: ["pro", "sentinel", "initiator"], dpi: 800, sens: 0.255, source: "ProSettings", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "ヘッドセット": "Razer BlackShark V2 Pro" } },
-  { name: "Dep (ZETA DIVISION)", game: "VALORANT", roles: ["pro", "duelist"], dpi: 400, sens: 0.48, source: "ProSettings", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "Razer BlackShark V2 Pro" } },
-  { name: "Meiy (DFM)", game: "VALORANT", roles: ["pro", "duelist"], dpi: 1600, sens: 0.1, source: "ProSettings", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "Logicool G PRO X 2" } }
+  { name: "だるまいずごっと (Daruma is God)", game: "VALORANT", roles: ["streamer", "duelist"], dpi: 800, sens: 0.28, source: "Streamer DB", devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "ありさか (Arisaka)", game: "VALORANT", roles: ["streamer", "sentinel", "controller"], dpi: 800, sens: 0.35, source: "Streamer DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "キーボード": "Logicool G PRO X TKL RAPID", "ヘッドセット": "Apple EarPods" } },
+  { name: "葛葉 (Kuzuha / にじさんじ)", game: "VALORANT", roles: ["vtuber", "duelist", "initiator"], dpi: 800, sens: 0.31, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE846" } },
+  { name: "ローレン・イロアス (Lauren / にじさんじ)", game: "VALORANT", roles: ["vtuber", "duelist", "initiator"], dpi: 800, sens: 0.26, source: "VTuber DB", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "釈迦 (SHAKA)", game: "VALORANT", roles: ["streamer", "initiator", "sentinel"], dpi: 1600, sens: 0.135, source: "Streamer DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 80HE", "ヘッドセット": "Bose QuietComfort 20" } },
+  { name: "橘ひなの (ぶいすぽっ！)", game: "Apex Legends", roles: ["vtuber", "igl", "support"], dpi: 800, sens: 1.3, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "猫汰つな (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist"], dpi: 800, sens: 0.3, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Vaxee PA", "キーボード": "Wooting 60HE+", "ヘッドセット": "Sennheiser IE 100 PRO" } },
+  { name: "胡桃のあ (ぶいすぽっ！)", game: "Apex Legends", roles: ["vtuber", "fragger"], dpi: 800, sens: 1.4, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "キーボード": "SteelSeries Apex Pro TKL", "ヘッドセット": "SHURE SE215" } },
+  { name: "夢野あかり (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist", "sentinel"], dpi: 800, sens: 0.314, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "紡木こかげ (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist", "controller"], dpi: 800, sens: 0.25, source: "VTuber DB", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "Laz (ZETA DIVISION)", game: "VALORANT", roles: ["pro", "sentinel", "initiator"], dpi: 800, sens: 0.255, source: "ProSettings", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "キーボード": "Wooting 60HE+", "ヘッドセット": "Razer BlackShark V2 Pro" } },
+  { name: "Dep (ZETA DIVISION)", game: "VALORANT", roles: ["pro", "duelist"], dpi: 400, sens: 0.48, source: "ProSettings", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Razer Huntsman V3 Pro Tenkeyless", "ヘッドセット": "Razer BlackShark V2 Pro" } },
+  { name: "Meiy (DFM)", game: "VALORANT", roles: ["pro", "duelist"], dpi: 1600, sens: 0.1, source: "ProSettings", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "Logicool G PRO X 2" } }
 ];
 
 const CUSTOM_PLAYERS_STORAGE_KEY = "frag_custom_players_v1";
@@ -939,13 +1214,12 @@ function getMergedPlayersList() {
   const seenNames = new Set();
   const merged = [];
 
-  // カスタム追加分 → API取得分 → 補完DBの順で重複排除マージ
   [...customList, ...baseList, ...(players === demoPlayers ? [] : SUPPLEMENTAL_PLAYERS_DB)].forEach((p) => {
     if (!p || typeof p.name !== "string") return;
     const baseKey = p.name.split(/[（(]/)[0].trim().toLowerCase();
     if (seenNames.has(baseKey)) return;
     seenNames.add(baseKey);
-    merged.push(p);
+    merged.push(ensurePlayerFourDevices(p));
   });
 
   return merged;
@@ -976,7 +1250,6 @@ function getSensBandInfo(cm) {
   return { key: "low", label: "LOW SENS (50cm〜)", color: "#f472b6" };
 }
 
-// クイック検索タグをクリックしたときの処理
 window.applyQuickSearchTag = function (keyword) {
   const input = document.getElementById("player-query");
   if (!input) return;
@@ -984,7 +1257,6 @@ window.applyQuickSearchTag = function (keyword) {
   renderPlayers();
 };
 
-// 新規プレイヤー（または自分の設定）をDBに追加するモーダル
 window.openAddCustomPlayerModal = function () {
   let modalRoot = document.getElementById("frag-add-player-modal");
   if (!modalRoot) {
@@ -1005,15 +1277,15 @@ window.openAddCustomPlayerModal = function () {
           <button type="button" onclick="document.getElementById('frag-add-player-modal').innerHTML=''"
                   style="cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:6px; padding:0.25rem 0.6rem;">✕</button>
         </div>
-        <form id="custom-player-form" style="display:grid; gap:0.85rem; font-size:0.82rem;">
+        <form id="custom-player-form" style="display:grid; gap:0.75rem; font-size:0.82rem;">
           <div>
-            <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">プレイヤー名（所属・グループ名も可）*</label>
-            <input type="text" id="cp-name" required placeholder="例: かるび / 自分の名前 (My Setup)" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+            <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">プレイヤー名*</label>
+            <input type="text" id="cp-name" required placeholder="例: かるび / 自分の名前 (My Setup)" style="width:100%; padding:0.5rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
             <div>
               <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">メインタイトル</label>
-              <select id="cp-game" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff;">
+              <select id="cp-game" style="width:100%; padding:0.5rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff;">
                 <option value="VALORANT">VALORANT</option>
                 <option value="Apex Legends">Apex Legends</option>
                 <option value="Overwatch 2">Overwatch 2</option>
@@ -1021,7 +1293,7 @@ window.openAddCustomPlayerModal = function () {
             </div>
             <div>
               <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">属性</label>
-              <select id="cp-type" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff;">
+              <select id="cp-type" style="width:100%; padding:0.5rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff;">
                 <option value="pro">🏆 プロ選手</option>
                 <option value="streamer">🎙 ストリーマー</option>
                 <option value="vtuber">✨ VTuber</option>
@@ -1031,28 +1303,34 @@ window.openAddCustomPlayerModal = function () {
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
             <div>
               <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">DPI*</label>
-              <input type="number" id="cp-dpi" required value="800" min="100" max="32000" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+              <input type="number" id="cp-dpi" required value="800" min="100" max="32000" style="width:100%; padding:0.5rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
             </div>
             <div>
               <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">ゲーム内感度*</label>
-              <input type="number" id="cp-sens" required value="0.32" step="0.001" min="0.01" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+              <input type="number" id="cp-sens" required value="0.32" step="0.001" min="0.01" style="width:100%; padding:0.5rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
             </div>
           </div>
-          <div>
-            <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">使用マウス</label>
-            <input type="text" id="cp-mouse" placeholder="例: Logicool G PRO X SUPERLIGHT 2" value="Logicool G PRO X SUPERLIGHT 2" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+            <div>
+              <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">使用マウス</label>
+              <input type="text" id="cp-mouse" value="Logicool G PRO X SUPERLIGHT 2" style="width:100%; padding:0.5rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">使用キーボード</label>
+              <input type="text" id="cp-kb" value="Wooting 60HE+" style="width:100%; padding:0.5rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+            </div>
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
             <div>
               <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">マウスパッド</label>
-              <input type="text" id="cp-pad" placeholder="例: Artisan Ninja FX Zero" value="Artisan Ninja FX Zero" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+              <input type="text" id="cp-pad" value="Artisan Ninja FX Zero" style="width:100%; padding:0.5rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
             </div>
             <div>
               <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">ヘッドセット・イヤホン</label>
-              <input type="text" id="cp-audio" placeholder="例: SHURE SE215" value="SHURE SE215" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+              <input type="text" id="cp-audio" value="SHURE SE215" style="width:100%; padding:0.5rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
             </div>
           </div>
-          <button type="submit" style="margin-top:0.4rem; cursor:pointer; padding:0.75rem; border-radius:8px; background:#d4ff33; color:#09090b; font-weight:800; border:none;">
+          <button type="submit" style="margin-top:0.35rem; cursor:pointer; padding:0.75rem; border-radius:8px; background:#d4ff33; color:#09090b; font-weight:800; border:none;">
             ＋ データベースに登録する
           </button>
         </form>
@@ -1071,6 +1349,7 @@ window.openAddCustomPlayerModal = function () {
       devices: {
         "マウス": document.getElementById("cp-mouse").value.trim() || "データなし",
         "マウスパッド": document.getElementById("cp-pad").value.trim() || "データなし",
+        "キーボード": document.getElementById("cp-kb").value.trim() || "Wooting 60HE+",
         "ヘッドセット": document.getElementById("cp-audio").value.trim() || "データなし"
       }
     };
@@ -1086,11 +1365,10 @@ function setupCreatorFilterBar() {
   const resultsEl = document.getElementById("player-results");
   if (!resultsEl || document.getElementById("creator-type-filter-bar")) return;
 
-  const quickTags = ["ぶいすぽ", "にじさんじ", "ZETA", "Logicool", "Razer", "Finalmouse", "Artisan", "Wallhack", "SHURE"];
+  const quickTags = ["ぶいすぽ", "にじさんじ", "ZETA", "Wooting", "SUPERLIGHT 2", "Viper V3 Pro", "Artisan", "Wallhack", "SHURE"];
 
   const filterBarHtml = `
     <div id="frag-advanced-search-controls" style="display: grid; gap: 0.9rem; margin-bottom: 1.25rem; padding: 1.15rem 1.25rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08);">
-      <!-- 1段目：属性フィルター ＆ お気に入り ＆ DB追加ボタン -->
       <div id="creator-type-filter-bar" style="display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center;">
         <span style="font-size: 0.74rem; color: #a1a1aa; margin-right: 0.2rem; font-weight: 700;">属性:</span>
         <button type="button" data-type="all" class="js-creator-tab" style="cursor: pointer; padding: 0.38rem 0.85rem; border-radius: 999px; font-size: 0.76rem; font-weight: bold; border: 1px solid #d4ff33; background: rgba(212, 255, 51, 0.15); color: #fff; transition: all 0.2s;">すべて</button>
@@ -1103,7 +1381,6 @@ function setupCreatorFilterBar() {
         </button>
       </div>
 
-      <!-- 2段目：感度帯（センシ帯）フィルター ＆ ソート順 ＆ 表示モード切替 -->
       <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; padding-top: 0.7rem; border-top: 1px solid rgba(255,255,255,0.06);">
         <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
           <span style="font-size: 0.74rem; color: #a1a1aa; margin-right: 0.2rem; font-weight: 700;">感度帯:</span>
@@ -1130,7 +1407,6 @@ function setupCreatorFilterBar() {
         </div>
       </div>
 
-      <!-- 3段目：ワンクリック・クイックタグチップ -->
       <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; padding-top: 0.65rem; border-top: 1px solid rgba(255,255,255,0.06);">
         <span style="font-size: 0.72rem; color: #71717a; margin-right: 0.2rem;">人気ワード:</span>
         ${quickTags.map((tag) => `
@@ -1143,13 +1419,11 @@ function setupCreatorFilterBar() {
         `).join("")}
       </div>
 
-      <!-- 4段目：絞り込み連動リアルタイム統計バー -->
-      <div id="search-live-analytics-bar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; padding: 0.75rem 0.9rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06);"></div>
+      <div id="search-live-analytics-bar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; padding: 0.75rem 0.9rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06);"></div>
     </div>`;
 
   resultsEl.insertAdjacentHTML("beforebegin", filterBarHtml);
 
-  // 属性タブのイベント
   document.querySelectorAll(".js-creator-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       currentCreatorTypeFilter = tab.dataset.type;
@@ -1163,7 +1437,6 @@ function setupCreatorFilterBar() {
     });
   });
 
-  // 感度帯タブのイベント
   document.querySelectorAll(".js-sens-band-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       currentSensBandFilter = tab.dataset.band;
@@ -1177,13 +1450,11 @@ function setupCreatorFilterBar() {
     });
   });
 
-  // ソート順のイベント
   document.getElementById("search-sort-order")?.addEventListener("change", (e) => {
     currentSortOrder = e.target.value;
     renderPlayers();
   });
 
-  // 表示モード（カード / テーブル）切替イベント
   document.querySelectorAll(".js-view-mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       currentViewMode = btn.dataset.view;
@@ -1208,20 +1479,20 @@ function updateSearchLiveAnalytics(filteredPlayers) {
 
   const cmList = [];
   const mouseCounts = new Map();
-  const padCounts = new Map();
+  const kbCounts = new Map();
 
   filteredPlayers.forEach((p) => {
     const cm = toCm360(Number(p?.dpi), Number(p?.sens), p?.game);
     if (Number.isFinite(cm)) cmList.push(cm);
     const m = p?.devices?.["マウス"];
     if (m && m !== "データなし") mouseCounts.set(m, (mouseCounts.get(m) || 0) + 1);
-    const pad = p?.devices?.["マウスパッド"];
-    if (pad && pad !== "データなし") padCounts.set(pad, (padCounts.get(pad) || 0) + 1);
+    const kb = p?.devices?.["キーボード"];
+    if (kb && kb !== "データなし") kbCounts.set(kb, (kbCounts.get(kb) || 0) + 1);
   });
 
   const avgCm = cmList.length ? (cmList.reduce((a, b) => a + b, 0) / cmList.length).toFixed(1) : "--";
   const topMouse = [...mouseCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-  const topPad = [...padCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const topKb = [...kbCounts.entries()].sort((a, b) => b[1] - a[1])[0];
 
   analyticsEl.innerHTML = `
     <div>
@@ -1234,14 +1505,14 @@ function updateSearchLiveAnalytics(filteredPlayers) {
     </div>
     <div>
       <div style="font-size: 0.68rem; color: #a1a1aa;">グループ内 1位マウス</div>
-      <div style="font-size: 0.82rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(topMouse ? topMouse[0] : '-')}">
+      <div style="font-size: 0.82rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
         ${escapeHtml(topMouse ? `${topMouse[0]} (${topMouse[1]}名)` : "データなし")}
       </div>
     </div>
     <div>
-      <div style="font-size: 0.68rem; color: #a1a1aa;">グループ内 1位パッド</div>
-      <div style="font-size: 0.82rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(topPad ? topPad[0] : '-')}">
-        ${escapeHtml(topPad ? `${topPad[0]} (${topPad[1]}名)` : "データなし")}
+      <div style="font-size: 0.68rem; color: #a1a1aa;">グループ内 1位キーボード</div>
+      <div style="font-size: 0.82rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+        ${escapeHtml(topKb ? `${topKb[0]} (${topKb[1]}名)` : "データなし")}
       </div>
     </div>`;
 }
@@ -1281,24 +1552,15 @@ function renderPlayers() {
     return hasText && matchesGame && matchesRole && matchesCreatorType && matchesFav && matchesSensBand;
   });
 
-  // 並び替え（ソート）処理
   if (currentSortOrder !== "default") {
     filtered = [...filtered].sort((a, b) => {
       const cmA = toCm360(Number(a?.dpi), Number(a?.sens), a?.game);
       const cmB = toCm360(Number(b?.dpi), Number(b?.sens), b?.game);
 
-      if (currentSortOrder === "sync_desc") {
-        return calculateEnvSyncRate(b, userEnv) - calculateEnvSyncRate(a, userEnv);
-      }
-      if (currentSortOrder === "cm_asc") {
-        return (Number.isFinite(cmA) ? cmA : 9999) - (Number.isFinite(cmB) ? cmB : 9999);
-      }
-      if (currentSortOrder === "cm_desc") {
-        return (Number.isFinite(cmB) ? cmB : -1) - (Number.isFinite(cmA) ? cmA : -1);
-      }
-      if (currentSortOrder === "name_asc") {
-        return String(a?.name || "").localeCompare(String(b?.name || ""), "ja");
-      }
+      if (currentSortOrder === "sync_desc") return calculateEnvSyncRate(b, userEnv) - calculateEnvSyncRate(a, userEnv);
+      if (currentSortOrder === "cm_asc") return (Number.isFinite(cmA) ? cmA : 9999) - (Number.isFinite(cmB) ? cmB : 9999);
+      if (currentSortOrder === "cm_desc") return (Number.isFinite(cmB) ? cmB : -1) - (Number.isFinite(cmA) ? cmA : -1);
+      if (currentSortOrder === "name_asc") return String(a?.name || "").localeCompare(String(b?.name || ""), "ja");
       return 0;
     });
   }
@@ -1320,21 +1582,20 @@ function renderPlayers() {
     return;
   }
 
-  // 📊 テーブル（一覧表）ビューの場合
   if (currentViewMode === "table") {
     resultsEl.innerHTML = `
       <div style="grid-column: 1 / -1; width: 100%; overflow-x: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.35);">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left; min-width: 860px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: left; min-width: 980px;">
           <thead>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #a1a1aa; font-size: 0.72rem;">
-              <th style="padding: 0.75rem 0.9rem;">プレイヤー名</th>
-              <th style="padding: 0.75rem 0.6rem;">タイトル</th>
-              <th style="padding: 0.75rem 0.6rem;">DPI / 感度</th>
-              <th style="padding: 0.75rem 0.6rem;">振り向き (360°)</th>
-              <th style="padding: 0.75rem 0.6rem;">使用マウス</th>
-              <th style="padding: 0.75rem 0.6rem;">使用マウスパッド</th>
-              <th style="padding: 0.75rem 0.6rem;">シンクロ率</th>
-              <th style="padding: 0.75rem 0.9rem; text-align: right;">操作</th>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #a1a1aa; font-size: 0.7rem;">
+              <th style="padding: 0.75rem 0.85rem;">プレイヤー名</th>
+              <th style="padding: 0.75rem 0.5rem;">タイトル</th>
+              <th style="padding: 0.75rem 0.5rem;">振り向き (360°)</th>
+              <th style="padding: 0.75rem 0.5rem;">使用マウス</th>
+              <th style="padding: 0.75rem 0.5rem;">使用キーボード</th>
+              <th style="padding: 0.75rem 0.5rem;">マウスパッド</th>
+              <th style="padding: 0.75rem 0.5rem;">一式総額</th>
+              <th style="padding: 0.75rem 0.85rem; text-align: right;">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -1345,30 +1606,35 @@ function renderPlayers() {
               const cmValue = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, player?.game) : Number.NaN;
               const bandInfo = getSensBandInfo(cmValue);
               const mouse = player?.devices?.["マウス"] || "データなし";
+              const kb = player?.devices?.["キーボード"] || "データなし";
               const pad = player?.devices?.["マウスパッド"] || "データなし";
-              const syncRate = calculateEnvSyncRate(player, userEnv);
+              const setupTotal = calculatePlayerSetupTotal(player);
 
               return `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
-                  <td style="padding: 0.75rem 0.9rem; font-weight: 800; color: #fff;">${escapeHtml(playerName)}</td>
-                  <td style="padding: 0.75rem 0.6rem; color: #d4d4d8;">${escapeHtml(player?.game || "")}</td>
-                  <td style="padding: 0.75rem 0.6rem; font-family: monospace; color: #e4e4e7;">${Number.isFinite(dpi) && Number.isFinite(sens) ? `${dpi} / ${sens}` : "-"}</td>
-                  <td style="padding: 0.75rem 0.6rem;">
-                    <strong style="color: ${bandInfo.color}; font-family: monospace; font-size: 0.9rem;">${Number.isFinite(cmValue) ? `${cmValue.toFixed(1)} cm` : "-"}</strong>
+                  <td style="padding: 0.7rem 0.85rem; font-weight: 800; color: #fff;">${escapeHtml(playerName)}</td>
+                  <td style="padding: 0.7rem 0.5rem; color: #d4d4d8;">${escapeHtml(player?.game || "")}</td>
+                  <td style="padding: 0.7rem 0.5rem;">
+                    <strong style="color: ${bandInfo.color}; font-family: monospace; font-size: 0.88rem;">${Number.isFinite(cmValue) ? `${cmValue.toFixed(1)} cm` : "-"}</strong>
+                    <div style="font-size:0.66rem; color:#71717a;">${Number.isFinite(dpi) && Number.isFinite(sens) ? `${dpi}DPI / ${sens}` : ""}</div>
                   </td>
-                  <td style="padding: 0.75rem 0.6rem;">
+                  <td style="padding: 0.7rem 0.5rem;">
                     <span class="js-search-yt-trigger" data-player="${escapeHtml(playerName)}" data-device="${escapeHtml(mouse)}"
-                          style="cursor: pointer; color: #fff; font-weight: 700; text-decoration: underline dotted rgba(191,87,255,0.7);" title="クリックで動画・比較を表示">
+                          style="cursor: pointer; color: #fff; font-weight: 700; text-decoration: underline dotted rgba(191,87,255,0.7);">
                       ${escapeHtml(mouse)}
                     </span>
                   </td>
-                  <td style="padding: 0.75rem 0.6rem; color: #d4d4d8;">${escapeHtml(pad)}</td>
-                  <td style="padding: 0.75rem 0.6rem;">
-                    <span style="padding: 0.2rem 0.5rem; border-radius: 4px; background: rgba(212,255,51,0.12); color: #d4ff33; font-weight: 800; font-size: 0.74rem;">⚡ ${syncRate}%</span>
+                  <td style="padding: 0.7rem 0.5rem; color: #e4e4e7;">${escapeHtml(kb)}</td>
+                  <td style="padding: 0.7rem 0.5rem; color: #d4d4d8;">${escapeHtml(pad)}</td>
+                  <td style="padding: 0.7rem 0.5rem;">
+                    <button type="button" data-player-name="${escapeHtml(playerName)}" onclick="window.openSetupEstimateModal(this.dataset.playerName, event)"
+                            style="cursor:pointer; padding: 0.22rem 0.5rem; border-radius: 4px; background: rgba(212,255,51,0.12); border: 1px solid rgba(212,255,51,0.35); color: #d4ff33; font-weight: 800; font-size: 0.72rem; font-family: monospace;">
+                      💰 ${formatYen(setupTotal)}
+                    </button>
                   </td>
-                  <td style="padding: 0.75rem 0.9rem; text-align: right; white-space: nowrap;">
-                    <button type="button" class="js-fav-player-btn" data-player-name="${escapeHtml(playerName)}" onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)" style="cursor:pointer; padding:0.25rem 0.55rem; border-radius:6px; font-size:0.7rem; font-weight:800; margin-right:0.3rem;">☆</button>
-                    <button type="button" data-player-name="${escapeHtml(playerName)}" onclick="window.openPlayerSyncModal(this.dataset.playerName, event)" style="cursor:pointer; padding:0.25rem 0.55rem; border-radius:6px; background:rgba(191,87,255,0.18); border:1px solid rgba(191,87,255,0.4); color:#e9d5ff; font-size:0.7rem; font-weight:700;">診断・𝕏</button>
+                  <td style="padding: 0.7rem 0.85rem; text-align: right; white-space: nowrap;">
+                    <button type="button" class="js-fav-player-btn" data-player-name="${escapeHtml(playerName)}" onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)" style="cursor:pointer; padding:0.25rem 0.5rem; border-radius:6px; font-size:0.68rem; font-weight:800; margin-right:0.25rem;">☆</button>
+                    <button type="button" data-player-name="${escapeHtml(playerName)}" onclick="window.openPlayerSyncModal(this.dataset.playerName, event)" style="cursor:pointer; padding:0.25rem 0.5rem; border-radius:6px; background:rgba(191,87,255,0.18); border:1px solid rgba(191,87,255,0.4); color:#e9d5ff; font-size:0.68rem; font-weight:700;">診断・𝕏</button>
                   </td>
                 </tr>`;
             }).join("")}
@@ -1376,7 +1642,6 @@ function renderPlayers() {
         </table>
       </div>`;
   } else {
-    // ▦ カードグリッドビューの場合
     resultsEl.innerHTML = filtered.map((player) => {
       const playerName = typeof player?.name === "string" ? player.name : "選手";
       const spec = getGameSpec(player?.game);
@@ -1386,6 +1651,7 @@ function renderPlayers() {
       const cmValue = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, player?.game) : Number.NaN;
       const bandInfo = getSensBandInfo(cmValue);
       const syncRate = calculateEnvSyncRate(player, userEnv);
+      const setupTotal = calculatePlayerSetupTotal(player);
 
       const creatorBadges = [...creatorTypes].map((t) => typeBadgeMap[t] || "").join("");
       const gameRoleTags = (Array.isArray(player?.roles) ? player.roles : [])
@@ -1397,20 +1663,23 @@ function renderPlayers() {
         ? `<span class="tag" style="border: 1px solid ${bandInfo.color}; color: ${bandInfo.color}; background: rgba(0,0,0,0.3); font-weight: 700;">${bandInfo.label}</span>`
         : "";
 
-      const deviceEntries = Object.entries(player?.devices || {}).map(([category, device]) => {
+      const deviceEntries = categoryLabels.map((category) => {
+        const device = player?.devices?.[category];
         const hasValidDevice = device && device !== "データなし";
+        const price = hasValidDevice ? getDevicePrice(device, category) : 0;
         return `
           <div class="device-row ${hasValidDevice ? 'js-search-yt-trigger' : ''}"
                data-player="${escapeHtml(playerName)}"
                data-device="${escapeHtml(device || '')}"
-               style="${hasValidDevice ? 'cursor: pointer; transition: background 0.2s; border-radius: 4px; padding: 0.35rem 0.4rem;' : ''}"
+               style="${hasValidDevice ? 'cursor: pointer; transition: background 0.2s; border-radius: 4px; padding: 0.32rem 0.4rem;' : ''}"
                ${hasValidDevice ? 'title="クリックしてこのデバイスの比較＆レビュー動画を表示"' : ''}>
             <span>${escapeHtml(category)}</span>
-            <span style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end;">
+            <span style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end;">
               <strong>${escapeHtml(device || "データなし")}</strong>
-              ${hasValidDevice ? '<small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>' : ''}
-              ${hasValidDevice ? `<a href="${escapeHtml(getAmazonAffiliateUrl(device))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;" title="Amazonで見る">🛒 Amazon</a>` : ''}
-              ${hasValidDevice ? `<button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(device)}" onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)" title="欲しいものリストに保存" style="cursor:pointer; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.65rem; font-weight:800;">☆</button>` : ''}
+              ${price > 0 ? `<small style="color: #a1a1aa; font-family: monospace; font-size: 0.66rem;">${formatYen(price)}</small>` : ''}
+              ${hasValidDevice ? '<small style="color: #bf57ff; font-size: 0.64rem; font-weight: bold;">▶動画</small>' : ''}
+              ${hasValidDevice ? `<a href="${escapeHtml(getAmazonAffiliateUrl(device))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.64rem; padding:0.1rem 0.38rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;" title="Amazonで見る">🛒</a>` : ''}
+              ${hasValidDevice ? `<button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(device)}" onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)" title="欲しいものリストに保存" style="cursor:pointer; padding:0.1rem 0.35rem; border-radius:4px; font-size:0.64rem; font-weight:800;">☆</button>` : ''}
             </span>
           </div>`;
       }).join("");
@@ -1431,15 +1700,21 @@ function renderPlayers() {
             </button>
           </div>
           <div class="player-tags" style="display: flex; flex-wrap: wrap; gap: 0.35rem;">${creatorBadges}${gameRoleTags}${sensBandBadge}</div>
-          <div class="device-list">${deviceEntries || '<div class="device-row"><span>デバイス</span><span>データなし</span></div>'}</div>
+          <div class="device-list">${deviceEntries}</div>
           <div class="player-sens">${Number.isFinite(cmValue) ? `${dpi} DPI / 感度 ${sens} （${cmValue.toFixed(1)} cm / 360°）` : "感度データなし"}</div>
-          <div style="margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            ${player?.sourceUrl ? `<a class="player-source" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source || "出典")} ↗</a>` : `<span style="font-size:0.72rem; color:#71717a;">${escapeHtml(player?.source || "")}</span>`}
+          <div style="margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <button type="button"
+                    data-player-name="${escapeHtml(playerName)}"
+                    onclick="window.openSetupEstimateModal(this.dataset.playerName, event)"
+                    style="cursor: pointer; padding: 0.34rem 0.65rem; border-radius: 6px; background: rgba(212,255,51,0.12); border: 1px solid rgba(212,255,51,0.38); color: #d4ff33; font-size: 0.71rem; font-weight: 800; font-family: monospace;"
+                    title="4デバイス一式の総額内訳と高コスパ代替構成を表示">
+              💰 一式 ${formatYen(setupTotal)} (内訳)
+            </button>
             <button type="button"
                     data-player-name="${escapeHtml(playerName)}"
                     onclick="window.openPlayerSyncModal(this.dataset.playerName, event)"
-                    style="cursor: pointer; padding: 0.35rem 0.7rem; border-radius: 6px; background: rgba(191,87,255,0.14); border: 1px solid rgba(191,87,255,0.4); color: #e9d5ff; font-size: 0.72rem; font-weight: 700;">
-              ⚡ 環境シンクロ診断・𝕏共有
+                    style="cursor: pointer; padding: 0.34rem 0.65rem; border-radius: 6px; background: rgba(191,87,255,0.14); border: 1px solid rgba(191,87,255,0.4); color: #e9d5ff; font-size: 0.71rem; font-weight: 700; margin-left: auto;">
+              ⚡ シンクロ診断・𝕏
             </button>
           </div>
         </article>`;
@@ -1486,15 +1761,22 @@ function renderPlayers() {
   document.getElementById(id).addEventListener("input", renderPlayers);
   document.getElementById(id).addEventListener("change", renderPlayers);
 });
+
 // ============================================================================
-// 2. プロ使用率（ランキングクリックで比較シミュレーター＆動画＆購入リンク表示）
+// 2. プロ使用率（改善②：キーボードを含む4大カテゴリ対応 ＆ 参考価格表示）
 // ============================================================================
 function renderRankings(game) {
   const normalizedGame = normalizeGameName(game);
-  const gamePlayers = Array.isArray(players) ? players.filter((player) => normalizeGameName(player?.game) === normalizedGame) : [];
+  const allMerged = getMergedPlayersList();
+  const gamePlayers = allMerged.filter((player) => normalizeGameName(player?.game) === normalizedGame);
   const sourceLabel = players === demoPlayers ? "DEMO DATA" : "PRO & CREATOR DB";
   document.getElementById("ranking-total").textContent = `${gamePlayers.length} PLAYERS · ${sourceLabel}`;
   const rankingContentEl = document.getElementById("ranking-content");
+
+  // 4カテゴリ（マウス・マウスパッド・キーボード・ヘッドセット）が見やすく並ぶようグリッド調整
+  rankingContentEl.style.display = "grid";
+  rankingContentEl.style.gridTemplateColumns = "repeat(auto-fit, minmax(270px, 1fr))";
+  rankingContentEl.style.gap = "1.25rem";
 
   let topDeviceForInitialVideo = null;
 
@@ -1515,16 +1797,18 @@ function renderRankings(game) {
 
     return `<article class="category-card"><div class="category-heading"><h3>${category}</h3><span>${ranked.length} MODELS</span></div>${ranked.length ? ranked.map(([name, count], index) => {
       const percentage = observedProfiles ? Math.round(count / observedProfiles * 100) : 0;
+      const price = getDevicePrice(name, category);
       return `
         <div class="rank-row js-ranking-yt-trigger" data-device="${escapeHtml(name)}" style="cursor: pointer; padding: 0.4rem; border-radius: 6px; transition: background 0.2s;" title="クリックしてスペック比較＆レビュー動画を表示">
           <span class="rank-num">${String(index + 1).padStart(2, "0")}</span>
           <div>
-            <div class="rank-name" style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+            <div class="rank-name" style="display: flex; justify-content: space-between; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
               <span>${escapeHtml(name)}</span>
-              <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>
-                <a href="${escapeHtml(getAmazonAffiliateUrl(name))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.35rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;">🛒 Amazon</a>
-                <button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(name)}" onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)" title="欲しいものリストに保存" style="cursor:pointer; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.65rem; font-weight:800;">☆</button>
+              <span style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                ${price > 0 ? `<small style="color: #a1a1aa; font-family: monospace; font-size: 0.65rem;">${formatYen(price)}</small>` : ""}
+                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶動画</small>
+                <a href="${escapeHtml(getAmazonAffiliateUrl(name))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.64rem; padding:0.1rem 0.35rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;">🛒</a>
+                <button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(name)}" onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)" title="欲しいものリストに保存" style="cursor:pointer; padding:0.1rem 0.38rem; border-radius:4px; font-size:0.64rem; font-weight:800;">☆</button>
               </span>
             </div>
             <div class="rank-bar-wrap"><div class="rank-bar" style="width:${percentage}%"></div></div>
@@ -1578,7 +1862,7 @@ document.querySelectorAll(".game-tab").forEach((button) => {
 });
 
 // ============================================================================
-// 3. デバイス相談（8種類の詳細分析バリエーション × ランク帯別アドバイス × X共有）
+// 3. デバイス相談（8種類の詳細分析 × 価格表示 ＆ 高コスパモデル提案）
 // ============================================================================
 document.getElementById("consult-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1620,7 +1904,7 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
       actionPoint: "日本の多湿な環境では布パッドが湿気で重くなりやすいため、耐湿性に優れたArtisan ZeroやLGG Saturn Proを選ぶと年中同じ感覚でプレイできます。"
     };
     targetDeviceCategory = "マウスパッド";
-    customCandidateModels = ["Artisan Ninja FX Zero", "Vaxee PA", "Lethal Gaming Gear Saturn Pro"];
+    customCandidateModels = ["Artisan Ninja FX Zero", "Vaxee PA", "SteelSeries QcK Heavy"];
   } else if (/持ち方|つかみ|つまみ|かぶせ|手首|小さい|大きい|フィット|形|エルゴ|左右対称/.test(normalized)) {
     recommendation = {
       score: "94",
@@ -1630,7 +1914,7 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
       actionPoint: "グリップテープを側面に貼ることで、手汗による滑りを防ぎ、少ない握力でもマウスを確実にホールドできるようになります。"
     };
     targetDeviceCategory = "マウス";
-    customCandidateModels = ["Ninjutso Sora V2", "Razer DeathAdder V3 Pro", "Razer Viper V3 Pro"];
+    customCandidateModels = ["Ninjutso Sora V2", "Razer DeathAdder V3 Pro", "Lamzu Atlantis"];
   } else if (/重い|疲れ|手首痛|腱鞘炎|軽い|軽量|フリック|振り向き/.test(normalized)) {
     recommendation = {
       score: "95",
@@ -1646,11 +1930,11 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
       score: "93",
       category: "ラピッドトリガー対応ゲーミングキーボード",
       title: "キーを離した瞬間に止まる高速入力環境の構築",
-      detail: "撃ち合い時のストッピングの遅れや、切り返し（レレレ撃ち）のキレに悩んでいる場合、磁気式スイッチ搭載のラピッドトリガーキーボード（Wooting 60HE+ や Apex Pro Mini 等）が圧倒的なアドバンテージをもたらします。",
+      detail: "撃ち合い時のストッピングの遅れや、切り返し（レレレ撃ち）のキレに悩んでいる場合、磁気式スイッチ搭載のラピッドトリガーキーボード（Wooting 60HE+ や Apex Pro Mini、高コスパなDrunkDeer A75等）が圧倒的なアドバンテージをもたらします。",
       actionPoint: "アクチュエーションポイントを0.1〜0.3mm、ラピッドトリガーを0.15mm前後に設定することで、理論値レベルの素早いストッピングが可能になります。"
     };
     targetDeviceCategory = "キーボード";
-    customCandidateModels = ["Wooting 60HE+", "SteelSeries Apex Pro Mini", "REALFORCE GX1"];
+    customCandidateModels = ["Wooting 60HE+", "Razer Huntsman V3 Pro Tenkeyless", "DrunkDeer A75 (高コスパ・ラピトリ)"];
   } else if (/見え|モニター|fps|カクつ|ラグ|遅延|hz|画面|視認/.test(normalized)) {
     recommendation = {
       score: "91",
@@ -1686,11 +1970,11 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
     tierAdviceDetail = `${rank}帯では基礎的な視点操作が身についているため、${roleText}に求められる交戦距離や視点移動量に合わせて「初動の軽さ」か「ストッピングの制動力」のどちらを優先するか明確にしてデバイスを選ぶと勝率が安定します。`;
   } else {
     tierAdviceTitle = `${rank}（上位帯）向けの極限最適化：0.1秒の反応差を埋めるハイエンド環境`;
-    tierAdviceDetail = `${rank}帯のハイレベルな撃ち合いでは、ポーリングレート（4000Hz/8000Hz）の低遅延性能や、手汗・湿気に左右されないサーフェス環境など、再現性と応答速度のわずかな差が勝敗に直結します。`;
+    tierAdviceDetail = `${rank}帯のハイレベルな撃ち合いでは、ポーリングレート（4000Hz/8000Hz）の低遅延性能や、ラピッドトリガー・耐湿サーフェス環境など、再現性と応答速度のわずかな差が勝敗に直結します。`;
   }
 
   const normalizedGame = normalizeGameName(game);
-  const candidatePlayers = players.filter((p) => normalizeGameName(p?.game) === normalizedGame);
+  const candidatePlayers = getMergedPlayersList().filter((p) => normalizeGameName(p?.game) === normalizedGame);
   let candidateDevices = customCandidateModels ? [...customCandidateModels] : [...new Set(
     candidatePlayers
       .map((p) => p?.devices?.[targetDeviceCategory])
@@ -1700,6 +1984,7 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
   if (candidateDevices.length === 0) {
     if (targetDeviceCategory === "マウス") candidateDevices.push("Logicool G PRO X SUPERLIGHT 2", "Razer Viper V3 Pro", "Ninjutso Sora V2");
     else if (targetDeviceCategory === "マウスパッド") candidateDevices.push("Artisan Ninja FX Zero", "Vaxee PA", "Wallhack SP-004");
+    else if (targetDeviceCategory === "キーボード") candidateDevices.push("Wooting 60HE+", "Razer Huntsman V3 Pro Tenkeyless", "DrunkDeer A75 (高コスパ・ラピトリ)");
     else candidateDevices.push("SHURE SE215", "HyperX Cloud II", "Razer BlackShark V2 Pro");
   }
 
@@ -1742,13 +2027,18 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
       </div>
 
       <div class="recommendation">
-        <div class="recommendation-head"><span>03 / RECOMMENDED GEAR</span><span>プロ・配信者採用の推奨モデル <small style="opacity:0.75;">[PR]</small></span></div>
+        <div class="recommendation-head"><span>03 / RECOMMENDED GEAR</span><span>プロ・配信者採用の推奨モデル（参考価格つき） <small style="opacity:0.75;">[PR]</small></span></div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
-          ${topCandidateDevices.map((dev, idx) => `
+          ${topCandidateDevices.map((dev, idx) => {
+            const devPrice = getDevicePrice(dev, targetDeviceCategory);
+            return `
             <div style="padding: 0.85rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; justify-content: space-between; gap: 0.65rem;">
               <div>
-                <div style="font-size: 0.7rem; color: #a1a1aa;">候補 0${idx + 1}</div>
-                <div style="font-size: 0.92rem; font-weight: 700; color: #fff; margin-top: 0.15rem;">${escapeHtml(dev)}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <span style="font-size: 0.7rem; color: #a1a1aa;">候補 0${idx + 1}</span>
+                  <span style="font-size: 0.75rem; color: #d4ff33; font-weight: 800; font-family: monospace;">参考 ${formatYen(devPrice)}</span>
+                </div>
+                <div style="font-size: 0.92rem; font-weight: 700; color: #fff; margin-top: 0.2rem;">${escapeHtml(dev)}</div>
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.45rem;">
                 <button type="button" class="js-consult-yt-trigger" data-device="${escapeHtml(dev)}"
@@ -1760,10 +2050,10 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
                   style="cursor: pointer; width: 100%; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">
                   ☆ 欲しいものリストに保存
                 </button>
-                ${createAffiliateButtonsHtml(dev, true)}
+                ${createAffiliateButtonsHtml(dev, true, targetDeviceCategory)}
               </div>
-            </div>
-          `).join("")}
+            </div>`;
+          }).join("")}
         </div>
       </div>
       <p class="result-warning">※ 提案モデルはプロ・ストリーマーの採用実績に基づく参考候補です。購入前にサイズ・重量・在庫状況をご確認ください。</p>
@@ -1802,7 +2092,7 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
 });
 
 // ============================================================================
-// 4. 感度マッチ（フルワイドUI ＆ ①双方向コンバーター ＆ ③環境シンクロ率・X共有）
+// 4. 感度マッチ（フルワイドUI ＆ 4カテゴリ・一式総額見積もり ＆ コンバーター）
 // ============================================================================
 function setupWideMatchPageLayout() {
   const matchForm = document.getElementById("match-form");
@@ -1985,13 +2275,13 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
 
     const userEnv = { game, dpi, sens: sensitivity, cm: userDistance, mouse: currentUserMouseName };
 
-    resultContainer.innerHTML = matchedPlayers.map((player, index) => {
-      const safePlayer = player && typeof player === "object" ? player : {};
+    resultContainer.innerHTML = matchedPlayers.map((rawPlayer, index) => {
+      const safePlayer = ensurePlayerFourDevices(rawPlayer && typeof rawPlayer === "object" ? rawPlayer : {});
       const playerGame = normalizeGameName(safePlayer.game || game);
       const playerSpec = getGameSpec(playerGame);
       const playerName = typeof safePlayer.name === "string" ? safePlayer.name : "選手";
       const playerRoles = Array.isArray(safePlayer.roles) ? safePlayer.roles : [];
-      const safeDevices = safePlayer.devices && typeof safePlayer.devices === "object" ? safePlayer.devices : {};
+      const safeDevices = safePlayer.devices || {};
       const playerCm = Number(safePlayer.cmPer360);
       const playerDpi = Number(safePlayer.dpi);
       const playerSens = Number(safePlayer.sens);
@@ -1999,8 +2289,10 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       const difference = Number.isFinite(playerDistance) && Number.isFinite(userDistance) ? Math.abs(playerDistance - userDistance) : Number.NaN;
       const percent = Number.isFinite(difference) && Number.isFinite(userDistance) && userDistance !== 0 ? (difference / userDistance) * 100 : Number.NaN;
       const matchQuality = Number.isFinite(percent) ? (percent < 5 ? "非常に近い" : percent < 15 ? "近い感度" : "参考候補") : "参考候補";
-      const mouseName = typeof safeDevices["マウス"] === "string" && safeDevices["マウス"].trim() ? safeDevices["マウス"] : "データなし";
-      const padName = typeof safeDevices["マウスパッド"] === "string" && safeDevices["マウスパッド"].trim() ? safeDevices["マウスパッド"] : "データなし";
+      const mouseName = safeDevices["マウス"] || "データなし";
+      const padName = safeDevices["マウスパッド"] || "データなし";
+      const kbName = safeDevices["キーボード"] || "Wooting 60HE+";
+      const setupTotal = calculatePlayerSetupTotal(safePlayer);
       const isFirst = index === 0;
 
       const tryProSensInUserEnv = fromCm360ToSens(playerDistance, dpi, game);
@@ -2055,41 +2347,62 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
               </div>
             ` : ""}
 
-            <div style="display: grid; gap: 0.65rem;">
+            <div style="display: grid; gap: 0.6rem;">
               <div class="match-device js-yt-trigger"
                    data-player="${escapeHtml(playerName)}"
                    data-mouse="${escapeHtml(mouseName)}"
-                   style="cursor: pointer; transition: all 0.2s; border: 1px solid ${isFirst ? '#bf57ff' : 'rgba(255,255,255,0.1)'}; background: ${isFirst ? 'rgba(191, 87, 255, 0.14)' : 'rgba(0,0,0,0.25)'}; border-radius: 8px; padding: 0.75rem 0.9rem;"
+                   style="cursor: pointer; transition: all 0.2s; border: 1px solid ${isFirst ? '#bf57ff' : 'rgba(255,255,255,0.1)'}; background: ${isFirst ? 'rgba(191, 87, 255, 0.14)' : 'rgba(0,0,0,0.25)'}; border-radius: 8px; padding: 0.7rem 0.9rem;"
                    title="クリックしてこのマウスの比較＆レビュー動画を表示">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                  <span style="font-size: 0.7rem; color: #a1a1aa; font-weight: 700; letter-spacing: 0.05em;">PLAYER MOUSE</span>
-                  <small style="color: #d8b4fe; font-size: 0.72rem; font-weight: 800;">▶ クリックで動画・比較を表示</small>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                  <span style="font-size: 0.68rem; color: #a1a1aa; font-weight: 700;">PLAYER MOUSE</span>
+                  <small style="color: #d8b4fe; font-size: 0.7rem; font-weight: 800;">▶ クリックで動画・比較</small>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                  <strong style="font-size: 0.92rem; color: #fff;">${escapeHtml(mouseName)}</strong>
-                  ${createAffiliateButtonsHtml(mouseName, true)}
+                  <strong style="font-size: 0.9rem; color: #fff;">${escapeHtml(mouseName)}</strong>
+                  ${createAffiliateButtonsHtml(mouseName, true, "マウス")}
                 </div>
               </div>
 
-              <div class="match-device" style="border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.25); border-radius: 8px; padding: 0.75rem 0.9rem;">
-                <div style="font-size: 0.7rem; color: #a1a1aa; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 0.3rem;">PLAYER MOUSEPAD</div>
+              <div class="match-device js-yt-trigger"
+                   data-player="${escapeHtml(playerName)}"
+                   data-mouse="${escapeHtml(kbName)}"
+                   style="cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.25); border-radius: 8px; padding: 0.7rem 0.9rem;"
+                   title="クリックしてこのキーボードのレビュー動画を表示">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                  <span style="font-size: 0.68rem; color: #a1a1aa; font-weight: 700;">PLAYER KEYBOARD (RAPID TRIGGER)</span>
+                  <small style="color: #d8b4fe; font-size: 0.7rem; font-weight: 800;">▶ 動画を見る</small>
+                </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                  <strong style="font-size: 0.92rem; color: #fff;">${escapeHtml(padName)}</strong>
-                  ${createAffiliateButtonsHtml(padName, true)}
+                  <strong style="font-size: 0.9rem; color: #fff;">${escapeHtml(kbName)}</strong>
+                  ${createAffiliateButtonsHtml(kbName, true, "キーボード")}
+                </div>
+              </div>
+
+              <div class="match-device" style="border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.25); border-radius: 8px; padding: 0.7rem 0.9rem;">
+                <div style="font-size: 0.68rem; color: #a1a1aa; font-weight: 700; margin-bottom: 0.25rem;">PLAYER MOUSEPAD</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <strong style="font-size: 0.9rem; color: #fff;">${escapeHtml(padName)}</strong>
+                  ${createAffiliateButtonsHtml(padName, true, "マウスパッド")}
                 </div>
               </div>
             </div>
           </div>
 
-          <div style="padding-top: 0.85rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <span style="padding: 0.3rem 0.7rem; border-radius: 6px; background: rgba(212,255,51,0.14); border: 1px solid rgba(212,255,51,0.4); color: #d4ff33; font-size: 0.78rem; font-weight: 800;">
-              ⚡ 環境シンクロ率 ${syncRate}%
+          <div style="padding-top: 0.85rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <span style="padding: 0.3rem 0.6rem; border-radius: 6px; background: rgba(212,255,51,0.14); border: 1px solid rgba(212,255,51,0.4); color: #d4ff33; font-size: 0.74rem; font-weight: 800;">
+              ⚡ シンクロ ${syncRate}%
             </span>
+            <button type="button"
+                    data-player-name="${escapeHtml(playerName)}"
+                    onclick="window.openSetupEstimateModal(this.dataset.playerName, event)"
+                    style="cursor: pointer; padding: 0.32rem 0.65rem; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.2); color: #fde047; font-size: 0.73rem; font-weight: 800; font-family: monospace;">
+              💰 一式 ${formatYen(setupTotal)}
+            </button>
             <button type="button"
                     data-share-text="${escapeHtml(shareText)}"
                     onclick="window.shareToX(this.dataset.shareText, event)"
-                    style="cursor: pointer; padding: 0.38rem 0.85rem; border-radius: 6px; background: rgba(255,255,255,0.95); color: #09090b; border: none; font-size: 0.76rem; font-weight: 800; white-space: nowrap;">
-              𝕏 結果をポスト
+                    style="cursor: pointer; padding: 0.34rem 0.75rem; border-radius: 6px; background: rgba(255,255,255,0.95); color: #09090b; border: none; font-size: 0.74rem; font-weight: 800; margin-left: auto;">
+              𝕏 ポスト
             </button>
           </div>
         </article>`;
@@ -2111,9 +2424,9 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
           sectionId: "youtube-reviews-section",
           anchorElement: resultContainer,
           position: "afterend",
-          titlePrefix: `${trigger.dataset.player} の使用マウス`,
+          titlePrefix: `${trigger.dataset.player} の使用デバイス`,
           deviceName: trigger.dataset.mouse,
-          hintText: "※各カードの「PLAYER MOUSE」をクリックで切り替え"
+          hintText: "※各カードのマウス・キーボード枠をクリックで切り替え"
         });
       });
     });
@@ -2124,7 +2437,7 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       position: "afterend",
       titlePrefix: `${matchedPlayers[0].name} の使用マウス`,
       deviceName: matchedPlayers[0].devices?.["マウス"],
-      hintText: "※各カードの「PLAYER MOUSE」をクリックで切り替え"
+      hintText: "※各カードのマウス・キーボード枠をクリックで切り替え"
     });
 
   } catch (error) {
@@ -2136,8 +2449,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
 // ============================================================================
 // 改善① URLパラメータ共有（ディープリンク自動復元 ＆ リアルタイムURL同期エンジン）
 // ============================================================================
-
-// 現在の画面状態（タブ・検索条件・感度・診断内容）から共有用ディープリンクURLを生成
 function buildCurrentDeepLinkUrl(customParams = {}) {
   const url = new URL(window.location.href.split("?")[0].split("#")[0]);
   const activeNav = document.querySelector(".nav-item.active");
@@ -2176,7 +2487,6 @@ function buildCurrentDeepLinkUrl(customParams = {}) {
     if (sens) url.searchParams.set("sens", sens);
   }
 
-  // 個別パラメータ（特定の選手モーダル指定など）の上書き
   Object.entries(customParams).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== "") {
       url.searchParams.set(k, String(v));
@@ -2186,27 +2496,25 @@ function buildCurrentDeepLinkUrl(customParams = {}) {
   return url.toString();
 }
 
-// ブラウザのアドレスバーをページ遷移なしでリアルタイム更新
 function syncUrlWithCurrentState(customParams = {}) {
   try {
     const newUrl = buildCurrentDeepLinkUrl(customParams);
     window.history.replaceState(null, "", newUrl);
-  } catch (e) {
-    // ローカルファイル直開き等の場合は無視
-  }
+  } catch (e) {}
 }
 
-// 𝕏（旧Twitter）シェア関数をディープリンク付きにアップグレード
 window.shareToX = function (shareText, event) {
   if (event) event.stopPropagation();
 
-  // シェアテキスト内に選手名が含まれており検索モーダルが開いている場合は選手直リンクを付与
   let customParams = {};
   const modalHeader = document.querySelector("#frag-sync-modal-root h3");
-  if (modalHeader && modalHeader.textContent.includes("×")) {
-    const targetPlayerName = modalHeader.textContent.split("×")[1]?.trim();
-    if (targetPlayerName) {
-      customParams = { tab: "search", syncPlayer: targetPlayerName };
+  if (modalHeader) {
+    if (modalHeader.textContent.includes("×")) {
+      const targetPlayerName = modalHeader.textContent.split("×")[1]?.trim();
+      if (targetPlayerName) customParams = { tab: "search", syncPlayer: targetPlayerName };
+    } else if (modalHeader.textContent.includes("と同じ環境")) {
+      const targetPlayerName = modalHeader.textContent.replace("💰", "").split("と同じ環境")[0]?.trim();
+      if (targetPlayerName) customParams = { tab: "search", estimatePlayer: targetPlayerName };
     }
   }
 
@@ -2216,7 +2524,6 @@ window.shareToX = function (shareText, event) {
   window.open(intentUrl, "_blank", "noopener,noreferrer,width=600,height=520");
 };
 
-// ワンクリックで現在の画面・条件の直リンクURLをコピーする関数
 window.copyCurrentDeepLink = function (buttonEl, customParams = {}) {
   const urlToCopy = buildCurrentDeepLinkUrl(customParams);
   syncUrlWithCurrentState(customParams);
@@ -2234,7 +2541,6 @@ window.copyCurrentDeepLink = function (buttonEl, customParams = {}) {
   });
 };
 
-// 画面上部（ステータスバー横）に「🔗 この条件のURLをコピー」ボタンを設置
 function setupGlobalShareUrlButton() {
   const statusEl = document.getElementById("source-status");
   if (!statusEl || document.getElementById("frag-copy-url-btn")) return;
@@ -2253,7 +2559,6 @@ function setupGlobalShareUrlButton() {
   }
 }
 
-// URLパラメータを読み取って画面状態・診断結果・モーダルを完全自動復元する関数
 let hasRestoredFromUrl = false;
 
 function restoreStateFromUrlParams(isAfterApiLoad = false) {
@@ -2266,7 +2571,6 @@ function restoreStateFromUrlParams(isAfterApiLoad = false) {
     if (navBtn) navBtn.click();
   }
 
-  // 1. デバイス相談の復元＆自動実行
   if (tab === "consult" && !hasRestoredFromUrl) {
     const game = params.get("game");
     const rank = params.get("rank");
@@ -2285,7 +2589,6 @@ function restoreStateFromUrlParams(isAfterApiLoad = false) {
     document.getElementById("consult-form")?.dispatchEvent(new Event("submit", { cancelable: true }));
   }
 
-  // 2. プレイヤー検索の復元＆シンクロ診断モーダル自動起動
   if (tab === "search") {
     setupCreatorFilterBar();
     const q = params.get("q");
@@ -2296,17 +2599,14 @@ function restoreStateFromUrlParams(isAfterApiLoad = false) {
     const sort = params.get("sort");
     const view = params.get("view");
     const syncPlayer = params.get("syncPlayer");
+    const estimatePlayer = params.get("estimatePlayer");
 
-    if (q !== null && document.getElementById("player-query")) {
-      document.getElementById("player-query").value = q;
-    }
+    if (q !== null && document.getElementById("player-query")) document.getElementById("player-query").value = q;
     if (game !== null && searchGameSelect) {
       searchGameSelect.value = game;
       populateRoleOptions(searchRoleSelect, game, true);
     }
-    if (role !== null && searchRoleSelect) {
-      searchRoleSelect.value = role;
-    }
+    if (role !== null && searchRoleSelect) searchRoleSelect.value = role;
     if (type) {
       currentCreatorTypeFilter = type;
       document.querySelectorAll(".js-creator-tab").forEach((t) => {
@@ -2340,13 +2640,12 @@ function restoreStateFromUrlParams(isAfterApiLoad = false) {
 
     renderPlayers();
 
-    // 特定選手のシンクロ診断モーダル指定がある場合は自動で開く
-    if (syncPlayer && isAfterApiLoad) {
-      window.openPlayerSyncModal(syncPlayer);
+    if (isAfterApiLoad) {
+      if (syncPlayer) window.openPlayerSyncModal(syncPlayer);
+      if (estimatePlayer) window.openSetupEstimateModal(estimatePlayer);
     }
   }
 
-  // 3. プロ使用率ランキングの復元
   if (tab === "rankings") {
     const game = params.get("game");
     if (game) {
@@ -2355,7 +2654,6 @@ function restoreStateFromUrlParams(isAfterApiLoad = false) {
     }
   }
 
-  // 4. 感度マッチの復元＆自動マッチング実行
   if (tab === "match" && !hasRestoredFromUrl) {
     const game = params.get("game");
     const dpi = params.get("dpi");
@@ -2370,7 +2668,6 @@ function restoreStateFromUrlParams(isAfterApiLoad = false) {
   hasRestoredFromUrl = true;
 }
 
-// ユーザーのフォーム操作やタブ切り替え時にURLパラメータを自動更新するリスナー
 document.addEventListener("click", (e) => {
   if (e.target.closest(".nav-item, .game-tab, .js-creator-tab, .js-sens-band-tab, .js-view-mode-btn")) {
     setTimeout(() => syncUrlWithCurrentState(), 50);
