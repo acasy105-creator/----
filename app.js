@@ -1814,7 +1814,7 @@ function injectSyncAndShareButtons() {
   }
 }
 
-// DOM更新時に自動でシンクロ診断＆Xシェアボタンを付与
+// DOM更新時に自動でシンクロ診断andXシェアボタンを付与
 const syncShareObserver = new MutationObserver(() => {
   injectSyncAndShareButtons();
 });
