@@ -1370,8 +1370,76 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
 });
 
 // ============================================================================
-// 4. 感度マッチ（①双方向コンバーター ＆ ③環境シンクロ率・X共有 ＆ 比較・動画）
+// 4. 感度マッチ（フルワイドUI ＆ ①双方向コンバーター ＆ ③環境シンクロ率・X共有）
 // ============================================================================
+
+// 💡「あなたの感度設定」と「マッチ結果一覧」を横幅100%のワイドレイアウトに整える関数
+function setupWideMatchPageLayout() {
+  const matchForm = document.getElementById("match-form");
+  const resultContainer = document.getElementById("match-result");
+  if (!matchForm || !resultContainer) return;
+
+  // 親レイアウトの2カラム制限を解除し、横幅100%の1カラム構造にする
+  const layoutParent = resultContainer.parentElement;
+  if (layoutParent) {
+    layoutParent.style.display = "grid";
+    layoutParent.style.gridTemplateColumns = "1fr";
+    layoutParent.style.gap = "1.75rem";
+    layoutParent.style.width = "100%";
+    layoutParent.style.maxWidth = "100%";
+  }
+
+  // 「あなたの感度設定」パネルを横幅100%に広げる
+  const formPanel = matchForm.closest("section, article, div");
+  if (formPanel && formPanel !== layoutParent) {
+    formPanel.style.gridColumn = "1 / -1";
+    formPanel.style.width = "100%";
+    formPanel.style.maxWidth = "100%";
+    formPanel.style.boxSizing = "border-box";
+  }
+
+  // フォーム内の入力欄（タイトル・DPI・感度）を横広で見やすいグリッドに整える
+  if (!document.getElementById("frag-match-wide-style")) {
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      `<style id="frag-match-wide-style">
+        #page-match #match-form {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 1.25rem;
+          align-items: end;
+          width: 100%;
+        }
+        #page-match #match-form .field-row {
+          grid-column: span 2;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1.25rem;
+          margin: 0;
+        }
+        #page-match #match-form button[type="submit"] {
+          grid-column: 1 / -1;
+          width: 100%;
+          padding: 0.95rem 1.5rem;
+          font-size: 0.95rem;
+          margin-top: 0.25rem;
+        }
+        #page-match #match-result {
+          grid-column: 1 / -1 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          display: grid !important;
+          grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)) !important;
+          gap: 1.5rem !important;
+          align-items: stretch !important;
+        }
+      </style>`
+    );
+  }
+}
+
+setupWideMatchPageLayout();
+
 window.copySensValue = function (buttonEl, textValue) {
   if (!navigator.clipboard) return;
   navigator.clipboard.writeText(String(textValue)).then(() => {
@@ -1391,6 +1459,8 @@ window.copySensValue = function (buttonEl, textValue) {
 
 document.getElementById("match-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  setupWideMatchPageLayout();
+
   const game = document.getElementById("match-game").value;
   const dpi = Number(document.getElementById("match-dpi").value);
   const sensitivity = Number(document.getElementById("match-sens").value);
@@ -1422,28 +1492,28 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
 
       const dpiPresets = [400, 800, 1600].map((presetDpi) => {
         const s = fromCm360ToSens(userDistance, presetDpi, targetGameKey);
-        return `<span style="font-size: 0.7rem; color: ${presetDpi === dpi ? '#d4ff33' : '#a1a1aa'};">${presetDpi}DPI: <strong>${Number.isFinite(s) ? s.toFixed(3) : '--'}</strong></span>`;
+        return `<span style="font-size: 0.75rem; color: ${presetDpi === dpi ? '#d4ff33' : '#a1a1aa'};">${presetDpi}DPI: <strong>${Number.isFinite(s) ? s.toFixed(3) : '--'}</strong></span>`;
       }).join(" <span style='color:rgba(255,255,255,0.2)'>|</span> ");
 
       return `
-        <div style="padding: 1rem 1.15rem; border-radius: 10px; background: ${isCurrentGame ? 'rgba(212, 255, 51, 0.07)' : 'rgba(0,0,0,0.35)'}; border: 1px solid ${isCurrentGame ? 'rgba(212, 255, 51, 0.45)' : 'rgba(255,255,255,0.08)'}; display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;">
+        <div style="padding: 1.15rem 1.35rem; border-radius: 10px; background: ${isCurrentGame ? 'rgba(212, 255, 51, 0.07)' : 'rgba(0,0,0,0.35)'}; border: 1px solid ${isCurrentGame ? 'rgba(212, 255, 51, 0.45)' : 'rgba(255,255,255,0.08)'}; display: flex; flex-direction: column; justify-content: space-between; gap: 0.7rem;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; color: ${isCurrentGame ? '#d4ff33' : '#a1a1aa'};">
+            <span style="font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; color: ${isCurrentGame ? '#d4ff33' : '#a1a1aa'};">
               ${escapeHtml(targetSpec.label)} ${isCurrentGame ? '（現在）' : '換算'}
             </span>
-            <span style="font-size: 0.7rem; color: #71717a;">eDPI: ${eDpi}</span>
+            <span style="font-size: 0.74rem; color: #71717a;">eDPI: ${eDpi}</span>
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;">
-            <div style="font-size: 1.65rem; font-weight: 800; color: #fff; font-family: monospace;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+            <div style="font-size: 1.85rem; font-weight: 800; color: #fff; font-family: monospace;">
               ${sensFormatted}
             </div>
             <button type="button"
                     onclick="copySensValue(this, '${sensFormatted}')"
-                    style="cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 6px; font-size: 0.72rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #e4e4e7; transition: all 0.15s;">
+                    style="cursor: pointer; padding: 0.38rem 0.75rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #e4e4e7; transition: all 0.15s;">
               📋 感度をコピー
             </button>
           </div>
-          <div style="padding-top: 0.45rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-wrap: wrap; gap: 0.35rem;">
+          <div style="padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-wrap: wrap; gap: 0.4rem;">
             ${dpiPresets}
           </div>
         </div>`;
@@ -1451,17 +1521,17 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
 
     resultContainer.insertAdjacentHTML(
       "beforebegin",
-      `<section id="sens-converter-panel" style="grid-column: 1 / -1; width: 100%; margin-bottom: 1.75rem; padding: 1.5rem 1.75rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-sizing: border-box;">
+      `<section id="sens-converter-panel" style="grid-column: 1 / -1; width: 100%; margin-bottom: 0.5rem; padding: 1.5rem 1.75rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-sizing: border-box;">
         <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
           <div>
             <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>CROSS-GAME SENSITIVITY CONVERTER</span>
-            <h3 style="font-size: 1.05rem; margin-top: 0.35rem; color: #fff; font-weight: 700;">
+            <h3 style="font-size: 1.1rem; margin-top: 0.35rem; color: #fff; font-weight: 700;">
               あなたの振り向き（<span style="color:#d4ff33;">${userDistance.toFixed(2)} cm / 360°</span> · ${dpi} DPI）を全タイトルへ即時換算
             </h3>
           </div>
           <span style="font-size: 0.75rem; color: #a1a1aa;">※ボタンクリックでゲーム内設定用の数値をコピーできます</span>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
           ${converterCardsHtml}
         </div>
       </section>`
@@ -1512,77 +1582,91 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       const shareText = `【FRAG // 感度＆環境シンクロ診断】\n私のFPS感度は「${playerName}」とシンクロ率【${syncRate}%】でした！（振り向き ${Number.isFinite(userDistance) ? userDistance.toFixed(1) : "--"}cm / 360°）\n注目の使用マウス: ${mouseName}\n`;
 
       return `
-        <article class="match-card" style="box-sizing: border-box;">
-          <div class="match-card-head">
-            <div>
-              <span class="eyebrow"><span class="eyebrow-line"></span>PRO SENS / ${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))}</span>
-              <div class="match-distance">${Number.isFinite(playerDistance) ? playerDistance.toFixed(1) : "--"}<small>cm / 360°</small></div>
-              <div class="match-delta">${Number.isFinite(difference) ? `あなたとの差 ${difference.toFixed(1)} cm · ${percent.toFixed(1)}%` : "感度差を計算できません"}</div>
-            </div>
-            <span class="match-badge">${matchQuality}</span>
-          </div>
-          <div class="match-player" style="position: relative;">
-            <span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span>
-            <div>
-              <h2>${escapeHtml(playerName)}</h2>
-              <p>${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))} · ${escapeHtml(playerRoles.join(" / ") || "プレイヤー")}</p>
-            </div>
-            <button type="button" class="js-fav-player-btn"
-                    data-player-name="${escapeHtml(playerName)}"
-                    onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)"
-                    style="margin-left: auto; cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; white-space: nowrap;">
-              ☆ 比較に保存
-            </button>
-          </div>
-          <p class="match-explanation" style="font-size: 0.85rem; line-height:1.5;">
-            本人設定：<strong>${Number.isFinite(playerDpi) && Number.isFinite(playerSens) ? `${playerDpi} DPI / 感度 ${playerSens}` : "感度情報なし"}</strong>（振り向き ${Number.isFinite(playerDistance) ? `${playerDistance.toFixed(1)} cm` : "--"}）
-          </p>
-
-          ${tryProSensFormatted ? `
-            <div style="margin: 0.5rem 0 0.85rem; padding: 0.65rem 0.75rem; border-radius: 8px; background: rgba(212, 255, 51, 0.08); border: 1px dashed rgba(212, 255, 51, 0.35); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-              <div style="font-size: 0.75rem; color: #e4e4e7; line-height: 1.35;">
-                🎯 <strong>${escapeHtml(playerName)}</strong> の振り向きを<br>
-                あなたの <strong>${escapeHtml(userGameSpec ? userGameSpec.label : game)} (${dpi} DPI)</strong> で試すなら:
+        <article class="match-card" style="box-sizing: border-box; padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; width: 100%;">
+          <div>
+            <!-- 上段：振り向き距離 ＆ 一致度バッジ -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem;">
+              <div>
+                <span class="eyebrow"><span class="eyebrow-line"></span>PRO SENS / ${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))}</span>
+                <div class="match-distance" style="font-size: 2.1rem; margin-top: 0.2rem;">${Number.isFinite(playerDistance) ? playerDistance.toFixed(1) : "--"}<small style="font-size: 0.9rem; margin-left: 0.25rem;">cm / 360°</small></div>
+                <div class="match-delta" style="font-size: 0.8rem; color: #a1a1aa;">${Number.isFinite(difference) ? `あなたとの差 ${difference.toFixed(1)} cm （${percent.toFixed(1)}%）` : "感度差を計算できません"}</div>
               </div>
-              <div style="display: flex; align-items: center; gap: 0.45rem;">
-                <strong style="font-size: 1.05rem; color: #d4ff33; font-family: monospace;">${tryProSensFormatted}</strong>
-                <button type="button"
-                        onclick="copySensValue(this, '${tryProSensFormatted}')"
-                        style="cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 5px; font-size: 0.68rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #e4e4e7;">
-                  📋 コピー
-                </button>
-              </div>
+              <span class="match-badge" style="white-space: nowrap;">${matchQuality}</span>
             </div>
-          ` : ""}
 
-          <div class="match-devices" style="margin-top: auto;">
-            <div class="match-device js-yt-trigger"
-                 data-player="${escapeHtml(playerName)}"
-                 data-mouse="${escapeHtml(mouseName)}"
-                 style="cursor: pointer; transition: all 0.2s; border: 1px solid ${isFirst ? '#bf57ff' : 'rgba(255,255,255,0.08)'}; background: ${isFirst ? 'rgba(191, 87, 255, 0.12)' : 'transparent'}; border-radius: 6px; padding: 0.55rem;"
-                 title="クリックしてこのマウスの比較＆レビュー動画を表示">
-              <span style="display: flex; justify-content: space-between; align-items: center;">
-                PLAYER MOUSE
-                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>
-              </span>
-              <strong style="display:block; margin-bottom: 0.4rem;">${escapeHtml(mouseName)}</strong>
-              ${createAffiliateButtonsHtml(mouseName, true)}
+            <!-- 中段：プレイヤー名 ＆ 比較保存ボタン -->
+            <div style="display: flex; align-items: center; gap: 0.85rem; padding: 0.85rem 1rem; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); margin-bottom: 0.85rem;">
+              <span class="player-avatar" style="flex-shrink: 0;">${escapeHtml(playerName.slice(0, 1))}</span>
+              <div style="min-width: 0; flex: 1;">
+                <h2 style="font-size: 1.15rem; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(playerName)}</h2>
+                <p style="font-size: 0.78rem; color: #a1a1aa; margin: 0.15rem 0 0;">${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))} · ${escapeHtml(playerRoles.join(" / ") || "プレイヤー")}</p>
+              </div>
+              <button type="button" class="js-fav-player-btn"
+                      data-player-name="${escapeHtml(playerName)}"
+                      onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)"
+                      style="flex-shrink: 0; cursor: pointer; padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 0.74rem; font-weight: 800; white-space: nowrap;">
+                ☆ 比較に保存
+              </button>
             </div>
-            <div class="match-device" style="padding: 0.55rem;">
-              <span>PLAYER MOUSEPAD</span>
-              <strong style="display:block; margin-bottom: 0.4rem;">${escapeHtml(padName)}</strong>
-              ${createAffiliateButtonsHtml(padName, true)}
+
+            <div style="font-size: 0.85rem; color: #d4d4d8; margin-bottom: 0.85rem;">
+              本人設定：<strong style="color:#fff;">${Number.isFinite(playerDpi) && Number.isFinite(playerSens) ? `${playerDpi} DPI / 感度 ${playerSens}` : "感度情報なし"}</strong>（振り向き ${Number.isFinite(playerDistance) ? `${playerDistance.toFixed(1)} cm` : "--"}）
+            </div>
+
+            <!-- 逆算コピーボックス -->
+            ${tryProSensFormatted ? `
+              <div style="margin-bottom: 1rem; padding: 0.85rem 1rem; border-radius: 8px; background: rgba(212, 255, 51, 0.08); border: 1px dashed rgba(212, 255, 51, 0.38); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                <div style="font-size: 0.78rem; color: #e4e4e7; line-height: 1.4;">
+                  🎯 <strong>${escapeHtml(playerName)}</strong> の振り向きを<br>
+                  あなたの <strong>${escapeHtml(userGameSpec ? userGameSpec.label : game)} (${dpi} DPI)</strong> で試すなら:
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto;">
+                  <strong style="font-size: 1.2rem; color: #d4ff33; font-family: monospace;">${tryProSensFormatted}</strong>
+                  <button type="button"
+                          onclick="copySensValue(this, '${tryProSensFormatted}')"
+                          style="cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 6px; font-size: 0.72rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; white-space: nowrap;">
+                    📋 コピー
+                  </button>
+                </div>
+              </div>
+            ` : ""}
+
+            <!-- デバイス情報（横幅を広く使える縦積みカード形式で文字折り返しを防止） -->
+            <div style="display: grid; gap: 0.65rem;">
+              <div class="match-device js-yt-trigger"
+                   data-player="${escapeHtml(playerName)}"
+                   data-mouse="${escapeHtml(mouseName)}"
+                   style="cursor: pointer; transition: all 0.2s; border: 1px solid ${isFirst ? '#bf57ff' : 'rgba(255,255,255,0.1)'}; background: ${isFirst ? 'rgba(191, 87, 255, 0.14)' : 'rgba(0,0,0,0.25)'}; border-radius: 8px; padding: 0.75rem 0.9rem;"
+                   title="クリックしてこのマウスの比較＆レビュー動画を表示">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                  <span style="font-size: 0.7rem; color: #a1a1aa; font-weight: 700; letter-spacing: 0.05em;">PLAYER MOUSE</span>
+                  <small style="color: #d8b4fe; font-size: 0.72rem; font-weight: 800;">▶ クリックで動画・比較を表示</small>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <strong style="font-size: 0.92rem; color: #fff;">${escapeHtml(mouseName)}</strong>
+                  ${createAffiliateButtonsHtml(mouseName, true)}
+                </div>
+              </div>
+
+              <div class="match-device" style="border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.25); border-radius: 8px; padding: 0.75rem 0.9rem;">
+                <div style="font-size: 0.7rem; color: #a1a1aa; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 0.3rem;">PLAYER MOUSEPAD</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <strong style="font-size: 0.92rem; color: #fff;">${escapeHtml(padName)}</strong>
+                  ${createAffiliateButtonsHtml(padName, true)}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div style="margin-top: 0.9rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <span style="padding: 0.25rem 0.6rem; border-radius: 6px; background: rgba(212,255,51,0.14); border: 1px solid rgba(212,255,51,0.4); color: #d4ff33; font-size: 0.74rem; font-weight: 800;">
+          <!-- 下段：環境シンクロ率 ＆ Xシェアボタン -->
+          <div style="padding-top: 0.85rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span style="padding: 0.3rem 0.7rem; border-radius: 6px; background: rgba(212,255,51,0.14); border: 1px solid rgba(212,255,51,0.4); color: #d4ff33; font-size: 0.78rem; font-weight: 800;">
               ⚡ 環境シンクロ率 ${syncRate}%
             </span>
             <button type="button"
                     data-share-text="${escapeHtml(shareText)}"
                     onclick="window.shareToX(this.dataset.shareText, event)"
-                    style="cursor: pointer; padding: 0.32rem 0.75rem; border-radius: 6px; background: rgba(255,255,255,0.92); color: #09090b; border: none; font-size: 0.73rem; font-weight: 800;">
+                    style="cursor: pointer; padding: 0.38rem 0.85rem; border-radius: 6px; background: rgba(255,255,255,0.95); color: #09090b; border: none; font-size: 0.76rem; font-weight: 800; white-space: nowrap;">
               𝕏 結果をポスト
             </button>
           </div>
@@ -1595,11 +1679,11 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
     triggers.forEach((trigger) => {
       trigger.addEventListener("click", () => {
         triggers.forEach((t) => {
-          t.style.borderColor = "rgba(255,255,255,0.08)";
-          t.style.background = "transparent";
+          t.style.borderColor = "rgba(255,255,255,0.1)";
+          t.style.background = "rgba(0,0,0,0.25)";
         });
         trigger.style.borderColor = "#bf57ff";
-        trigger.style.background = "rgba(191, 87, 255, 0.12)";
+        trigger.style.background = "rgba(191, 87, 255, 0.14)";
 
         renderYouTubeSection({
           sectionId: "youtube-reviews-section",
