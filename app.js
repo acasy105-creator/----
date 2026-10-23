@@ -897,47 +897,263 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 });
 
 // ============================================================================
-// 1. プレイヤー検索（属性フィルター＆動画＆購入＆お気に入り＆シンクロ診断）
+// 1. プレイヤー検索（拡張DB・ソート・感度帯絞り込み・リアルタイム統計・テーブル表示）
 // ============================================================================
 let currentCreatorTypeFilter = "all";
+let currentSensBandFilter = "all"; // "all" | "high" | "mid" | "low"
+let currentSortOrder = "default";  // "default" | "sync_desc" | "cm_asc" | "cm_desc" | "name_asc"
+let currentViewMode = "grid";      // "grid" | "table"
+
+// 人気ストリーマー・VTuber・プロの補完データベース（既存DBに未登録の場合のみ自動マージ）
+const SUPPLEMENTAL_PLAYERS_DB = [
+  { name: "だるまいずごっと (Daruma is God)", game: "VALORANT", roles: ["streamer", "duelist"], dpi: 800, sens: 0.28, source: "Streamer DB", devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
+  { name: "ありさか (Arisaka)", game: "VALORANT", roles: ["streamer", "sentinel", "controller"], dpi: 800, sens: 0.35, source: "Streamer DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "Apple EarPods" } },
+  { name: "葛葉 (Kuzuha / にじさんじ)", game: "VALORANT", roles: ["vtuber", "duelist", "initiator"], dpi: 800, sens: 0.31, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE846" } },
+  { name: "ローレン・イロアス (Lauren / にじさんじ)", game: "VALORANT", roles: ["vtuber", "duelist", "initiator"], dpi: 800, sens: 0.26, source: "VTuber DB", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
+  { name: "釈迦 (SHAKA)", game: "VALORANT", roles: ["streamer", "initiator", "sentinel"], dpi: 1600, sens: 0.135, source: "Streamer DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "Bose QuietComfort 20" } },
+  { name: "橘ひなの (ぶいすぽっ！)", game: "Apex Legends", roles: ["vtuber", "igl", "support"], dpi: 800, sens: 1.3, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
+  { name: "猫汰つな (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist"], dpi: 800, sens: 0.3, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Vaxee PA", "ヘッドセット": "Sennheiser IE 100 PRO" } },
+  { name: "胡桃のあ (ぶいすぽっ！)", game: "Apex Legends", roles: ["vtuber", "fragger"], dpi: 800, sens: 1.4, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "ヘッドセット": "SHURE SE215" } },
+  { name: "夢野あかり (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist", "sentinel"], dpi: 800, sens: 0.314, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
+  { name: "紡木こかげ (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist", "controller"], dpi: 800, sens: 0.25, source: "VTuber DB", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "SHURE SE215" } },
+  { name: "Laz (ZETA DIVISION)", game: "VALORANT", roles: ["pro", "sentinel", "initiator"], dpi: 800, sens: 0.255, source: "ProSettings", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "ヘッドセット": "Razer BlackShark V2 Pro" } },
+  { name: "Dep (ZETA DIVISION)", game: "VALORANT", roles: ["pro", "duelist"], dpi: 400, sens: 0.48, source: "ProSettings", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "Razer BlackShark V2 Pro" } },
+  { name: "Meiy (DFM)", game: "VALORANT", roles: ["pro", "duelist"], dpi: 1600, sens: 0.1, source: "ProSettings", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "ヘッドセット": "Logicool G PRO X 2" } }
+];
+
+const CUSTOM_PLAYERS_STORAGE_KEY = "frag_custom_players_v1";
+
+function loadCustomPlayers() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_PLAYERS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function getMergedPlayersList() {
+  const baseList = Array.isArray(players) ? players : [];
+  const customList = loadCustomPlayers();
+  const seenNames = new Set();
+  const merged = [];
+
+  // カスタム追加分 → API取得分 → 補完DBの順で重複排除マージ
+  [...customList, ...baseList, ...(players === demoPlayers ? [] : SUPPLEMENTAL_PLAYERS_DB)].forEach((p) => {
+    if (!p || typeof p.name !== "string") return;
+    const baseKey = p.name.split(/[（(]/)[0].trim().toLowerCase();
+    if (seenNames.has(baseKey)) return;
+    seenNames.add(baseKey);
+    merged.push(p);
+  });
+
+  return merged;
+}
 
 function getPlayerCreatorTypes(player) {
   const roles = Array.isArray(player?.roles) ? player.roles.map((r) => String(r).toLowerCase()) : [];
   const source = String(player?.source || "").toLowerCase();
+  const name = String(player?.name || "");
   const types = new Set();
 
-  if (roles.includes("vtuber") || source.includes("vtuber") || /ぶいすぽ|にじさんじ/.test(player?.name || "")) {
+  if (roles.includes("vtuber") || source.includes("vtuber") || /ぶいすぽ|にじさんじ|ホロライブ|vtuber/i.test(name)) {
     types.add("vtuber");
   }
-  if (roles.includes("streamer") || source.includes("streamer")) {
+  if (roles.includes("streamer") || source.includes("streamer") || /だるま|ありさか|釈迦|shaka|k4sen|関優太|ボドカ/i.test(name)) {
     types.add("streamer");
   }
-  if (roles.includes("pro") || (types.size === 0)) {
+  if (roles.includes("pro") || types.size === 0) {
     types.add("pro");
   }
   return types;
 }
 
+function getSensBandInfo(cm) {
+  if (!Number.isFinite(cm)) return { key: "unknown", label: "感度未設定", color: "#71717a" };
+  if (cm < 35) return { key: "high", label: "HIGH SENS (〜35cm)", color: "#38bdf8" };
+  if (cm <= 50) return { key: "mid", label: "MID SENS (35〜50cm)", color: "#d4ff33" };
+  return { key: "low", label: "LOW SENS (50cm〜)", color: "#f472b6" };
+}
+
+// クイック検索タグをクリックしたときの処理
+window.applyQuickSearchTag = function (keyword) {
+  const input = document.getElementById("player-query");
+  if (!input) return;
+  input.value = input.value.trim().toLowerCase() === keyword.toLowerCase() ? "" : keyword;
+  renderPlayers();
+};
+
+// 新規プレイヤー（または自分の設定）をDBに追加するモーダル
+window.openAddCustomPlayerModal = function () {
+  let modalRoot = document.getElementById("frag-add-player-modal");
+  if (!modalRoot) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="frag-add-player-modal"></div>`);
+    modalRoot = document.getElementById("frag-add-player-modal");
+  }
+
+  modalRoot.innerHTML = `
+    <div onclick="document.getElementById('frag-add-player-modal').innerHTML=''"
+         style="position: fixed; inset: 0; z-index: 10001; background: rgba(0,0,0,0.8); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 1.25rem; box-sizing: border-box;">
+      <div onclick="event.stopPropagation()"
+           style="width: 100%; max-width: 500px; border-radius: 14px; background: #121217; border: 1px solid rgba(212,255,51,0.4); padding: 1.5rem; color: #fff; box-shadow: 0 20px 50px rgba(0,0,0,0.85);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <div>
+            <span class="eyebrow" style="color:#d4ff33;"><span class="eyebrow-line" style="background:#d4ff33;"></span>CUSTOM DB ENTRY</span>
+            <h3 style="margin:0.25rem 0 0; font-size:1.15rem;">プレイヤー・マイ設定をDBに追加</h3>
+          </div>
+          <button type="button" onclick="document.getElementById('frag-add-player-modal').innerHTML=''"
+                  style="cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:6px; padding:0.25rem 0.6rem;">✕</button>
+        </div>
+        <form id="custom-player-form" style="display:grid; gap:0.85rem; font-size:0.82rem;">
+          <div>
+            <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">プレイヤー名（所属・グループ名も可）*</label>
+            <input type="text" id="cp-name" required placeholder="例: かるび / 自分の名前 (My Setup)" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+            <div>
+              <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">メインタイトル</label>
+              <select id="cp-game" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff;">
+                <option value="VALORANT">VALORANT</option>
+                <option value="Apex Legends">Apex Legends</option>
+                <option value="Overwatch 2">Overwatch 2</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">属性</label>
+              <select id="cp-type" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff;">
+                <option value="pro">🏆 プロ選手</option>
+                <option value="streamer">🎙 ストリーマー</option>
+                <option value="vtuber">✨ VTuber</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+            <div>
+              <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">DPI*</label>
+              <input type="number" id="cp-dpi" required value="800" min="100" max="32000" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">ゲーム内感度*</label>
+              <input type="number" id="cp-sens" required value="0.32" step="0.001" min="0.01" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+            </div>
+          </div>
+          <div>
+            <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">使用マウス</label>
+            <input type="text" id="cp-mouse" placeholder="例: Logicool G PRO X SUPERLIGHT 2" value="Logicool G PRO X SUPERLIGHT 2" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+            <div>
+              <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">マウスパッド</label>
+              <input type="text" id="cp-pad" placeholder="例: Artisan Ninja FX Zero" value="Artisan Ninja FX Zero" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="display:block; color:#a1a1aa; margin-bottom:0.25rem;">ヘッドセット・イヤホン</label>
+              <input type="text" id="cp-audio" placeholder="例: SHURE SE215" value="SHURE SE215" style="width:100%; padding:0.55rem; border-radius:6px; background:#09090b; border:1px solid rgba(255,255,255,0.18); color:#fff; box-sizing:border-box;">
+            </div>
+          </div>
+          <button type="submit" style="margin-top:0.4rem; cursor:pointer; padding:0.75rem; border-radius:8px; background:#d4ff33; color:#09090b; font-weight:800; border:none;">
+            ＋ データベースに登録する
+          </button>
+        </form>
+      </div>
+    </div>`;
+
+  document.getElementById("custom-player-form").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const newEntry = {
+      name: document.getElementById("cp-name").value.trim(),
+      game: document.getElementById("cp-game").value,
+      roles: [document.getElementById("cp-type").value],
+      dpi: Number(document.getElementById("cp-dpi").value),
+      sens: Number(document.getElementById("cp-sens").value),
+      source: "Custom DB",
+      devices: {
+        "マウス": document.getElementById("cp-mouse").value.trim() || "データなし",
+        "マウスパッド": document.getElementById("cp-pad").value.trim() || "データなし",
+        "ヘッドセット": document.getElementById("cp-audio").value.trim() || "データなし"
+      }
+    };
+    const currentCustom = loadCustomPlayers();
+    currentCustom.unshift(newEntry);
+    localStorage.setItem(CUSTOM_PLAYERS_STORAGE_KEY, JSON.stringify(currentCustom));
+    modalRoot.innerHTML = "";
+    renderPlayers();
+  });
+};
+
 function setupCreatorFilterBar() {
   const resultsEl = document.getElementById("player-results");
   if (!resultsEl || document.getElementById("creator-type-filter-bar")) return;
 
+  const quickTags = ["ぶいすぽ", "にじさんじ", "ZETA", "Logicool", "Razer", "Finalmouse", "Artisan", "Wallhack", "SHURE"];
+
   const filterBarHtml = `
-    <div id="creator-type-filter-bar" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem; align-items: center;">
-      <span style="font-size: 0.75rem; color: #a1a1aa; margin-right: 0.25rem;">属性フィルター:</span>
-      <button type="button" data-type="all" class="js-creator-tab" style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid #d4ff33; background: rgba(212, 255, 51, 0.15); color: #fff; transition: all 0.2s;">すべて</button>
-      <button type="button" data-type="pro" class="js-creator-tab" style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa; transition: all 0.2s;">🏆 プロ選手</button>
-      <button type="button" data-type="streamer" class="js-creator-tab" style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa; transition: all 0.2s;">🎙 ストリーマー / 配信者</button>
-      <button type="button" data-type="vtuber" class="js-creator-tab" style="cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.78rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa; transition: all 0.2s;">✨ VTuber（ぶいすぽっ！・にじさんじ等）</button>
+    <div id="frag-advanced-search-controls" style="display: grid; gap: 0.9rem; margin-bottom: 1.25rem; padding: 1.15rem 1.25rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08);">
+      <!-- 1段目：属性フィルター ＆ お気に入り ＆ DB追加ボタン -->
+      <div id="creator-type-filter-bar" style="display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center;">
+        <span style="font-size: 0.74rem; color: #a1a1aa; margin-right: 0.2rem; font-weight: 700;">属性:</span>
+        <button type="button" data-type="all" class="js-creator-tab" style="cursor: pointer; padding: 0.38rem 0.85rem; border-radius: 999px; font-size: 0.76rem; font-weight: bold; border: 1px solid #d4ff33; background: rgba(212, 255, 51, 0.15); color: #fff; transition: all 0.2s;">すべて</button>
+        <button type="button" data-type="pro" class="js-creator-tab" style="cursor: pointer; padding: 0.38rem 0.85rem; border-radius: 999px; font-size: 0.76rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa; transition: all 0.2s;">🏆 プロ選手</button>
+        <button type="button" data-type="streamer" class="js-creator-tab" style="cursor: pointer; padding: 0.38rem 0.85rem; border-radius: 999px; font-size: 0.76rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa; transition: all 0.2s;">🎙 ストリーマー</button>
+        <button type="button" data-type="vtuber" class="js-creator-tab" style="cursor: pointer; padding: 0.38rem 0.85rem; border-radius: 999px; font-size: 0.76rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa; transition: all 0.2s;">✨ VTuber</button>
+        <button type="button" onclick="window.openAddCustomPlayerModal()"
+                style="cursor: pointer; padding: 0.38rem 0.8rem; border-radius: 999px; font-size: 0.74rem; font-weight: 800; border: 1px dashed rgba(212,255,51,0.5); background: rgba(212,255,51,0.06); color: #d4ff33;">
+          ＋ 選手・マイ設定を追加
+        </button>
+      </div>
+
+      <!-- 2段目：感度帯（センシ帯）フィルター ＆ ソート順 ＆ 表示モード切替 -->
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; padding-top: 0.7rem; border-top: 1px solid rgba(255,255,255,0.06);">
+        <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
+          <span style="font-size: 0.74rem; color: #a1a1aa; margin-right: 0.2rem; font-weight: 700;">感度帯:</span>
+          <button type="button" data-band="all" class="js-sens-band-tab" style="cursor: pointer; padding: 0.32rem 0.75rem; border-radius: 6px; font-size: 0.74rem; font-weight: 700; border: 1px solid #d4ff33; background: rgba(212,255,51,0.15); color: #fff;">すべて</button>
+          <button type="button" data-band="high" class="js-sens-band-tab" style="cursor: pointer; padding: 0.32rem 0.75rem; border-radius: 6px; font-size: 0.74rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa;">⚡ ハイセンシ (〜35cm)</button>
+          <button type="button" data-band="mid" class="js-sens-band-tab" style="cursor: pointer; padding: 0.32rem 0.75rem; border-radius: 6px; font-size: 0.74rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa;">⚖️ ミドル (35〜50cm)</button>
+          <button type="button" data-band="low" class="js-sens-band-tab" style="cursor: pointer; padding: 0.32rem 0.75rem; border-radius: 6px; font-size: 0.74rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #a1a1aa;">🎯 ローセンシ (50cm〜)</button>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-left: auto;">
+          <label style="font-size: 0.74rem; color: #a1a1aa; font-weight: 700;">並び替え:</label>
+          <select id="search-sort-order" style="padding: 0.35rem 0.65rem; border-radius: 6px; background: rgba(0,0,0,0.65); border: 1px solid rgba(255,255,255,0.2); color: #fff; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+            <option value="default">標準（おすすめ順）</option>
+            <option value="sync_desc">⚡ 環境シンクロ率が高い順</option>
+            <option value="cm_asc">🔥 ハイセンシ順（振り向き短い順）</option>
+            <option value="cm_desc">🎯 ローセンシ順（振り向き長い順）</option>
+            <option value="name_asc">🔤 名前順（A-Z / 五十音）</option>
+          </select>
+
+          <div style="display: inline-flex; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.18);">
+            <button type="button" data-view="grid" class="js-view-mode-btn" style="cursor: pointer; padding: 0.35rem 0.65rem; font-size: 0.74rem; font-weight: 800; border: none; background: rgba(212,255,51,0.2); color: #d4ff33;">▦ カード</button>
+            <button type="button" data-view="table" class="js-view-mode-btn" style="cursor: pointer; padding: 0.35rem 0.65rem; font-size: 0.74rem; font-weight: 800; border: none; background: rgba(255,255,255,0.04); color: #a1a1aa;">☰ 一覧表</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3段目：ワンクリック・クイックタグチップ -->
+      <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; padding-top: 0.65rem; border-top: 1px solid rgba(255,255,255,0.06);">
+        <span style="font-size: 0.72rem; color: #71717a; margin-right: 0.2rem;">人気ワード:</span>
+        ${quickTags.map((tag) => `
+          <button type="button" onclick="window.applyQuickSearchTag('${escapeHtml(tag)}')"
+                  style="cursor: pointer; padding: 0.2rem 0.55rem; border-radius: 4px; font-size: 0.7rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #d4d4d8; transition: all 0.15s;"
+                  onmouseover="this.style.borderColor='#d4ff33'; this.style.color='#fff';"
+                  onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.color='#d4d4d8';">
+            #${escapeHtml(tag)}
+          </button>
+        `).join("")}
+      </div>
+
+      <!-- 4段目：絞り込み連動リアルタイム統計バー -->
+      <div id="search-live-analytics-bar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; padding: 0.75rem 0.9rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06);"></div>
     </div>`;
 
   resultsEl.insertAdjacentHTML("beforebegin", filterBarHtml);
 
-  const tabs = document.querySelectorAll(".js-creator-tab");
-  tabs.forEach((tab) => {
+  // 属性タブのイベント
+  document.querySelectorAll(".js-creator-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       currentCreatorTypeFilter = tab.dataset.type;
-      tabs.forEach((t) => {
+      document.querySelectorAll(".js-creator-tab").forEach((t) => {
         const active = t === tab;
         t.style.borderColor = active ? "#d4ff33" : "rgba(255,255,255,0.12)";
         t.style.background = active ? "rgba(212, 255, 51, 0.15)" : "rgba(255,255,255,0.03)";
@@ -946,30 +1162,150 @@ function setupCreatorFilterBar() {
       renderPlayers();
     });
   });
+
+  // 感度帯タブのイベント
+  document.querySelectorAll(".js-sens-band-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      currentSensBandFilter = tab.dataset.band;
+      document.querySelectorAll(".js-sens-band-tab").forEach((t) => {
+        const active = t === tab;
+        t.style.borderColor = active ? "#d4ff33" : "rgba(255,255,255,0.12)";
+        t.style.background = active ? "rgba(212, 255, 51, 0.15)" : "rgba(255,255,255,0.03)";
+        t.style.color = active ? "#fff" : "#a1a1aa";
+      });
+      renderPlayers();
+    });
+  });
+
+  // ソート順のイベント
+  document.getElementById("search-sort-order")?.addEventListener("change", (e) => {
+    currentSortOrder = e.target.value;
+    renderPlayers();
+  });
+
+  // 表示モード（カード / テーブル）切替イベント
+  document.querySelectorAll(".js-view-mode-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentViewMode = btn.dataset.view;
+      document.querySelectorAll(".js-view-mode-btn").forEach((b) => {
+        const active = b === btn;
+        b.style.background = active ? "rgba(212,255,51,0.2)" : "rgba(255,255,255,0.04)";
+        b.style.color = active ? "#d4ff33" : "#a1a1aa";
+      });
+      renderPlayers();
+    });
+  });
+}
+
+function updateSearchLiveAnalytics(filteredPlayers) {
+  const analyticsEl = document.getElementById("search-live-analytics-bar");
+  if (!analyticsEl) return;
+
+  if (!filteredPlayers.length) {
+    analyticsEl.innerHTML = `<div style="font-size:0.78rem; color:#a1a1aa;">該当するプレイヤーがいません。検索条件を緩めてみてください。</div>`;
+    return;
+  }
+
+  const cmList = [];
+  const mouseCounts = new Map();
+  const padCounts = new Map();
+
+  filteredPlayers.forEach((p) => {
+    const cm = toCm360(Number(p?.dpi), Number(p?.sens), p?.game);
+    if (Number.isFinite(cm)) cmList.push(cm);
+    const m = p?.devices?.["マウス"];
+    if (m && m !== "データなし") mouseCounts.set(m, (mouseCounts.get(m) || 0) + 1);
+    const pad = p?.devices?.["マウスパッド"];
+    if (pad && pad !== "データなし") padCounts.set(pad, (padCounts.get(pad) || 0) + 1);
+  });
+
+  const avgCm = cmList.length ? (cmList.reduce((a, b) => a + b, 0) / cmList.length).toFixed(1) : "--";
+  const topMouse = [...mouseCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const topPad = [...padCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  analyticsEl.innerHTML = `
+    <div>
+      <div style="font-size: 0.68rem; color: #a1a1aa;">絞り込み該当数</div>
+      <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">${filteredPlayers.length} <small style="font-size:0.72rem; color:#d4ff33;">PLAYERS</small></div>
+    </div>
+    <div>
+      <div style="font-size: 0.68rem; color: #a1a1aa;">グループ平均振り向き</div>
+      <div style="font-size: 0.95rem; font-weight: 800; color: #d4ff33;">${avgCm} <small style="font-size:0.72rem; color:#e4e4e7;">cm / 360°</small></div>
+    </div>
+    <div>
+      <div style="font-size: 0.68rem; color: #a1a1aa;">グループ内 1位マウス</div>
+      <div style="font-size: 0.82rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(topMouse ? topMouse[0] : '-')}">
+        ${escapeHtml(topMouse ? `${topMouse[0]} (${topMouse[1]}名)` : "データなし")}
+      </div>
+    </div>
+    <div>
+      <div style="font-size: 0.68rem; color: #a1a1aa;">グループ内 1位パッド</div>
+      <div style="font-size: 0.82rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(topPad ? topPad[0] : '-')}">
+        ${escapeHtml(topPad ? `${topPad[0]} (${topPad[1]}名)` : "データなし")}
+      </div>
+    </div>`;
 }
 
 function renderPlayers() {
   setupCreatorFilterBar();
 
+  const allDatabasePlayers = getMergedPlayersList();
   const query = document.getElementById("player-query").value.trim().toLowerCase();
   const game = document.getElementById("search-game").value;
   const role = document.getElementById("search-role").value;
+  const userEnv = getUserBaselineEnv();
 
-  const filtered = players.filter((player) => {
+  let filtered = allDatabasePlayers.filter((player) => {
     const playerName = typeof player?.name === "string" ? player.name : "";
     const normalizedGame = normalizeGameName(player?.game);
     const deviceString = Object.values(player?.devices || {}).join(" ").toLowerCase();
-    const hasText = !query || playerName.toLowerCase().includes(query) || deviceString.includes(query);
+    const roleString = (Array.isArray(player?.roles) ? player.roles : []).join(" ").toLowerCase();
+    const sourceString = String(player?.source || "").toLowerCase();
+
+    const hasText = !query ||
+      playerName.toLowerCase().includes(query) ||
+      deviceString.includes(query) ||
+      roleString.includes(query) ||
+      sourceString.includes(query);
+
     const matchesGame = !game || normalizedGame === normalizeGameName(game);
     const matchesRole = !role || (Array.isArray(player?.roles) && player.roles.includes(role));
     const creatorTypes = getPlayerCreatorTypes(player);
     const matchesCreatorType = currentCreatorTypeFilter === "all" || creatorTypes.has(currentCreatorTypeFilter);
     const matchesFav = !showOnlyFavoritePlayers || favoritesState.players.includes(playerName);
 
-    return hasText && matchesGame && matchesRole && matchesCreatorType && matchesFav;
+    const cm = toCm360(Number(player?.dpi), Number(player?.sens), player?.game);
+    const bandInfo = getSensBandInfo(cm);
+    const matchesSensBand = currentSensBandFilter === "all" || bandInfo.key === currentSensBandFilter;
+
+    return hasText && matchesGame && matchesRole && matchesCreatorType && matchesFav && matchesSensBand;
   });
 
+  // 並び替え（ソート）処理
+  if (currentSortOrder !== "default") {
+    filtered = [...filtered].sort((a, b) => {
+      const cmA = toCm360(Number(a?.dpi), Number(a?.sens), a?.game);
+      const cmB = toCm360(Number(b?.dpi), Number(b?.sens), b?.game);
+
+      if (currentSortOrder === "sync_desc") {
+        return calculateEnvSyncRate(b, userEnv) - calculateEnvSyncRate(a, userEnv);
+      }
+      if (currentSortOrder === "cm_asc") {
+        return (Number.isFinite(cmA) ? cmA : 9999) - (Number.isFinite(cmB) ? cmB : 9999);
+      }
+      if (currentSortOrder === "cm_desc") {
+        return (Number.isFinite(cmB) ? cmB : -1) - (Number.isFinite(cmA) ? cmA : -1);
+      }
+      if (currentSortOrder === "name_asc") {
+        return String(a?.name || "").localeCompare(String(b?.name || ""), "ja");
+      }
+      return 0;
+    });
+  }
+
   document.getElementById("search-count").textContent = `${String(filtered.length).padStart(2, "0")} PLAYERS`;
+  updateSearchLiveAnalytics(filtered);
+
   const resultsEl = document.getElementById("player-results");
 
   const typeBadgeMap = {
@@ -978,68 +1314,137 @@ function renderPlayers() {
     pro: '<span class="tag" style="background: rgba(212, 255, 51, 0.12); border: 1px solid rgba(212, 255, 51, 0.4); color: #d4ff33; font-weight: bold;">🏆 PRO</span>'
   };
 
-  resultsEl.innerHTML = filtered.length ? filtered.map((player) => {
-    const playerName = typeof player?.name === "string" ? player.name : "選手";
-    const spec = getGameSpec(player?.game);
-    const creatorTypes = getPlayerCreatorTypes(player);
+  if (!filtered.length) {
+    resultsEl.innerHTML = '<div class="no-results" style="grid-column: 1 / -1;">条件に一致するプレイヤーが見つかりませんでした。</div>';
+    refreshAllInteractiveEnhancements();
+    return;
+  }
 
-    const creatorBadges = [...creatorTypes].map((t) => typeBadgeMap[t] || "").join("");
-    const gameRoleTags = (Array.isArray(player?.roles) ? player.roles : [])
-      .filter((item) => !["pro", "streamer", "vtuber"].includes(String(item).toLowerCase()))
-      .map((item) => `<span class="tag">${escapeHtml(getGameRoles(player?.game).find((roleOption) => roleOption.value === item)?.text || item)}</span>`)
-      .join("");
+  // 📊 テーブル（一覧表）ビューの場合
+  if (currentViewMode === "table") {
+    resultsEl.innerHTML = `
+      <div style="grid-column: 1 / -1; width: 100%; overflow-x: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.35);">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left; min-width: 860px;">
+          <thead>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #a1a1aa; font-size: 0.72rem;">
+              <th style="padding: 0.75rem 0.9rem;">プレイヤー名</th>
+              <th style="padding: 0.75rem 0.6rem;">タイトル</th>
+              <th style="padding: 0.75rem 0.6rem;">DPI / 感度</th>
+              <th style="padding: 0.75rem 0.6rem;">振り向き (360°)</th>
+              <th style="padding: 0.75rem 0.6rem;">使用マウス</th>
+              <th style="padding: 0.75rem 0.6rem;">使用マウスパッド</th>
+              <th style="padding: 0.75rem 0.6rem;">シンクロ率</th>
+              <th style="padding: 0.75rem 0.9rem; text-align: right;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map((player) => {
+              const playerName = typeof player?.name === "string" ? player.name : "選手";
+              const dpi = Number(player?.dpi);
+              const sens = Number(player?.sens);
+              const cmValue = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, player?.game) : Number.NaN;
+              const bandInfo = getSensBandInfo(cmValue);
+              const mouse = player?.devices?.["マウス"] || "データなし";
+              const pad = player?.devices?.["マウスパッド"] || "データなし";
+              const syncRate = calculateEnvSyncRate(player, userEnv);
 
-    const deviceEntries = Object.entries(player?.devices || {}).map(([category, device]) => {
-      const hasValidDevice = device && device !== "データなし";
+              return `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                  <td style="padding: 0.75rem 0.9rem; font-weight: 800; color: #fff;">${escapeHtml(playerName)}</td>
+                  <td style="padding: 0.75rem 0.6rem; color: #d4d4d8;">${escapeHtml(player?.game || "")}</td>
+                  <td style="padding: 0.75rem 0.6rem; font-family: monospace; color: #e4e4e7;">${Number.isFinite(dpi) && Number.isFinite(sens) ? `${dpi} / ${sens}` : "-"}</td>
+                  <td style="padding: 0.75rem 0.6rem;">
+                    <strong style="color: ${bandInfo.color}; font-family: monospace; font-size: 0.9rem;">${Number.isFinite(cmValue) ? `${cmValue.toFixed(1)} cm` : "-"}</strong>
+                  </td>
+                  <td style="padding: 0.75rem 0.6rem;">
+                    <span class="js-search-yt-trigger" data-player="${escapeHtml(playerName)}" data-device="${escapeHtml(mouse)}"
+                          style="cursor: pointer; color: #fff; font-weight: 700; text-decoration: underline dotted rgba(191,87,255,0.7);" title="クリックで動画・比較を表示">
+                      ${escapeHtml(mouse)}
+                    </span>
+                  </td>
+                  <td style="padding: 0.75rem 0.6rem; color: #d4d4d8;">${escapeHtml(pad)}</td>
+                  <td style="padding: 0.75rem 0.6rem;">
+                    <span style="padding: 0.2rem 0.5rem; border-radius: 4px; background: rgba(212,255,51,0.12); color: #d4ff33; font-weight: 800; font-size: 0.74rem;">⚡ ${syncRate}%</span>
+                  </td>
+                  <td style="padding: 0.75rem 0.9rem; text-align: right; white-space: nowrap;">
+                    <button type="button" class="js-fav-player-btn" data-player-name="${escapeHtml(playerName)}" onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)" style="cursor:pointer; padding:0.25rem 0.55rem; border-radius:6px; font-size:0.7rem; font-weight:800; margin-right:0.3rem;">☆</button>
+                    <button type="button" data-player-name="${escapeHtml(playerName)}" onclick="window.openPlayerSyncModal(this.dataset.playerName, event)" style="cursor:pointer; padding:0.25rem 0.55rem; border-radius:6px; background:rgba(191,87,255,0.18); border:1px solid rgba(191,87,255,0.4); color:#e9d5ff; font-size:0.7rem; font-weight:700;">診断・𝕏</button>
+                  </td>
+                </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  } else {
+    // ▦ カードグリッドビューの場合
+    resultsEl.innerHTML = filtered.map((player) => {
+      const playerName = typeof player?.name === "string" ? player.name : "選手";
+      const spec = getGameSpec(player?.game);
+      const creatorTypes = getPlayerCreatorTypes(player);
+      const dpi = Number(player?.dpi);
+      const sens = Number(player?.sens);
+      const cmValue = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, player?.game) : Number.NaN;
+      const bandInfo = getSensBandInfo(cmValue);
+      const syncRate = calculateEnvSyncRate(player, userEnv);
+
+      const creatorBadges = [...creatorTypes].map((t) => typeBadgeMap[t] || "").join("");
+      const gameRoleTags = (Array.isArray(player?.roles) ? player.roles : [])
+        .filter((item) => !["pro", "streamer", "vtuber"].includes(String(item).toLowerCase()))
+        .map((item) => `<span class="tag">${escapeHtml(getGameRoles(player?.game).find((roleOption) => roleOption.value === item)?.text || item)}</span>`)
+        .join("");
+
+      const sensBandBadge = Number.isFinite(cmValue)
+        ? `<span class="tag" style="border: 1px solid ${bandInfo.color}; color: ${bandInfo.color}; background: rgba(0,0,0,0.3); font-weight: 700;">${bandInfo.label}</span>`
+        : "";
+
+      const deviceEntries = Object.entries(player?.devices || {}).map(([category, device]) => {
+        const hasValidDevice = device && device !== "データなし";
+        return `
+          <div class="device-row ${hasValidDevice ? 'js-search-yt-trigger' : ''}"
+               data-player="${escapeHtml(playerName)}"
+               data-device="${escapeHtml(device || '')}"
+               style="${hasValidDevice ? 'cursor: pointer; transition: background 0.2s; border-radius: 4px; padding: 0.35rem 0.4rem;' : ''}"
+               ${hasValidDevice ? 'title="クリックしてこのデバイスの比較＆レビュー動画を表示"' : ''}>
+            <span>${escapeHtml(category)}</span>
+            <span style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end;">
+              <strong>${escapeHtml(device || "データなし")}</strong>
+              ${hasValidDevice ? '<small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>' : ''}
+              ${hasValidDevice ? `<a href="${escapeHtml(getAmazonAffiliateUrl(device))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;" title="Amazonで見る">🛒 Amazon</a>` : ''}
+              ${hasValidDevice ? `<button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(device)}" onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)" title="欲しいものリストに保存" style="cursor:pointer; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.65rem; font-weight:800;">☆</button>` : ''}
+            </span>
+          </div>`;
+      }).join("");
+
       return `
-        <div class="device-row ${hasValidDevice ? 'js-search-yt-trigger' : ''}"
-             data-player="${escapeHtml(playerName)}"
-             data-device="${escapeHtml(device || '')}"
-             style="${hasValidDevice ? 'cursor: pointer; transition: background 0.2s; border-radius: 4px; padding: 0.35rem 0.4rem;' : ''}"
-             ${hasValidDevice ? 'title="クリックしてこのデバイスの比較＆レビュー動画を表示"' : ''}>
-          <span>${escapeHtml(category)}</span>
-          <span style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end;">
-            <strong>${escapeHtml(device || "データなし")}</strong>
-            ${hasValidDevice ? '<small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶ 動画・比較</small>' : ''}
-            ${hasValidDevice ? `<a href="${escapeHtml(getAmazonAffiliateUrl(device))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;" title="Amazonで見る">🛒 Amazon</a>` : ''}
-            ${hasValidDevice ? `<button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(device)}" onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)" title="欲しいものリストに保存" style="cursor:pointer; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.65rem; font-weight:800;">☆</button>` : ''}
-          </span>
-        </div>`;
-    }).join("");
-
-    const dpi = Number(player?.dpi);
-    const sens = Number(player?.sens);
-    const cmValue = Number.isFinite(dpi) && Number.isFinite(sens) ? toCm360(dpi, sens, player?.game) : Number.NaN;
-
-    return `
-      <article class="player-card">
-        <div class="player-card-top" style="position: relative;">
-          <span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span>
-          <div>
-            <h3>${escapeHtml(playerName)}</h3>
-            <div class="player-game">${escapeHtml(spec ? spec.label : String(player?.game || ""))}</div>
+        <article class="player-card">
+          <div class="player-card-top" style="position: relative;">
+            <span class="player-avatar">${escapeHtml(playerName.slice(0, 1))}</span>
+            <div>
+              <h3>${escapeHtml(playerName)}</h3>
+              <div class="player-game">${escapeHtml(spec ? spec.label : String(player?.game || ""))} · <span style="color:#d4ff33; font-weight:800;">SYNC ${syncRate}%</span></div>
+            </div>
+            <button type="button" class="js-fav-player-btn"
+                    data-player-name="${escapeHtml(playerName)}"
+                    onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)"
+                    style="margin-left: auto; cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; white-space: nowrap;">
+              ☆ 比較に保存
+            </button>
           </div>
-          <button type="button" class="js-fav-player-btn"
-                  data-player-name="${escapeHtml(playerName)}"
-                  onclick="window.toggleFavoritePlayer(this.dataset.playerName, event)"
-                  style="margin-left: auto; cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; white-space: nowrap;">
-            ☆ 比較に保存
-          </button>
-        </div>
-        <div class="player-tags" style="display: flex; flex-wrap: wrap; gap: 0.35rem;">${creatorBadges}${gameRoleTags || ""}</div>
-        <div class="device-list">${deviceEntries || '<div class="device-row"><span>デバイス</span><span>データなし</span></div>'}</div>
-        <div class="player-sens">${Number.isFinite(cmValue) ? `${dpi} DPI / 感度 ${sens} （${cmValue.toFixed(1)} cm / 360°）` : "感度データなし"}</div>
-        <div style="margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-          ${player?.sourceUrl ? `<a class="player-source" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source || "出典")} ↗</a>` : "<span></span>"}
-          <button type="button"
-                  data-player-name="${escapeHtml(playerName)}"
-                  onclick="window.openPlayerSyncModal(this.dataset.playerName, event)"
-                  style="cursor: pointer; padding: 0.35rem 0.7rem; border-radius: 6px; background: rgba(191,87,255,0.14); border: 1px solid rgba(191,87,255,0.4); color: #e9d5ff; font-size: 0.72rem; font-weight: 700;">
-            ⚡ 環境シンクロ診断・𝕏共有
-          </button>
-        </div>
-      </article>`;
-  }).join("") : '<div class="no-results">条件に一致するプレイヤーが見つかりませんでした。</div>';
+          <div class="player-tags" style="display: flex; flex-wrap: wrap; gap: 0.35rem;">${creatorBadges}${gameRoleTags}${sensBandBadge}</div>
+          <div class="device-list">${deviceEntries || '<div class="device-row"><span>デバイス</span><span>データなし</span></div>'}</div>
+          <div class="player-sens">${Number.isFinite(cmValue) ? `${dpi} DPI / 感度 ${sens} （${cmValue.toFixed(1)} cm / 360°）` : "感度データなし"}</div>
+          <div style="margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            ${player?.sourceUrl ? `<a class="player-source" href="${escapeHtml(player.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(player.source || "出典")} ↗</a>` : `<span style="font-size:0.72rem; color:#71717a;">${escapeHtml(player?.source || "")}</span>`}
+            <button type="button"
+                    data-player-name="${escapeHtml(playerName)}"
+                    onclick="window.openPlayerSyncModal(this.dataset.playerName, event)"
+                    style="cursor: pointer; padding: 0.35rem 0.7rem; border-radius: 6px; background: rgba(191,87,255,0.14); border: 1px solid rgba(191,87,255,0.4); color: #e9d5ff; font-size: 0.72rem; font-weight: 700;">
+              ⚡ 環境シンクロ診断・𝕏共有
+            </button>
+          </div>
+        </article>`;
+    }).join("");
+  }
 
   refreshAllInteractiveEnhancements();
 
@@ -1055,14 +1460,14 @@ function renderPlayers() {
         position: "beforebegin",
         titlePrefix: `${trigger.dataset.player} の使用デバイス`,
         deviceName: trigger.dataset.device,
-        hintText: "※各カードの「▶ 動画・比較」をクリックで切り替え"
+        hintText: "※各選手のデバイス名をクリックで切り替え"
       });
     });
   });
 
   if (filtered.length > 0 && filtered[0].devices?.["マウス"]) {
     const firstTrigger = resultsEl.querySelector(".js-search-yt-trigger");
-    if (firstTrigger) {
+    if (firstTrigger && currentViewMode === "grid") {
       firstTrigger.style.background = "rgba(191, 87, 255, 0.15)";
       firstTrigger.style.outline = "1px solid #bf57ff";
     }
@@ -1072,7 +1477,7 @@ function renderPlayers() {
       position: "beforebegin",
       titlePrefix: `${filtered[0].name} の使用デバイス`,
       deviceName: filtered[0].devices["マウス"],
-      hintText: "※各カードの「▶ 動画・比較」をクリックで切り替え"
+      hintText: "※各選手のデバイス名をクリックで切り替え"
     });
   }
 }
@@ -1081,7 +1486,6 @@ function renderPlayers() {
   document.getElementById(id).addEventListener("input", renderPlayers);
   document.getElementById(id).addEventListener("change", renderPlayers);
 });
-
 // ============================================================================
 // 2. プロ使用率（ランキングクリックで比較シミュレーター＆動画＆購入リンク表示）
 // ============================================================================
