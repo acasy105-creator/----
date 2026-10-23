@@ -3027,3 +3027,198 @@ window.openPlayerSyncModal = function (playerName, event) {
 
 // 初回反映
 refreshAllInteractiveEnhancements();
+// ============================================================================
+// キラー機能D：マウス形状・サイズ感「実寸シルエットオーバーレイ比較（上面・側面SVG）」
+// ============================================================================
+
+// 寸法文字列（例: "125 × 63.5 × 40 mm"）から 全長(L)・横幅(W)・高さ(H) を数値抽出する関数
+function parseMouseDimensions(spec) {
+  const raw = String(spec?.size || "125 × 63.5 × 40 mm");
+  const matches = raw.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)/i);
+  if (!matches) {
+    return { length: 125, width: 63.5, height: 40 };
+  }
+  const v1 = parseFloat(matches[1]);
+  const v2 = parseFloat(matches[2]);
+  const v3 = parseFloat(matches[3]);
+  // 横幅と高さの記載順が逆のモデル（G502 X等）でも正確に横幅＞高さとして正規化
+  return {
+    length: v1,
+    width: Math.max(v2, v3),
+    height: Math.min(v2, v3)
+  };
+}
+
+// 上面（Top View）の実寸比率SVGパスを生成する関数
+function createTopViewPath(dim, shapeStr, nameStr) {
+  const scale = 0.88;
+  const cx = 110;
+  const bottomY = 132;
+  const L = dim.length * scale;
+  const W = dim.width * scale;
+  const topY = bottomY - L;
+  const halfW = W / 2;
+
+  const isErgo = /エルゴ|非対称/.test(shapeStr);
+  const ergoLeftFlare = isErgo ? 3.5 : 0;
+  const ergoRightTilt = isErgo ? 2.5 : 0;
+
+  // お尻（下部）→ 左くびれ → 左先端 → 先端中央 → 右先端 → 右くびれ → お尻
+  return `
+    M ${cx} ${bottomY}
+    C ${cx - halfW * 0.95} ${bottomY}, ${cx - halfW - ergoLeftFlare} ${bottomY - L * 0.28}, ${cx - halfW * 0.86} ${bottomY - L * 0.52}
+    C ${cx - halfW * 0.78} ${bottomY - L * 0.72}, ${cx - halfW * 0.88} ${topY + L * 0.14}, ${cx - halfW * 0.45} ${topY + 2}
+    Q ${cx} ${topY - 2}, ${cx + halfW * 0.45} ${topY + 2 + ergoRightTilt}
+    C ${cx + halfW * 0.88} ${topY + L * 0.14 + ergoRightTilt}, ${cx + halfW * 0.82} ${bottomY - L * 0.72}, ${cx + halfW * 0.9} ${bottomY - L * 0.5}
+    C ${cx + halfW * 1.02} ${bottomY - L * 0.25}, ${cx + halfW * 0.95} ${bottomY}, ${cx} ${bottomY}
+    Z
+  `;
+}
+
+// 側面（Side View）の実寸比率SVGパス（コブの高さ・頂点位置）を生成する関数
+function createSideViewPath(dim, shapeStr, nameStr) {
+  const scale = 1.42;
+  const baseY = 104;
+  const rearX = 24;
+  const L = dim.length * scale;
+  const H = dim.height * scale;
+  const frontX = rearX + L;
+  const peakY = baseY - H;
+
+  // 後部高め（Sora V2 / Atlantis等）はコブの頂点を後ろ寄りに配置
+  const isBackHump = /後部高め|ワイドバック|Sora|Atlantis/i.test(String(shapeStr) + String(nameStr));
+  const humpRatio = isBackHump ? 0.37 : 0.47;
+  const peakX = rearX + L * humpRatio;
+
+  return {
+    path: `
+      M ${rearX + 4} ${baseY}
+      Q ${rearX - 3} ${baseY - H * 0.35}, ${rearX + L * 0.14} ${peakY + H * 0.18}
+      Q ${peakX - L * 0.08} ${peakY}, ${peakX} ${peakY}
+      C ${peakX + L * 0.22} ${peakY}, ${frontX - L * 0.14} ${baseY - H * 0.38}, ${frontX} ${baseY - 6}
+      Q ${frontX + 2} ${baseY - 1}, ${frontX - 5} ${baseY}
+      Z
+    `,
+    peakX,
+    peakY
+  };
+}
+
+function buildMouseSilhouetteOverlayHtml(userSpec, targetSpec) {
+  const uDim = parseMouseDimensions(userSpec);
+  const tDim = parseMouseDimensions(targetSpec);
+
+  const dLength = (tDim.length - uDim.length).toFixed(1);
+  const dWidth = (tDim.width - uDim.width).toFixed(1);
+  const dHeight = (tDim.height - uDim.height).toFixed(1);
+
+  const formatDelta = (val, posLabel, negLabel) => {
+    const num = Number(val);
+    if (num > 0) return `<span style="color:#fde047; font-weight:800;">+${val}mm (${posLabel})</span>`;
+    if (num < 0) return `<span style="color:#d4ff33; font-weight:800;">${val}mm (${negLabel})</span>`;
+    return `<span style="color:#a1a1aa; font-weight:700;">±0.0mm (同寸)</span>`;
+  };
+
+  const uTopPath = createTopViewPath(uDim, userSpec.shape, userSpec.name);
+  const tTopPath = createTopViewPath(tDim, targetSpec.shape, targetSpec.name);
+
+  const uSide = createSideViewPath(uDim, userSpec.shape, userSpec.name);
+  const tSide = createSideViewPath(tDim, targetSpec.shape, targetSpec.name);
+
+  return `
+    <div class="js-silhouette-overlay" style="margin: 1rem 0; padding: 1.1rem 1.25rem; border-radius: 10px; background: rgba(9, 9, 13, 0.78); border: 1px solid rgba(255,255,255,0.1);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem;">
+        <div>
+          <span style="font-size: 0.7rem; color: #d4ff33; font-weight: 800; letter-spacing: 0.06em;">REAL-SCALE SILHOUETTE OVERLAY // 実寸形状オーバーレイ比較</span>
+          <div style="font-size: 0.82rem; color: #e4e4e7; margin-top: 0.15rem;">上面（幅・くびれ）と側面（高さ・コブ位置）の1:1スケール重ね合わせ</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.9rem; font-size: 0.74rem;">
+          <span style="display: inline-flex; align-items: center; gap: 0.35rem; color: #38bdf8; font-weight: 700;">
+            <span style="width: 14px; height: 3px; border-top: 2px dashed #38bdf8; display: inline-block;"></span>
+            現在 (${escapeHtml(userSpec.name.split("(")[0].trim())})
+          </span>
+          <span style="display: inline-flex; align-items: center; gap: 0.35rem; color: #d4ff33; font-weight: 800;">
+            <span style="width: 14px; height: 3px; background: #d4ff33; display: inline-block;"></span>
+            候補 (${escapeHtml(targetSpec.name)})
+          </span>
+        </div>
+      </div>
+
+      <!-- 上面（Top View）＆ 側面（Side View）の2カラムSVG -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; align-items: center;">
+        <!-- 1. TOP VIEW (上面シルエット) -->
+        <div style="padding: 0.75rem; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); text-align: center;">
+          <div style="font-size: 0.7rem; color: #a1a1aa; font-weight: 700; margin-bottom: 0.3rem;">TOP VIEW // 上面（全長 × 横幅）</div>
+          <svg viewBox="0 0 220 145" style="width: 100%; max-width: 220px; height: 145px; margin: 0 auto; display: block;">
+            <!-- 背景ミリ単位グリッド -->
+            <line x1="110" y1="8" x2="110" y2="136" stroke="rgba(255,255,255,0.07)" stroke-dasharray="2 2" />
+            <line x1="30" y1="72" x2="190" y2="72" stroke="rgba(255,255,255,0.07)" stroke-dasharray="2 2" />
+            <!-- 現在のマウス（水色点線） -->
+            <path d="${uTopPath}" fill="rgba(56, 189, 248, 0.08)" stroke="#38bdf8" stroke-width="1.8" stroke-dasharray="4 3" />
+            <!-- 候補のプロマウス（ライム実線） -->
+            <path d="${tTopPath}" fill="rgba(212, 255, 51, 0.14)" stroke="#d4ff33" stroke-width="2.2" />
+            <!-- ホイール位置マーカー -->
+            <rect x="107.5" y="34" width="5" height="12" rx="2.5" fill="rgba(212,255,51,0.7)" />
+          </svg>
+          <div style="font-size: 0.74rem; color: #d4d4d8; margin-top: 0.25rem; display: flex; justify-content: center; gap: 0.75rem;">
+            <span>全長差: ${formatDelta(dLength, "長め", "コンパクト")}</span>
+            <span>横幅差: ${formatDelta(dWidth, "広め", "細身")}</span>
+          </div>
+        </div>
+
+        <!-- 2. SIDE VIEW (側面シルエット・コブ位置) -->
+        <div style="padding: 0.75rem; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); text-align: center;">
+          <div style="font-size: 0.7rem; color: #a1a1aa; font-weight: 700; margin-bottom: 0.3rem;">SIDE VIEW // 側面（高さ・コブの頂点位置）</div>
+          <svg viewBox="0 0 235 120" style="width: 100%; max-width: 245px; height: 145px; margin: 0 auto; display: block;">
+            <!-- 底面ライン -->
+            <line x1="12" y1="104" x2="222" y2="104" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" />
+            <!-- 現在のマウス側面（水色点線） -->
+            <path d="${uSide.path}" fill="rgba(56, 189, 248, 0.08)" stroke="#38bdf8" stroke-width="1.8" stroke-dasharray="4 3" />
+            <circle cx="${uSide.peakX}" cy="${uSide.peakY}" r="3" fill="#38bdf8" />
+            <!-- 候補のプロマウス側面（ライム実線） -->
+            <path d="${tSide.path}" fill="rgba(212, 255, 51, 0.14)" stroke="#d4ff33" stroke-width="2.2" />
+            <circle cx="${tSide.peakX}" cy="${tSide.peakY}" r="3.5" fill="#d4ff33" />
+            <!-- 向きラベル -->
+            <text x="20" y="116" fill="#71717a" font-size="8" font-weight="bold">◀ 後部 (手のひら側)</text>
+            <text x="152" y="116" fill="#71717a" font-size="8" font-weight="bold">先端 (クリック側) ▶</text>
+          </svg>
+          <div style="font-size: 0.74rem; color: #d4d4d8; margin-top: 0.25rem; display: flex; justify-content: center; gap: 0.75rem;">
+            <span>高さ差: ${formatDelta(dHeight, "高め", "低背")}</span>
+            <span>推奨: <strong style="color:#fff;">${escapeHtml(targetSpec.grip || "オールラウンド")}</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// 既存の buildMouseComparisonHtml を拡張し、マウス比較カード内に「実寸シルエットオーバーレイ」を自動挿入
+const _prevBuildMouseComparisonForSilhouette = buildMouseComparisonHtml;
+buildMouseComparisonHtml = function (targetDeviceName, containerId) {
+  const baseHtml = _prevBuildMouseComparisonForSilhouette(targetDeviceName, containerId);
+  const targetSpec = findMouseSpec(targetDeviceName);
+  // マウス以外（マウスパッドの2次元マップなど）の場合はそのまま返す
+  if (!targetSpec || !baseHtml || baseHtml.includes("js-silhouette-overlay")) {
+    return baseHtml;
+  }
+
+  const userSpec = findMouseSpec(currentUserMouseName) || {
+    name: currentUserMouseName,
+    ...MOUSE_SPECS_DB["Logicool G703h (定番エルゴ / 95g)"]
+  };
+  const silhouetteHtml = buildMouseSilhouetteOverlayHtml(userSpec, targetSpec);
+
+  // 「💡 乗り換え体感予測」のフッター行の直前にシルエット比較図を差し込む
+  const footerMarker = '<div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.08);';
+  if (baseHtml.includes(footerMarker)) {
+    return baseHtml.replace(footerMarker, silhouetteHtml + footerMarker);
+  }
+  return baseHtml;
+};
+
+// 初回表示中のマウス比較カードにも即座にシルエット図を反映
+document.querySelectorAll("[id$='-mouse-vs']").forEach((el) => {
+  const targetDev = el.dataset.targetDevice;
+  if (targetDev && findMouseSpec(targetDev)) {
+    el.outerHTML = buildMouseComparisonHtml(targetDev, el.id);
+  }
+});
