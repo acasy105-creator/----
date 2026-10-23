@@ -11,8 +11,8 @@ const escapeHtml = (value) =>
   })[char]);
 
 const AFFILIATE_CONFIG = {
-  amazonTag: "acasy105-22",       // ご自身のAmazonアソシエイトID
-  rakutenAffiliateId: "5858550"   // もしもアフィリエイトの楽天 a_id（または楽天アフィリエイトID）
+  amazonTag: "acasy105-22",       // AmazonアソシエイトID
+  rakutenAffiliateId: "5858550"   // もしもアフィリエイトの楽天 a_id
 };
 
 function getAmazonAffiliateUrl(deviceName) {
@@ -27,11 +27,9 @@ function getRakutenAffiliateUrl(deviceName) {
   const id = String(AFFILIATE_CONFIG.rakutenAffiliateId || "").trim();
   if (!id) return searchUrl;
 
-  // 数字のみの場合は「もしもアフィリエイト」の楽天市場提携リンク(a_id)として生成
   if (/^\d+$/.test(id)) {
     return `https://af.moshimo.com/af/c/click?a_id=${encodeURIComponent(id)}&p_id=54&pc_id=54&pl_id=616&url=${encodeURIComponent(searchUrl)}`;
   }
-  // 楽天アフィリエイト本家IDの場合
   return `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(id)}/?pc=${encodeURIComponent(searchUrl)}`;
 }
 
@@ -328,8 +326,10 @@ document.addEventListener("change", (e) => {
 });
 
 // ============================================================================
-// ④ YouTubeインライン再生プレイヤー ＆ 全ページ共通レビュー描画関数
+// ④ YouTubeインライン再生プレイヤー ＆ キャッシュ付きレビュー描画関数
 // ============================================================================
+const youtubeClientCache = new Map();
+
 document.addEventListener("click", (e) => {
   const playTrigger = e.target.closest(".js-inline-video-trigger");
   if (!playTrigger) return;
@@ -379,71 +379,99 @@ async function renderYouTubeSection({ sectionId, anchorElement, position = "afte
     </div>`;
 
   try {
-    const ytUrl = new URL("/api/youtube/reviews", apiBaseUrl);
-    ytUrl.searchParams.set("device", deviceName);
-    const ytResponse = await fetch(ytUrl);
+    let validVideos = youtubeClientCache.get(deviceName);
 
-    if (ytResponse.ok) {
-      const videos = await ytResponse.json();
-      const validVideos = Array.isArray(videos) ? videos.filter((v) => v && v.videoId) : [];
-      const refreshedComparisonHtml = buildMouseComparisonHtml(deviceName, `${sectionId}-mouse-vs`);
-
-      if (validVideos.length > 0) {
-        ytSection.innerHTML = `
-          ${refreshedComparisonHtml}
-          <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.75rem;">
-            <div>
-              <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS &amp; SHOPPING <small style="color:#a1a1aa; font-weight:normal; margin-left:0.4rem;">[PR]</small></span>
-              <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
-                ${headingLabel}
-              </h3>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-              ${createAffiliateButtonsHtml(deviceName, false)}
-              ${hintText ? `<span style="font-size: 0.75rem; color: #a1a1aa;">${escapeHtml(hintText)}</span>` : ""}
-            </div>
-          </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
-            ${validVideos.map((v) => `
-              <article style="display: flex; flex-direction: column; background: rgba(0,0,0,0.38); border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;">
-                <div class="js-inline-video-trigger" data-video-id="${escapeHtml(v.videoId)}"
-                     style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden; cursor: pointer; background: #000;"
-                     title="クリックしてこの場で動画を再生">
-                  <img src="${escapeHtml(v.thumbnailUrl || "")}" alt="${escapeHtml(v.title || "動画タイトル")}" style="width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.88; transition: transform 0.25s, opacity 0.25s;" onmouseover="this.style.transform='scale(1.03)'; this.style.opacity='1';" onmouseout="this.style.transform='none'; this.style.opacity='0.88';">
-                  <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; background: radial-gradient(circle, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.55) 100%);">
-                    <span style="padding: 0.45rem 0.95rem; border-radius: 999px; background: rgba(220, 38, 38, 0.92); color: #fff; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em; box-shadow: 0 4px 14px rgba(0,0,0,0.5); display: inline-flex; align-items: center; gap: 0.35rem;">
-                      ▶ ページ内で再生
-                    </span>
-                  </div>
-                </div>
-                <div style="padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 0.75rem;">
-                  <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #f4f4f5;">
-                    ${escapeHtml(v.title || "動画タイトル")}
-                  </div>
-                  <div style="font-size: 0.75rem; color: #a1a1aa; display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">
-                    <span>${escapeHtml(v.channelTitle || "YouTube")}</span>
-                    <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer"
-                       style="color: #a1a1aa; text-decoration: none; font-weight: 600; font-size: 0.7rem; transition: color 0.15s;"
-                       onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#a1a1aa'">
-                      YouTubeで開く ↗
-                    </a>
-                  </div>
-                </div>
-              </article>
-            `).join("")}
-          </div>`;
-      } else {
-        ytSection.innerHTML = `
-          ${refreshedComparisonHtml}
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
-            <div class="no-results" style="padding: 0.5rem 0;">「${escapeHtml(deviceName)}」のレビュー動画が見つかりませんでした。</div>
-            ${createAffiliateButtonsHtml(deviceName, false)}
-          </div>`;
+    if (!validVideos) {
+      const ytUrl = new URL("/api/youtube/reviews", apiBaseUrl);
+      ytUrl.searchParams.set("device", deviceName);
+      const ytResponse = await fetch(ytUrl);
+      if (ytResponse.ok) {
+        const videos = await ytResponse.json();
+        validVideos = Array.isArray(videos) ? videos.filter((v) => v && v.videoId) : [];
+        if (validVideos.length > 0) {
+          youtubeClientCache.set(deviceName, validVideos);
+        }
       }
+    }
+
+    const refreshedComparisonHtml = buildMouseComparisonHtml(deviceName, `${sectionId}-mouse-vs`);
+    const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(deviceName + " レビュー")}`;
+
+    if (Array.isArray(validVideos) && validVideos.length > 0) {
+      ytSection.innerHTML = `
+        ${refreshedComparisonHtml}
+        <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS &amp; SHOPPING <small style="color:#a1a1aa; font-weight:normal; margin-left:0.4rem;">[PR]</small></span>
+            <h3 style="font-size: 1.1rem; margin-top: 0.4rem; color: #fff; font-weight: 700;">
+              ${headingLabel}
+            </h3>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            ${createAffiliateButtonsHtml(deviceName, false)}
+            ${hintText ? `<span style="font-size: 0.75rem; color: #a1a1aa;">${escapeHtml(hintText)}</span>` : ""}
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
+          ${validVideos.map((v) => `
+            <article style="display: flex; flex-direction: column; background: rgba(0,0,0,0.38); border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s, border-color 0.2s; box-sizing: border-box;">
+              <div class="js-inline-video-trigger" data-video-id="${escapeHtml(v.videoId)}"
+                   style="position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden; cursor: pointer; background: #000;"
+                   title="クリックしてこの場で動画を再生">
+                <img src="${escapeHtml(v.thumbnailUrl || "")}" alt="${escapeHtml(v.title || "動画タイトル")}" style="width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.88; transition: transform 0.25s, opacity 0.25s;" onmouseover="this.style.transform='scale(1.03)'; this.style.opacity='1';" onmouseout="this.style.transform='none'; this.style.opacity='0.88';">
+                <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; background: radial-gradient(circle, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.55) 100%);">
+                  <span style="padding: 0.45rem 0.95rem; border-radius: 999px; background: rgba(220, 38, 38, 0.92); color: #fff; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em; box-shadow: 0 4px 14px rgba(0,0,0,0.5); display: inline-flex; align-items: center; gap: 0.35rem;">
+                    ▶ ページ内で再生
+                  </span>
+                </div>
+              </div>
+              <div style="padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 0.75rem;">
+                <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #f4f4f5;">
+                  ${escapeHtml(v.title || "動画タイトル")}
+                </div>
+                <div style="font-size: 0.75rem; color: #a1a1aa; display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">
+                  <span>${escapeHtml(v.channelTitle || "YouTube")}</span>
+                  <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer"
+                     style="color: #a1a1aa; text-decoration: none; font-weight: 600; font-size: 0.7rem;">
+                    YouTubeで開く ↗
+                  </a>
+                </div>
+              </div>
+            </article>
+          `).join("")}
+        </div>`;
+    } else {
+      ytSection.innerHTML = `
+        ${refreshedComparisonHtml}
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; padding: 0.5rem 0;">
+          <div>
+            <span class="eyebrow" style="color: #bf57ff;"><span class="eyebrow-line" style="background: #bf57ff;"></span>YOUTUBE REVIEWS &amp; SHOPPING</span>
+            <h3 style="font-size: 1rem; margin-top: 0.35rem; color: #fff;">「${escapeHtml(deviceName)}」のレビュー動画・ショップ情報</h3>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+            <a href="${escapeHtml(ytSearchUrl)}" target="_blank" rel="noopener noreferrer"
+               style="text-decoration:none; padding:0.45rem 0.9rem; border-radius:6px; background:rgba(220,38,38,0.2); border:1px solid rgba(220,38,38,0.55); color:#fca5a5; font-size:0.78rem; font-weight:700;">
+              ▶ YouTubeで「${escapeHtml(deviceName)}」のレビューを検索 ↗
+            </a>
+            ${createAffiliateButtonsHtml(deviceName, false)}
+          </div>
+        </div>`;
     }
   } catch (ytError) {
     console.error("YouTube API取得エラー:", ytError);
-    ytSection.innerHTML = `${comparisonHtml}<div class="no-results" style="text-align:center; padding: 1rem;">動画の取得に失敗しました。</div>`;
+    const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(deviceName + " レビュー")}`;
+    ytSection.innerHTML = `
+      ${comparisonHtml}
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; padding: 0.5rem 0;">
+        <div style="font-size:0.85rem; color:#d4d4d8;">サーバー起動待ち、またはYouTube APIの1日上限に達しています。</div>
+        <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+          <a href="${escapeHtml(ytSearchUrl)}" target="_blank" rel="noopener noreferrer"
+             style="text-decoration:none; padding:0.45rem 0.9rem; border-radius:6px; background:rgba(220,38,38,0.2); border:1px solid rgba(220,38,38,0.55); color:#fca5a5; font-size:0.78rem; font-weight:700;">
+            ▶ YouTubeでレビュー一覧を見る ↗
+          </a>
+          ${createAffiliateButtonsHtml(deviceName, false)}
+        </div>
+      </div>`;
   }
 }
 
@@ -814,7 +842,7 @@ function refreshAllInteractiveEnhancements() {
 }
 
 // ============================================================================
-// ロール＆ランク選択肢の初期化・連動
+// ロール＆ランク選択肢の初期化・連動（重複なし・1回のみ定義）
 // ============================================================================
 function populateRoleOptions(select, game, includeAll = false) {
   if (!select) return;
@@ -1372,14 +1400,11 @@ document.getElementById("consult-form").addEventListener("submit", (event) => {
 // ============================================================================
 // 4. 感度マッチ（フルワイドUI ＆ ①双方向コンバーター ＆ ③環境シンクロ率・X共有）
 // ============================================================================
-
-// 💡「あなたの感度設定」と「マッチ結果一覧」を横幅100%のワイドレイアウトに整える関数
 function setupWideMatchPageLayout() {
   const matchForm = document.getElementById("match-form");
   const resultContainer = document.getElementById("match-result");
   if (!matchForm || !resultContainer) return;
 
-  // 親レイアウトの2カラム制限を解除し、横幅100%の1カラム構造にする
   const layoutParent = resultContainer.parentElement;
   if (layoutParent) {
     layoutParent.style.display = "grid";
@@ -1389,7 +1414,6 @@ function setupWideMatchPageLayout() {
     layoutParent.style.maxWidth = "100%";
   }
 
-  // 「あなたの感度設定」パネルを横幅100%に広げる
   const formPanel = matchForm.closest("section, article, div");
   if (formPanel && formPanel !== layoutParent) {
     formPanel.style.gridColumn = "1 / -1";
@@ -1398,7 +1422,6 @@ function setupWideMatchPageLayout() {
     formPanel.style.boxSizing = "border-box";
   }
 
-  // フォーム内の入力欄（タイトル・DPI・感度）を横広で見やすいグリッドに整える
   if (!document.getElementById("frag-match-wide-style")) {
     document.head.insertAdjacentHTML(
       "beforeend",
@@ -1584,7 +1607,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
       return `
         <article class="match-card" style="box-sizing: border-box; padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; width: 100%;">
           <div>
-            <!-- 上段：振り向き距離 ＆ 一致度バッジ -->
             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem;">
               <div>
                 <span class="eyebrow"><span class="eyebrow-line"></span>PRO SENS / ${escapeHtml(playerSpec ? playerSpec.label : (playerGame || "GAME"))}</span>
@@ -1594,7 +1616,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
               <span class="match-badge" style="white-space: nowrap;">${matchQuality}</span>
             </div>
 
-            <!-- 中段：プレイヤー名 ＆ 比較保存ボタン -->
             <div style="display: flex; align-items: center; gap: 0.85rem; padding: 0.85rem 1rem; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); margin-bottom: 0.85rem;">
               <span class="player-avatar" style="flex-shrink: 0;">${escapeHtml(playerName.slice(0, 1))}</span>
               <div style="min-width: 0; flex: 1;">
@@ -1613,7 +1634,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
               本人設定：<strong style="color:#fff;">${Number.isFinite(playerDpi) && Number.isFinite(playerSens) ? `${playerDpi} DPI / 感度 ${playerSens}` : "感度情報なし"}</strong>（振り向き ${Number.isFinite(playerDistance) ? `${playerDistance.toFixed(1)} cm` : "--"}）
             </div>
 
-            <!-- 逆算コピーボックス -->
             ${tryProSensFormatted ? `
               <div style="margin-bottom: 1rem; padding: 0.85rem 1rem; border-radius: 8px; background: rgba(212, 255, 51, 0.08); border: 1px dashed rgba(212, 255, 51, 0.38); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
                 <div style="font-size: 0.78rem; color: #e4e4e7; line-height: 1.4;">
@@ -1631,7 +1651,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
               </div>
             ` : ""}
 
-            <!-- デバイス情報（横幅を広く使える縦積みカード形式で文字折り返しを防止） -->
             <div style="display: grid; gap: 0.65rem;">
               <div class="match-device js-yt-trigger"
                    data-player="${escapeHtml(playerName)}"
@@ -1658,7 +1677,6 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
             </div>
           </div>
 
-          <!-- 下段：環境シンクロ率 ＆ Xシェアボタン -->
           <div style="padding-top: 0.85rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
             <span style="padding: 0.3rem 0.7rem; border-radius: 6px; background: rgba(212,255,51,0.14); border: 1px solid rgba(212,255,51,0.4); color: #d4ff33; font-size: 0.78rem; font-weight: 800;">
               ⚡ 環境シンクロ率 ${syncRate}%
