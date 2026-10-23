@@ -2133,10 +2133,269 @@ document.getElementById("match-form").addEventListener("submit", async (event) =
   }
 });
 
+// ============================================================================
+// 改善① URLパラメータ共有（ディープリンク自動復元 ＆ リアルタイムURL同期エンジン）
+// ============================================================================
+
+// 現在の画面状態（タブ・検索条件・感度・診断内容）から共有用ディープリンクURLを生成
+function buildCurrentDeepLinkUrl(customParams = {}) {
+  const url = new URL(window.location.href.split("?")[0].split("#")[0]);
+  const activeNav = document.querySelector(".nav-item.active");
+  const currentTab = customParams.tab || activeNav?.dataset?.page || "consult";
+  url.searchParams.set("tab", currentTab);
+
+  if (currentTab === "consult") {
+    const game = document.getElementById("consult-game")?.value;
+    const rank = document.getElementById("consult-rank")?.value;
+    const role = document.getElementById("consult-role")?.value;
+    const issue = document.getElementById("consult-issue")?.value?.trim();
+    if (game) url.searchParams.set("game", game);
+    if (rank) url.searchParams.set("rank", rank);
+    if (role) url.searchParams.set("role", role);
+    if (issue) url.searchParams.set("issue", issue);
+  } else if (currentTab === "search") {
+    const q = document.getElementById("player-query")?.value?.trim();
+    const game = document.getElementById("search-game")?.value;
+    const role = document.getElementById("search-role")?.value;
+    if (q) url.searchParams.set("q", q);
+    if (game) url.searchParams.set("game", game);
+    if (role) url.searchParams.set("role", role);
+    if (currentCreatorTypeFilter !== "all") url.searchParams.set("type", currentCreatorTypeFilter);
+    if (currentSensBandFilter !== "all") url.searchParams.set("band", currentSensBandFilter);
+    if (currentSortOrder !== "default") url.searchParams.set("sort", currentSortOrder);
+    if (currentViewMode !== "grid") url.searchParams.set("view", currentViewMode);
+  } else if (currentTab === "rankings") {
+    const selectedGame = document.querySelector(".game-tab.selected")?.dataset?.game || "VALORANT";
+    url.searchParams.set("game", selectedGame);
+  } else if (currentTab === "match") {
+    const game = document.getElementById("match-game")?.value;
+    const dpi = document.getElementById("match-dpi")?.value;
+    const sens = document.getElementById("match-sens")?.value;
+    if (game) url.searchParams.set("game", game);
+    if (dpi) url.searchParams.set("dpi", dpi);
+    if (sens) url.searchParams.set("sens", sens);
+  }
+
+  // 個別パラメータ（特定の選手モーダル指定など）の上書き
+  Object.entries(customParams).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") {
+      url.searchParams.set(k, String(v));
+    }
+  });
+
+  return url.toString();
+}
+
+// ブラウザのアドレスバーをページ遷移なしでリアルタイム更新
+function syncUrlWithCurrentState(customParams = {}) {
+  try {
+    const newUrl = buildCurrentDeepLinkUrl(customParams);
+    window.history.replaceState(null, "", newUrl);
+  } catch (e) {
+    // ローカルファイル直開き等の場合は無視
+  }
+}
+
+// 𝕏（旧Twitter）シェア関数をディープリンク付きにアップグレード
+window.shareToX = function (shareText, event) {
+  if (event) event.stopPropagation();
+
+  // シェアテキスト内に選手名が含まれており検索モーダルが開いている場合は選手直リンクを付与
+  let customParams = {};
+  const modalHeader = document.querySelector("#frag-sync-modal-root h3");
+  if (modalHeader && modalHeader.textContent.includes("×")) {
+    const targetPlayerName = modalHeader.textContent.split("×")[1]?.trim();
+    if (targetPlayerName) {
+      customParams = { tab: "search", syncPlayer: targetPlayerName };
+    }
+  }
+
+  const deepLinkUrl = buildCurrentDeepLinkUrl(customParams);
+  const hashtags = "FRAG_GEAR,FPS感度,ゲーミングデバイス";
+  const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(deepLinkUrl)}&hashtags=${encodeURIComponent(hashtags)}`;
+  window.open(intentUrl, "_blank", "noopener,noreferrer,width=600,height=520");
+};
+
+// ワンクリックで現在の画面・条件の直リンクURLをコピーする関数
+window.copyCurrentDeepLink = function (buttonEl, customParams = {}) {
+  const urlToCopy = buildCurrentDeepLinkUrl(customParams);
+  syncUrlWithCurrentState(customParams);
+  if (!navigator.clipboard) return;
+  navigator.clipboard.writeText(urlToCopy).then(() => {
+    const originalHtml = buttonEl.innerHTML;
+    buttonEl.innerHTML = "✓ リンクをコピーしました！";
+    buttonEl.style.borderColor = "#d4ff33";
+    buttonEl.style.color = "#d4ff33";
+    setTimeout(() => {
+      buttonEl.innerHTML = originalHtml;
+      buttonEl.style.borderColor = "rgba(255,255,255,0.18)";
+      buttonEl.style.color = "#e4e4e7";
+    }, 1800);
+  });
+};
+
+// 画面上部（ステータスバー横）に「🔗 この条件のURLをコピー」ボタンを設置
+function setupGlobalShareUrlButton() {
+  const statusEl = document.getElementById("source-status");
+  if (!statusEl || document.getElementById("frag-copy-url-btn")) return;
+
+  const parent = statusEl.parentElement;
+  if (parent) {
+    parent.insertAdjacentHTML(
+      "beforebegin",
+      `<button type="button" id="frag-copy-url-btn"
+         onclick="window.copyCurrentDeepLink(this)"
+         style="cursor: pointer; margin-right: 0.65rem; padding: 0.4rem 0.85rem; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.18); color: #e4e4e7; font-size: 0.74rem; font-weight: 700; transition: all 0.2s;"
+         title="現在のタブ・検索条件・感度設定を含んだ共有URLをコピー">
+         🔗 この画面のURLをコピー
+       </button>`
+    );
+  }
+}
+
+// URLパラメータを読み取って画面状態・診断結果・モーダルを完全自動復元する関数
+let hasRestoredFromUrl = false;
+
+function restoreStateFromUrlParams(isAfterApiLoad = false) {
+  const params = new URLSearchParams(window.location.search);
+  if ([...params.keys()].length === 0) return;
+
+  const tab = params.get("tab");
+  if (tab && pageNames[tab]) {
+    const navBtn = document.querySelector(`.nav-item[data-page="${tab}"]`);
+    if (navBtn) navBtn.click();
+  }
+
+  // 1. デバイス相談の復元＆自動実行
+  if (tab === "consult" && !hasRestoredFromUrl) {
+    const game = params.get("game");
+    const rank = params.get("rank");
+    const role = params.get("role");
+    const issue = params.get("issue");
+
+    if (game && consultGameSelect) {
+      consultGameSelect.value = game;
+      syncConsultSelectors();
+    }
+    if (rank && consultRankSelect) consultRankSelect.value = rank;
+    if (role && consultRoleSelect) consultRoleSelect.value = role;
+    if (issue !== null && document.getElementById("consult-issue")) {
+      document.getElementById("consult-issue").value = issue;
+    }
+    document.getElementById("consult-form")?.dispatchEvent(new Event("submit", { cancelable: true }));
+  }
+
+  // 2. プレイヤー検索の復元＆シンクロ診断モーダル自動起動
+  if (tab === "search") {
+    setupCreatorFilterBar();
+    const q = params.get("q");
+    const game = params.get("game");
+    const role = params.get("role");
+    const type = params.get("type");
+    const band = params.get("band");
+    const sort = params.get("sort");
+    const view = params.get("view");
+    const syncPlayer = params.get("syncPlayer");
+
+    if (q !== null && document.getElementById("player-query")) {
+      document.getElementById("player-query").value = q;
+    }
+    if (game !== null && searchGameSelect) {
+      searchGameSelect.value = game;
+      populateRoleOptions(searchRoleSelect, game, true);
+    }
+    if (role !== null && searchRoleSelect) {
+      searchRoleSelect.value = role;
+    }
+    if (type) {
+      currentCreatorTypeFilter = type;
+      document.querySelectorAll(".js-creator-tab").forEach((t) => {
+        const active = t.dataset.type === type;
+        t.style.borderColor = active ? "#d4ff33" : "rgba(255,255,255,0.12)";
+        t.style.background = active ? "rgba(212, 255, 51, 0.15)" : "rgba(255,255,255,0.03)";
+        t.style.color = active ? "#fff" : "#a1a1aa";
+      });
+    }
+    if (band) {
+      currentSensBandFilter = band;
+      document.querySelectorAll(".js-sens-band-tab").forEach((t) => {
+        const active = t.dataset.band === band;
+        t.style.borderColor = active ? "#d4ff33" : "rgba(255,255,255,0.12)";
+        t.style.background = active ? "rgba(212, 255, 51, 0.15)" : "rgba(255,255,255,0.03)";
+        t.style.color = active ? "#fff" : "#a1a1aa";
+      });
+    }
+    if (sort && document.getElementById("search-sort-order")) {
+      currentSortOrder = sort;
+      document.getElementById("search-sort-order").value = sort;
+    }
+    if (view) {
+      currentViewMode = view;
+      document.querySelectorAll(".js-view-mode-btn").forEach((b) => {
+        const active = b.dataset.view === view;
+        b.style.background = active ? "rgba(212,255,51,0.2)" : "rgba(255,255,255,0.04)";
+        b.style.color = active ? "#d4ff33" : "#a1a1aa";
+      });
+    }
+
+    renderPlayers();
+
+    // 特定選手のシンクロ診断モーダル指定がある場合は自動で開く
+    if (syncPlayer && isAfterApiLoad) {
+      window.openPlayerSyncModal(syncPlayer);
+    }
+  }
+
+  // 3. プロ使用率ランキングの復元
+  if (tab === "rankings") {
+    const game = params.get("game");
+    if (game) {
+      const gameBtn = document.querySelector(`.game-tab[data-game="${game}"]`);
+      if (gameBtn) gameBtn.click();
+    }
+  }
+
+  // 4. 感度マッチの復元＆自動マッチング実行
+  if (tab === "match" && !hasRestoredFromUrl) {
+    const game = params.get("game");
+    const dpi = params.get("dpi");
+    const sens = params.get("sens");
+    if (game && document.getElementById("match-game")) document.getElementById("match-game").value = game;
+    if (dpi && document.getElementById("match-dpi")) document.getElementById("match-dpi").value = dpi;
+    if (sens && document.getElementById("match-sens")) document.getElementById("match-sens").value = sens;
+
+    document.getElementById("match-form")?.dispatchEvent(new Event("submit", { cancelable: true }));
+  }
+
+  hasRestoredFromUrl = true;
+}
+
+// ユーザーのフォーム操作やタブ切り替え時にURLパラメータを自動更新するリスナー
+document.addEventListener("click", (e) => {
+  if (e.target.closest(".nav-item, .game-tab, .js-creator-tab, .js-sens-band-tab, .js-view-mode-btn")) {
+    setTimeout(() => syncUrlWithCurrentState(), 50);
+  }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.matches("#search-game, #search-role, #search-sort-order, #consult-game, #consult-rank, #consult-role, #match-game")) {
+    syncUrlWithCurrentState();
+  }
+});
+document.addEventListener("submit", (e) => {
+  if (e.target.matches("#consult-form, #match-form")) {
+    syncUrlWithCurrentState();
+  }
+});
+document.getElementById("player-query")?.addEventListener("input", () => {
+  syncUrlWithCurrentState();
+});
+
 // 初回起動処理
+setupGlobalShareUrlButton();
 renderCompareTrayUI();
 renderPlayers();
 renderRankings("VALORANT");
+restoreStateFromUrlParams(false);
 
 async function loadLiquipediaPlayers() {
   const sourceStatus = document.getElementById("source-status");
@@ -2169,14 +2428,16 @@ async function loadLiquipediaPlayers() {
     }
 
     players = importedPlayers;
+    const totalMergedCount = getMergedPlayersList().length;
     sourceStatus.textContent = "PRO & CREATOR DB";
-    sourceSummary.textContent = `全 ${players.length} 名のデータを表示中`;
-    document.getElementById("search-data-hint").textContent = `${players.length} PROFILES`;
-    document.getElementById("ranking-disclaimer").innerHTML = '<strong>データ出典・範囲</strong><br>世界・日本のトッププロ選手および人気ストリーマー・VTuber計85名の公開デバイス・感度データを統合集計。出典: Liquipedia / ProSettings / 各配信者公開情報（CC BY-SA 3.0）。';
+    sourceSummary.textContent = `全 ${totalMergedCount} 名のデータを表示中`;
+    document.getElementById("search-data-hint").textContent = `${totalMergedCount} PROFILES`;
+    document.getElementById("ranking-disclaimer").innerHTML = `<strong>データ出典・範囲</strong><br>世界・日本のトッププロ選手および人気ストリーマー・VTuber計${totalMergedCount}名の公開デバイス・感度データを統合集計。出典: Liquipedia / ProSettings / 各配信者公開情報（CC BY-SA 3.0）。`;
     renderPlayers();
     const selectedRankingGame = document.querySelector(".game-tab.selected")?.dataset.game || "VALORANT";
     renderRankings(selectedRankingGame);
     renderCompareTrayUI();
+    restoreStateFromUrlParams(true);
   } catch (error) {
     sourceStatus.textContent = "API接続失敗";
     sourceSummary.textContent = "APIエラー・デモデータを表示中";
