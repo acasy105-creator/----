@@ -3,8 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#101116"><meta name="frag-api-base-url" content="https://backend-server-a1y2.onrender.com">
-  <title>FRAG / Gear Intelligence</title>
+  <meta name="theme-color" content="#09090b">
+  <meta name="frag-api-base-url" content="https://backend-server-a1y2.onrender.com">
+
+  <!-- 基本SEO・タイトル設定 -->
+  <title>FRAG // GEAR INTELLIGENCE | FPSプロ・配信者の感度変換＆デバイス比較データベース</title>
+  <meta name="description" content="VALORANT・Apex Legends・Overwatch 2のプロ選手・ストリーマー・VTuber（ぶいすぽっ！・にじさんじ等）の使用デバイスと感度（振り向きcm/360°）を徹底分析。双方向感度コンバーター、マウス実寸シルエット比較、マウスパッド2次元性能マップ、一式総額見積もりを1画面で完結。">
+  <meta name="keywords" content="FPS感度,振り向き計算,VALORANT,Apex Legends,Overwatch 2,ゲーミングマウス,ラピッドトリガー,マウスパッド比較,プロ設定,ぶいすぽ,ストリーマー,クロスヘアコード">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://frag-gear.vercel.app/">
+
+  <!-- OGP設定（Discord / LINE / Facebook / 各種SNS共通） -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="FRAG // GEAR INTELLIGENCE">
+  <meta property="og:title" content="FRAG // FPSプロ・配信者の感度変換＆デバイス比較データベース">
+  <meta property="og:description" content="あなたの感度に近いプロ・配信者を3秒で特定！振り向き換算、マウス実寸シルエット比較、マウスパッド2次元性能マップ、4デバイス一式見積もりに完全対応。">
+  <meta property="og:url" content="https://frag-gear.vercel.app/">
+  <meta property="og:image" content="https://frag-gear.vercel.app/ogp.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="ja_JP">
+
+  <!-- X（旧Twitter）カード設定（大型アイキャッチ表示） -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="FRAG // FPSプロ・配信者の感度変換＆デバイス比較データベース">
+  <meta name="twitter:description" content="VALO / Apex / OW2の振り向き即時換算、推し・プロとの環境シンクロ率診断、マウス実寸シルエット比較、クロスヘア1クリックコピーを搭載。">
+  <meta name="twitter:image" content="https://frag-gear.vercel.app/ogp.png">
+
+  <!-- Google検索向け 構造化データ（WebApplication） -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "FRAG // GEAR INTELLIGENCE",
+    "url": "https://frag-gear.vercel.app/",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "All",
+    "description": "VALORANT・Apex Legends・Overwatch 2のプロ選手・ストリーマー・VTuberの使用デバイスと感度（cm/360°）を比較・分析できる意思決定プラットフォーム。",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "JPY"
+    }
+  }
+  </script>
+
+  <!-- フォント・スタイル・ファビコン -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -30,7 +74,7 @@
       <div class="sidebar-bottom">
         <div class="status-card"><span class="status-dot"></span><div><strong>データベース</strong><small id="source-summary">デモモードで稼働中</small></div></div>
         <div class="sidebar-note">勝つための環境を、<br>データから考える。</div>
-        <span class="version">FRAG CONCEPT / 2025</span>
+        <span class="version">FRAG CONCEPT / 2026</span>
       </div>
     </aside>
 
@@ -47,7 +91,7 @@
         </div>
         <div class="consult-layout">
           <form class="panel consult-form" id="consult-form">
-            <div class="panel-heading"><div><span class="step-number">01</span><h2>プレイ状況を教えてください</h2></div><span class="required-label">* 必須項目</span></div>
+            <div class="panel-heading"><div><span class="step-number">01</span><h2>プレイ状況を教えてください</h2></div><span class="required-label">必須項目</span></div>
             <label class="field-label" for="consult-game">プレイタイトル <span>*</span></label>
             <select id="consult-game" required><option value="VALORANT">VALORANT</option><option value="Apex Legends">Apex Legends</option><option value="Overwatch 2">Overwatch 2</option></select>
             <label class="field-label" for="consult-rank">現在のランク <span>*</span></label>
@@ -79,7 +123,7 @@
         <div class="panel search-panel">
           <div class="panel-heading"><div><span class="step-number">02</span><h2>選手名・ゲーム・ロールで絞り込む</h2></div><span class="data-hint">⌕ &nbsp; <span id="search-data-hint">DEMO ROSTER</span></span></div>
           <div class="search-controls">
-            <label class="search-input-wrap"><span>⌕</span><input id="player-query" type="search" placeholder="選手名で検索"></label>
+            <label class="search-input-wrap"><span>⌕</span><input id="player-query" type="search" placeholder="選手名・デバイス名で検索"></label>
             <select id="search-game" aria-label="ゲームタイトル"><option value="">すべてのタイトル</option><option>VALORANT</option><option>Apex Legends</option><option>Overwatch 2</option></select>
             <select id="search-role" aria-label="ゲーム内ロール"><option value="">すべてのロール</option></select>
           </div>
@@ -89,7 +133,7 @@
       </section>
 
       <section class="page" id="page-rankings">
-        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>PRO GEAR INDEX / 03</div><h1>プロ使用率<span class="heading-period">.</span></h1><p class="page-description">タイトル別のデバイス傾向を、デモデータから集計。</p></div><span class="heading-index">03 — 04</span></div>
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>PRO GEAR INDEX / 03</div><h1>プロ使用率<span class="heading-period">.</span></h1><p class="page-description">タイトル別のデバイス傾向を、データベースから集計。</p></div><span class="heading-index">03 — 04</span></div>
         <div class="panel ranking-panel">
           <div class="panel-heading"><div><span class="step-number">03</span><h2>タイトル別デバイスランキング</h2></div><span class="data-hint">AUTO-CALCULATED</span></div>
           <div class="ranking-toolbar"><div class="game-tabs" id="ranking-games"><button class="game-tab selected" data-game="VALORANT">VALORANT</button><button class="game-tab" data-game="Apex Legends">APEX LEGENDS</button><button class="game-tab" data-game="Overwatch 2">OVERWATCH 2</button></div><span id="ranking-total" class="ranking-total"></span></div>
