@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta name="google-site-verification" content="nwQ1m5Bw6fu-rITqe5icnwyDpeZ-mJ8WsPKQkm1xdkk" />
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#09090b">
@@ -31,21 +30,70 @@
   <meta name="twitter:description" content="VALO / Apex / OW2の振り向き即時換算、推し・プロとの環境シンクロ率診断、マウス実寸シルエット比較、クロスヘア1クリックコピーを搭載。">
   <meta name="twitter:image" content="https://frag-gear.vercel.app/ogp.png">
 
-  <!-- Google検索向け 構造化データ（WebApplication） -->
+  <!-- Google検索向け 構造化データ（WebApplication + FAQPage 統合JSON-LD） -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "FRAG // GEAR INTELLIGENCE",
-    "url": "https://frag-gear.vercel.app/",
-    "applicationCategory": "GameApplication",
-    "operatingSystem": "All",
-    "description": "VALORANT・Apex Legends・Overwatch 2のプロ選手・ストリーマー・VTuberの使用デバイスと感度（cm/360°）を比較・分析できる意思決定プラットフォーム。",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "JPY"
-    }
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        "name": "FRAG // GEAR INTELLIGENCE",
+        "url": "https://frag-gear.vercel.app/",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "All",
+        "description": "VALORANT・Apex Legends・Overwatch 2のプロ選手・ストリーマー・VTuberの使用デバイスと感度（cm/360°）を比較・分析できる意思決定プラットフォーム。",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "JPY"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "VALORANT・Apex Legends・Overwatch 2の間で感度（振り向きcm/360°）を変換する方法は？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "FRAGの「感度マッチ」機能に現在のマウスDPIとゲーム内感度を入力するだけで、360度視点回転に必要な物理距離（cm/360°）を自動算出し、VALORANT（係数0.07）・Apex Legends（係数0.022）・Overwatch 2（係数0.0066）のすべてへ即座に感度を相互変換できます。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "FPSプロ選手や人気ストリーマー・VTuber（ぶいすぽっ！・にじさんじ等）で最も使用率が高いゲーミングマウスとキーボードは？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "当サイトの90名以上のデータベース集計では、ゲーミングマウスは「Logicool G PRO X SUPERLIGHT 2」と「Razer Viper V3 Pro」が圧倒的な使用率トップ2を占めています。キーボードはラピッドトリガー対応の「Wooting 60HE+」や「Razer Huntsman V3 Pro Tenkeyless」「SteelSeries Apex Pro」が主流です。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "ゲーミングマウスのサイズや実寸形状（エルゴノミクス・左右対称）を今のマウスと比較するには？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "デバイス名をクリックして起動する「買い替え体感シミュレーター」にて、現在お使いのマウスと候補マウスの重量差（g・%）だけでなく、上面（全長・横幅・くびれ）と側面（高さ・コブの頂点位置）を1:1スケール比率のSVGシルエットで重ね合わせて視覚的に比較できます。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Artisan Zero・疾風乙・Vaxee PA・ガラスマウスパッド（Wallhack SP-004）の滑りの違いは？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "FRAGの「マウスパッド 2次元性能マトリクス図」では、横軸に滑走スピード、縦軸にストッピング制動力をプロットしています。止めやすさ重視なら「SteelSeries QcK Heavy」「Vaxee PA」「Artisan Zero」、初動の軽さと追いエイム重視なら「Artisan 疾風乙 / 飛燕」や完全耐湿のガラスパッド「Wallhack SP-004」が適しています。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "憧れのプロや推しの配信者と同じゲーミングデバイスを一式揃えるといくらかかりますか？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "各選手カードの「一式見積もり」ボタンを押すと、マウス・マウスパッド・キーボード・ヘッドセット（イヤホン）の4点合計額（平均約7万〜11万円）と内訳を算出します。また、予算を抑えたい方向けに約3万〜4万円台で同等の軽量ワイヤレス＆ラピッドトリガー環境を構築できる「高コスパ代替プラン」も同時提案しています。"
+            }
+          }
+        ]
+      }
+    ]
   }
   </script>
 
@@ -55,6 +103,74 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23d4ff33%22/><text x=%2250%22 y=%2272%22 font-family=%22sans-serif%22 font-size=%2268%22 font-weight=%22900%22 text-anchor=%22middle%22 fill=%22%2309090b%22>F</text></svg>">
+
+  <!-- SEO FAQセクション専用スタイル -->
+  <style>
+    .seo-faq-section {
+      margin-top: 3.5rem;
+      padding: 2rem;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.018);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .seo-faq-grid {
+      display: grid;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+    .seo-faq-item {
+      border-radius: 10px;
+      background: rgba(9, 9, 13, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: border-color 0.2s, background 0.2s;
+      overflow: hidden;
+    }
+    .seo-faq-item[open] {
+      border-color: rgba(212, 255, 51, 0.4);
+      background: rgba(212, 255, 51, 0.03);
+    }
+    .seo-faq-item summary {
+      cursor: pointer;
+      padding: 1rem 1.25rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #f4f4f5;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .seo-faq-item summary::-webkit-details-marker {
+      display: none;
+    }
+    .seo-faq-item summary::after {
+      content: "＋";
+      color: #d4ff33;
+      font-weight: 800;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .seo-faq-item[open] summary::after {
+      content: "－";
+    }
+    .seo-faq-answer {
+      padding: 0 1.25rem 1.15rem;
+      font-size: 0.84rem;
+      line-height: 1.65;
+      color: #a1a1aa;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 0.85rem;
+    }
+    .seo-faq-answer strong {
+      color: #e4e4e7;
+    }
+    .seo-faq-answer a {
+      color: #d4ff33;
+      text-decoration: underline;
+      font-weight: 700;
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -157,6 +273,50 @@
         </div>
         <div class="data-disclaimer"><span>!</span><p><strong>感度比較について</strong><br>ゲームの視点設定・入力方式・係数により実際の操作感は異なります。結果は近似値による参考情報であり、同じエイム感を保証するものではありません。</p></div>
       </section>
+
+      <!-- SEO強化用：FPS感度・ゲーミングデバイス よくある質問（FAQ）＆ ガイド -->
+      <aside class="seo-faq-section" aria-label="FPS感度・ゲーミングデバイスのよくある質問">
+        <div class="eyebrow"><span class="eyebrow-line"></span>KNOWLEDGE BASE &amp; FAQ</div>
+        <h2 style="font-size: 1.2rem; margin: 0.35rem 0 0.25rem; color: #fff;">FPS感度変換・プロ使用デバイスに関するよくある質問</h2>
+        <p style="font-size: 0.8rem; color: #a1a1aa; margin: 0;">VALORANT・Apex Legends・Overwatch 2の振り向き計算やデバイス選びの基礎知識をまとめています。</p>
+
+        <div class="seo-faq-grid">
+          <details class="seo-faq-item" open>
+            <summary>Q. VALORANT・Apex Legends・Overwatch 2の間で感度（振り向き cm/360°）を変換する方法は？</summary>
+            <div class="seo-faq-answer">
+              当サイトの「<a href="?tab=match">感度マッチ（双方向感度コンバーター）</a>」に現在お使いのマウスDPIとゲーム内感度を入力するだけで、視点を360度回転させるのに必要な物理距離（<strong>cm/360°</strong>）を自動計算します。各ゲームの視点角度係数（VALORANT: 0.07 / Apex Legends: 0.022 / Overwatch 2: 0.0066）に基づいて全タイトルの換算感度と400・800・1600 DPI別の早見表を1秒で算出でき、感度が近いプロ選手の設定値やクロスヘアコードもワンクリックでコピーできます。
+            </div>
+          </details>
+
+          <details class="seo-faq-item">
+            <summary>Q. プロ選手や人気ストリーマー・VTuber（ぶいすぽっ！・にじさんじ等）で使用率1位のマウス・キーボードは？</summary>
+            <div class="seo-faq-answer">
+              「<a href="?tab=rankings&amp;game=VALORANT">プロ使用率ランキング</a>」および「<a href="?tab=search&amp;type=vtuber">VTuber・配信者データベース</a>」の集計では、ゲーミングマウスは <strong>Logicool G PRO X SUPERLIGHT 2（60g）</strong> と <strong>Razer Viper V3 Pro（54g）</strong> がトップシェアを占めています。また、30g〜40g台の超軽量マウス（Ninjutso Sora V2 / Finalmouse UltralightX / WLmouse Beast X）も急増しています。キーボードはストッピングを高速化するラピッドトリガー搭載の <strong>Wooting 60HE+</strong>、<strong>Razer Huntsman V3 Pro Tenkeyless</strong>、<strong>SteelSeries Apex Pro Mini</strong> が定番です。
+            </div>
+          </details>
+
+          <details class="seo-faq-item">
+            <summary>Q. ゲーミングマウスのサイズや実寸形状（エルゴノミクス・左右対称）を今のマウスと比較するには？</summary>
+            <div class="seo-faq-answer">
+              各ページのデバイス名をクリックすると表示される「<strong>買い替え体感シミュレーター ＆ 実寸シルエット比較</strong>」を使うことで、現在お使いのマウス（G703hやG304など）と候補マウスの重量差（g / %）だけでなく、<strong>上面（全長・横幅・くびれ）と側面（高さ・コブの頂点位置）を1:1スケール比率のSVG図形で重ね合わせて比較</strong>できます。「つかみ持ち・つまみ持ち・かぶせ持ち」のどれに合うかも事前にチェック可能です。
+            </div>
+          </details>
+
+          <details class="seo-faq-item">
+            <summary>Q. Artisan Zero・疾風乙・Vaxee PA・ガラスマウスパッド（Wallhack SP-004）の滑りの違いは？</summary>
+            <div class="seo-faq-answer">
+              マウスパッドを選択すると表示される「<strong>スピード × コントロール 2次元性能マトリクス図</strong>」で視覚的に比較できます。VALORANT等でフリックの止めやすさ（ストッピング）を重視するなら <strong>SteelSeries QcK Heavy</strong>、<strong>Vaxee PA</strong>、<strong>Artisan Ninja FX Zero</strong> が適しており、ApexやOW2で初動の軽さや追いエイム（トラッキング）を重視するなら <strong>Artisan 疾風乙 / 飛燕</strong>、または湿気の影響を一切受けない強化ガラスマウスパッド <strong>Wallhack SP-004</strong> が推奨されます。
+            </div>
+          </details>
+
+          <details class="seo-faq-item">
+            <summary>Q. 憧れのプロや推しの配信者と同じデバイスを一式揃えると総額いくらかかりますか？</summary>
+            <div class="seo-faq-answer">
+              「<a href="?tab=search">プレイヤー検索</a>」の各選手カードにある「<strong>💰 一式見積もり</strong>」ボタンを押すと、マウス・マウスパッド・キーボード・ヘッドセット（イヤホン）の4点合計額（プロ平均：約7万〜11万円）と内訳を算出できます。さらに、学生や予算を抑えたい方向けに、<strong>約3万〜4万円台で同等のスペック（50g台軽量ワイヤレスマウス＋ラピッドトリガーキーボード＋SHURE SE215等）を揃えられる「高コスパ代替プラン」</strong>も自動で同時提案します。
+            </div>
+          </details>
+        </div>
+      </aside>
 
       <footer class="site-footer"><span>FRAG / GEAR INTELLIGENCE</span><span>PLAY SMARTER, NOT JUST FASTER.</span></footer>
     </main>
