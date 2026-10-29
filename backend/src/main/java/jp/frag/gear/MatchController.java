@@ -19,7 +19,7 @@ public class MatchController {
             @RequestParam String game,
             @RequestParam int dpi,
             @RequestParam double sens) {
-        
+
         return matchService.findMatches(Game.fromRequest(game), dpi, sens);
     }
 }
