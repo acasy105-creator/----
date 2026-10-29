@@ -1,0 +1,18 @@
+name: Render Keep Alive
+
+on:
+  # 1. 14分おきに自動実行（Renderは15分無風でスリープするため14分がベスト）
+  schedule:
+    - cron: '*/14 * * * *'
+  
+  # 2. GitHubのActionsタブから手動でも実行できるようにする
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send HTTP GET request to Render Backend
+        run: |
+          # ご自身のRenderバックエンドのヘルスチェック用URLを指定
+          curl -I https://backend-server-a1y2.onrender.com/api/liquipedia/players?game=VALORANT
