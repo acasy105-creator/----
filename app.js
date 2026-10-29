@@ -148,23 +148,22 @@ function createAffiliateButtonsHtml(deviceName, compact = false, category = "") 
       </a>
     </div>`;
 }
-
-// ============================================================================
-// 初期データ・ゲーム仕様定義（改善②：キーボードを第4カテゴリとして標準化）
-// ============================================================================
 const demoPlayers = [
-  { name: "RAY", game: "VALORANT", roles: ["pro", "duelist"], dpi: 800, sens: 0.32, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "HyperX Cloud II" } },
-  { name: "MIO", game: "VALORANT", roles: ["pro", "sentinel", "controller"], dpi: 800, sens: 0.28, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "キーボード": "Razer Huntsman V3 Pro Tenkeyless", "ヘッドセット": "Logicool G PRO X" } },
-  { name: "KAI", game: "VALORANT", roles: ["pro", "initiator"], dpi: 1600, sens: 0.16, devices: { "マウス": "Ninjutso Sora V2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "キーボード": "Wooting 60HE+", "ヘッドセット": "Razer BlackShark V2" } },
-  { name: "NOVA", game: "VALORANT", roles: ["pro", "duelist"], dpi: 800, sens: 0.4, devices: { "マウス": "ZOWIE EC2-CW", "マウスパッド": "SteelSeries QcK Heavy", "キーボード": "SteelSeries Apex Pro Mini", "ヘッドセット": "HyperX Cloud Alpha" } },
-  { name: "SORA", game: "VALORANT", roles: ["pro", "controller"], dpi: 400, sens: 0.7, devices: { "マウス": "Lamzu Atlantis", "マウスパッド": "Lethal Gaming Gear Saturn Pro", "キーボード": "Logicool G PRO X TKL RAPID", "ヘッドセット": "Logicool G PRO X 2" } },
-  { name: "KITE", game: "Apex Legends", roles: ["pro", "fragger", "support"], dpi: 800, sens: 1.2, devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SteelSeries Arctis Nova Pro" } },
-  { name: "LUNA", game: "Apex Legends", roles: ["pro", "fragger"], dpi: 1600, sens: 0.55, devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "キーボード": "SteelSeries Apex Pro TKL", "ヘッドセット": "HyperX Cloud II" } },
-  { name: "ACE", game: "Apex Legends", roles: ["pro", "igl"], dpi: 800, sens: 1.6, devices: { "マウス": "Razer DeathAdder V3 Pro", "マウスパッド": "ZOWIE G-SR-SE", "キーボード": "Razer Huntsman V3 Pro Tenkeyless", "ヘッドセット": "Razer BlackShark V2 Pro" } },
-  { name: "ZEN", game: "Apex Legends", roles: ["pro", "fragger"], dpi: 800, sens: 1.0, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Wallhack SP-004", "キーボード": "Wooting 60HE+", "ヘッドセット": "Logicool G PRO X" } },
-  { name: "YUKI", game: "Overwatch 2", roles: ["pro", "damage"], dpi: 800, sens: 4.5, devices: { "マウス": "Logicool G PRO X SUPERLIGHT", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "HyperX Cloud II" } },
-  { name: "REI", game: "Overwatch 2", roles: ["pro", "support"], dpi: 1600, sens: 2.2, devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "キーボード": "REALFORCE GX1", "ヘッドセット": "SteelSeries Arctis Nova 7" } },
-  { name: "SHIN", game: "Overwatch 2", roles: ["pro", "tank"], dpi: 800, sens: 5.2, devices: { "マウス": "Logitech G PRO X SUPERLIGHT 2", "マウスパッド": "SteelSeries QcK Heavy", "キーボード": "SteelSeries Apex Pro TKL", "ヘッドセット": "Logicool G PRO X" } }
+  { name: "TenZ (Sentinels)", game: "VALORANT", roles: ["pro", "duelist", "initiator"], dpi: 1600, sens: 0.139, source: "ProSettings", devices: { "マウス": "Ninjutso Sora V2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "Xtrfy H1" } },
+  { name: "Laz (ZETA DIVISION)", game: "VALORANT", roles: ["pro", "sentinel", "initiator"], dpi: 800, sens: 0.255, source: "ProSettings", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "キーボード": "Wooting 60HE+", "ヘッドセット": "Razer BlackShark V2 Pro" } },
+  { name: "Dep (ZETA DIVISION)", game: "VALORANT", roles: ["pro", "duelist"], dpi: 400, sens: 0.48, source: "ProSettings", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Razer Huntsman V3 Pro Tenkeyless", "ヘッドセット": "Razer BlackShark V2 Pro" } },
+  { name: "Meiy (DFM)", game: "VALORANT", roles: ["pro", "duelist"], dpi: 1600, sens: 0.1, source: "ProSettings", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "Logicool G PRO X 2" } },
+  { name: "釈迦 (SHAKA)", game: "VALORANT", roles: ["streamer", "initiator", "sentinel"], dpi: 1600, sens: 0.135, source: "Streamer DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 80HE", "ヘッドセット": "Bose QuietComfort 20" } },
+  { name: "だるまいずごっと (Daruma is God)", game: "VALORANT", roles: ["streamer", "duelist"], dpi: 800, sens: 0.28, source: "Streamer DB", devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "ありさか (Arisaka)", game: "VALORANT", roles: ["streamer", "sentinel", "controller"], dpi: 800, sens: 0.35, source: "Streamer DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "キーボード": "Logicool G PRO X TKL RAPID", "ヘッドセット": "Apple EarPods" } },
+  { name: "葛葉 (Kuzuha / にじさんじ)", game: "VALORANT", roles: ["vtuber", "duelist", "initiator"], dpi: 800, sens: 0.31, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE846" } },
+  { name: "ローレン・イロアス (Lauren / にじさんじ)", game: "VALORANT", roles: ["vtuber", "duelist", "initiator"], dpi: 800, sens: 0.26, source: "VTuber DB", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "猫汰つな (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist"], dpi: 800, sens: 0.3, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Vaxee PA", "キーボード": "Wooting 60HE+", "ヘッドセット": "Sennheiser IE 100 PRO" } },
+  { name: "夢野あかり (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist", "sentinel"], dpi: 800, sens: 0.314, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "紡木こかげ (ぶいすぽっ！)", game: "VALORANT", roles: ["vtuber", "duelist", "controller"], dpi: 800, sens: 0.25, source: "VTuber DB", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "橘ひなの (ぶいすぽっ！)", game: "Apex Legends", roles: ["vtuber", "igl", "support"], dpi: 800, sens: 1.3, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "SHURE SE215" } },
+  { name: "胡桃のあ (ぶいすぽっ！)", game: "Apex Legends", roles: ["vtuber", "fragger"], dpi: 800, sens: 1.4, source: "VTuber DB", devices: { "マウス": "Logicool G PRO X SUPERLIGHT 2", "マウスパッド": "Artisan Ninja FX Hayate Otsu", "キーボード": "SteelSeries Apex Pro TKL", "ヘッドセット": "SHURE SE215" } },
+  { name: "ImperialHal (Falcons)", game: "Apex Legends", roles: ["pro", "igl", "fragger"], dpi: 800, sens: 1.0, source: "ProSettings", devices: { "マウス": "Finalmouse UltralightX", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "Apple EarPods" } }
 ];
 let players = demoPlayers;
 
@@ -1214,7 +1213,7 @@ function getMergedPlayersList() {
   const seenNames = new Set();
   const merged = [];
 
-  [...customList, ...baseList, ...(players === demoPlayers ? [] : SUPPLEMENTAL_PLAYERS_DB)].forEach((p) => {
+  [...customList, ...baseList, ...SUPPLEMENTAL_PLAYERS_DB].forEach((p) => {
     if (!p || typeof p.name !== "string") return;
     const baseKey = p.name.split(/[（(]/)[0].trim().toLowerCase();
     if (seenNames.has(baseKey)) return;
@@ -3222,3 +3221,39 @@ document.querySelectorAll("[id$='-mouse-vs']").forEach((el) => {
     el.outerHTML = buildMouseComparisonHtml(targetDev, el.id);
   }
 });
+// ============================================================================
+// SEO強化：URLパラメータ連動の動的タイトル＆Canonical更新エンジン
+// ============================================================================
+function updateDynamicSeoMeta() {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab") || "consult";
+  const q = params.get("q") || "";
+  const type = params.get("type") || "";
+  const game = params.get("game") || "";
+  const syncPlayer = params.get("syncPlayer") || params.get("estimatePlayer") || "";
+
+  let pageTitle = "FRAG // GEAR INTELLIGENCE | FPSプロ・配信者の感度変換＆デバイス比較データベース";
+  if (syncPlayer) {
+    pageTitle = `${syncPlayer} の使用デバイス・感度（振り向き）・一式総額 | FRAG`;
+  } else if (tab === "search") {
+    if (type === "vtuber") pageTitle = "ぶいすぽっ！・にじさんじ等 VTuberのFPS感度＆使用デバイス一覧 | FRAG";
+    else if (type === "streamer") pageTitle = "人気ストリーマー（釈迦・だるま・ありさか等）の使用デバイス＆感度一覧 | FRAG";
+    else if (q) pageTitle = `「${q}」の使用プロ・配信者＆感度設定データ | FRAG`;
+    else pageTitle = "FPSプロ・ストリーマー・VTuberの感度＆デバイス検索データベース | FRAG";
+  } else if (tab === "rankings") {
+    pageTitle = `${game || "VALORANT"} プロ使用率ランキング（マウス・ラピトリキーボード・パッド） | FRAG`;
+  } else if (tab === "match") {
+    pageTitle = "FPS感度コンバーター・振り向き(cm/360°)計算＆プロ感度マッチング | FRAG";
+  }
+
+  document.title = pageTitle;
+
+  const canonicalEl = document.querySelector('link[rel="canonical"]');
+  if (canonicalEl) {
+    canonicalEl.setAttribute("href", window.location.href.split("#")[0]);
+  }
+}
+
+updateDynamicSeoMeta();
+window.addEventListener("popstate", updateDynamicSeoMeta);
+document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
