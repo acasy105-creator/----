@@ -1,49 +1,256 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- トップ / デバイス相談ワークスペース -->
+
+  <!-- ================================================================= -->
+  <!-- 1. コア機能ワークスペース（最優先インデックス対象）               -->
+  <!-- ================================================================= -->
+  <!-- トップ / デバイス相談（パーソナライズ環境診断） -->
   <url>
     <loc>https://frag-gear.vercel.app/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
-  <!-- プレイヤー検索（全体・属性別） -->
-  <url>
-    <loc>https://frag-gear.vercel.app/?tab=search</loc>
-    <lastmod>2026-10-27</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://frag-gear.vercel.app/?tab=search&amp;type=vtuber</loc>
-    <lastmod>2026-10-27</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://frag-gear.vercel.app/?tab=search&amp;type=streamer</loc>
-    <lastmod>2026-10-27</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <!-- プロ使用率ランキング -->
-  <url>
-    <loc>https://frag-gear.vercel.app/?tab=rankings&amp;game=VALORANT</loc>
-    <lastmod>2026-10-27</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://frag-gear.vercel.app/?tab=rankings&amp;game=Apex%20Legends</loc>
-    <lastmod>2026-10-27</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <!-- 感度マッチ・双方向コンバーター -->
+
+  <!-- 感度マッチ（双方向 cm/360° 感度コンバーター ＆ プロ感度マッチング） -->
   <url>
     <loc>https://frag-gear.vercel.app/?tab=match</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
+
+  <!-- プレイヤー検索（全体データベース） -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- ================================================================= -->
+  <!-- 2. 属性別・ゲームタイトル別ランキング（ミドルワードSEO）          -->
+  <!-- ================================================================= -->
+  <!-- VTuber（ぶいすぽっ！・にじさんじ等）使用デバイス＆感度一覧 -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;type=vtuber</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- 人気ストリーマー（釈迦・だるま・ありさか等）使用デバイス＆感度一覧 -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;type=streamer</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- プロ選手（ZETA・DFM・海外プロ）使用デバイス＆感度一覧 -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;type=pro</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- VALORANT プロ使用率ランキング -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=rankings&amp;game=VALORANT</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Apex Legends プロ使用率ランキング -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=rankings&amp;game=Apex%20Legends</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Overwatch 2 プロ使用率ランキング -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=rankings&amp;game=Overwatch%202</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ================================================================= -->
+  <!-- 3. 人気ストリーマー・VTuber・プロ選手 個別検索ページ（固有名詞SEO）-->
+  <!-- ================================================================= -->
+  <!-- 釈迦 (SHAKA) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E9%87%88%E8%BF%A6</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- 葛葉 (にじさんじ) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E8%91%9B%E8%91%89</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- だるまいずごっと -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E3%81%A0%E3%82%8B%E3%81%BE%E3%81%84%E3%81%9A%E3%81%94%E3%81%A3%E3%81%A8</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ありさか -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E3%81%82%E3%82%8A%E3%81%95%E3%81%8B</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ローレン・イロアス (にじさんじ) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E3%83%AD%E3%83%BC%E3%83%AC%E3%83%B3</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ぶいすぽっ！ -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E3%81%B6%E3%81%84%E3%81%99%E3%81%BD</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- 猫汰つな (ぶいすぽっ！) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E7%8C%AB%E6%B1%B0%E3%81%A4%E3%81%AA</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- 橘ひなの (ぶいすぽっ！) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E6%A9%98%E3%81%B2%E3%81%AA%E3%81%AE</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- 夢野あかり (ぶいすぽっ！) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E5%A4%A2%E9%87%8E%E3%81%82%E3%81%8B%E3%82%8A</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- 紡木こかげ (ぶいすぽっ！) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E7%B4%A1%E6%9C%A8%E3%81%93%E3%81%8B%E3%81%92</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- 胡桃のあ (ぶいすぽっ！) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=%E8%83%A1%E6%A1%83%E3%81%AE%E3%81%82</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Laz (ZETA DIVISION) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=Laz</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Dep (ZETA DIVISION) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=Dep</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Meiy (DFM) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=Meiy</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- TenZ -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=TenZ</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ================================================================= -->
+  <!-- 4. 人気ゲーミングデバイス 個別比較ページ（購買直結キーワードSEO） -->
+  <!-- ================================================================= -->
+  <!-- Logicool G PRO X SUPERLIGHT 2 -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=SUPERLIGHT</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Razer Viper V3 Pro -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=Viper</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Ninjutso Sora V2 -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=Sora</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Wooting 60HE+ / 80HE (ラピッドトリガーキーボード) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=Wooting</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Artisan マウスパッド (Zero / 疾風乙 / 飛燕) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=Artisan</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Wallhack SP-004 (ガラスマウスパッド) -->
+  <url>
+    <loc>https://frag-gear.vercel.app/?tab=search&amp;q=Wallhack</loc>
+    <lastmod>2026-10-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
 </urlset>
