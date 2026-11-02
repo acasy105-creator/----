@@ -16,13 +16,15 @@ const AFFILIATE_CONFIG = {
 };
 
 function getAmazonAffiliateUrl(deviceName) {
-  const query = encodeURIComponent(deviceName);
+  const cleanName = String(deviceName || "").split(/[（(]/)[0].trim();
+  const query = encodeURIComponent(cleanName);
   const tagParam = AFFILIATE_CONFIG.amazonTag ? `&tag=${encodeURIComponent(AFFILIATE_CONFIG.amazonTag)}` : "";
   return `https://www.amazon.co.jp/s?k=${query}${tagParam}`;
 }
 
 function getRakutenAffiliateUrl(deviceName) {
-  const query = encodeURIComponent(deviceName);
+  const cleanName = String(deviceName || "").split(/[（(]/)[0].trim();
+  const query = encodeURIComponent(cleanName);
   const searchUrl = `https://search.rakuten.co.jp/search/mall/${query}/`;
   const id = String(AFFILIATE_CONFIG.rakutenAffiliateId || "").trim();
   if (!id) return searchUrl;
@@ -32,7 +34,6 @@ function getRakutenAffiliateUrl(deviceName) {
   }
   return `https://hb.afl.rakuten.co.jp/hgc/${encodeURIComponent(id)}/?pc=${encodeURIComponent(searchUrl)}`;
 }
-
 // ============================================================================
 // 改善③ デバイス参考価格データベース ＆ 価格フォーマット関数
 // ============================================================================
@@ -2685,7 +2686,71 @@ document.addEventListener("submit", (e) => {
 document.getElementById("player-query")?.addEventListener("input", () => {
   syncUrlWithCurrentState();
 });
+// ============================================================================
+// APIスマート接続エンジン（ローカル/Render自動判別 ＆ 感度マッチ即時フォールバック）
+// ============================================================================
+(() => {
+  // 1. もしローカルでSpring Boot(8080)を起動している場合はローカルへ、なければRenderへ接続
+  const metaApi = document.querySelector('meta[name="frag-api-base-url"]');
+  const renderUrl = metaApi?.content || "https://backend-server-a1y2.onrender.com";
 
+  // ページ読み込み時にRenderのウォームアップ（スリープ解除リクエスト）を非同期送信
+  fetch(`${renderUrl}/api/liquipedia/players?game=VALORANT`, { mode: "no-cors" }).catch(() => {});
+
+  // 2. /api/match への fetch がCORSやスリープで失敗した場合、即座にローカルDBで計算して正常レスポンスを返すラッパー
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async function (input, init) {
+    const urlStr = typeof input === "string" ? input : (input instanceof URL ? input.toString() : input?.url || "");
+
+    try {
+      const response = await originalFetch(input, init);
+      if (response.ok) return response;
+      throw new Error(`HTTP ${response.status}`);
+    } catch (err) {
+      // A. 感度マッチAPI (/api/match) のフォールバック計算
+      if (urlStr.includes("/api/match")) {
+        const parsedUrl = new URL(urlStr, window.location.origin);
+        const game = parsedUrl.searchParams.get("game") || "VALORANT";
+        const dpi = Number(parsedUrl.searchParams.get("dpi")) || 800;
+        const sens = Number(parsedUrl.searchParams.get("sens")) || 0.35;
+        const userCm = toCm360(dpi, sens, game);
+
+        const allCandidates = getMergedPlayersList()
+          .map((p) => {
+            const pDpi = Number(p?.dpi);
+            const pSens = Number(p?.sens);
+            const cmPer360 = toCm360(pDpi, pSens, p?.game);
+            const diff = Number.isFinite(cmPer360) && Number.isFinite(userCm) ? Math.abs(cmPer360 - userCm) : 9999;
+            return { ...p, cmPer360, _diff: diff };
+          })
+          .filter((p) => Number.isFinite(p.cmPer360))
+          .sort((a, b) => a._diff - b._diff)
+          .slice(0, 6);
+
+        console.info("⚡ APIスリープ中またはCORS制限のため、クライアント統合DBで感度マッチングを実行しました。");
+        return new Response(JSON.stringify(allCandidates), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      // B. プレイヤー一覧API (/api/liquipedia/players) のフォールバック
+      if (urlStr.includes("/api/liquipedia/players")) {
+        const parsedUrl = new URL(urlStr, window.location.origin);
+        const targetGame = parsedUrl.searchParams.get("game");
+        const fallbackList = getMergedPlayersList().filter(
+          (p) => !targetGame || normalizeGameName(p?.game) === normalizeGameName(targetGame)
+        );
+        return new Response(JSON.stringify(fallbackList), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      throw err;
+    }
+  };
+})();
 // 初回起動処理
 setupGlobalShareUrlButton();
 renderCompareTrayUI();
@@ -3257,68 +3322,3 @@ function updateDynamicSeoMeta() {
 updateDynamicSeoMeta();
 window.addEventListener("popstate", updateDynamicSeoMeta);
 document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
-// ============================================================================
-// APIスマート接続エンジン（ローカル/Render自動判別 ＆ 感度マッチ即時フォールバック）
-// ============================================================================
-(() => {
-  // 1. もしローカルでSpring Boot(8080)を起動している場合はローカルへ、なければRenderへ接続
-  const metaApi = document.querySelector('meta[name="frag-api-base-url"]');
-  const renderUrl = metaApi?.content || "https://backend-server-a1y2.onrender.com";
-
-  // ページ読み込み時にRenderのウォームアップ（スリープ解除リクエスト）を非同期送信
-  fetch(`${renderUrl}/api/liquipedia/players?game=VALORANT`, { mode: "no-cors" }).catch(() => {});
-
-  // 2. /api/match への fetch がCORSやスリープで失敗した場合、即座にローカルDBで計算して正常レスポンスを返すラッパー
-  const originalFetch = window.fetch.bind(window);
-  window.fetch = async function (input, init) {
-    const urlStr = typeof input === "string" ? input : (input instanceof URL ? input.toString() : input?.url || "");
-
-    try {
-      const response = await originalFetch(input, init);
-      if (response.ok) return response;
-      throw new Error(`HTTP ${response.status}`);
-    } catch (err) {
-      // A. 感度マッチAPI (/api/match) のフォールバック計算
-      if (urlStr.includes("/api/match")) {
-        const parsedUrl = new URL(urlStr, window.location.origin);
-        const game = parsedUrl.searchParams.get("game") || "VALORANT";
-        const dpi = Number(parsedUrl.searchParams.get("dpi")) || 800;
-        const sens = Number(parsedUrl.searchParams.get("sens")) || 0.35;
-        const userCm = toCm360(dpi, sens, game);
-
-        const allCandidates = getMergedPlayersList()
-          .map((p) => {
-            const pDpi = Number(p?.dpi);
-            const pSens = Number(p?.sens);
-            const cmPer360 = toCm360(pDpi, pSens, p?.game);
-            const diff = Number.isFinite(cmPer360) && Number.isFinite(userCm) ? Math.abs(cmPer360 - userCm) : 9999;
-            return { ...p, cmPer360, _diff: diff };
-          })
-          .filter((p) => Number.isFinite(p.cmPer360))
-          .sort((a, b) => a._diff - b._diff)
-          .slice(0, 6);
-
-        console.info("⚡ APIスリープ中またはCORS制限のため、クライアント統合DBで感度マッチングを実行しました。");
-        return new Response(JSON.stringify(allCandidates), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-
-      // B. プレイヤー一覧API (/api/liquipedia/players) のフォールバック
-      if (urlStr.includes("/api/liquipedia/players")) {
-        const parsedUrl = new URL(urlStr, window.location.origin);
-        const targetGame = parsedUrl.searchParams.get("game");
-        const fallbackList = getMergedPlayersList().filter(
-          (p) => !targetGame || normalizeGameName(p?.game) === normalizeGameName(targetGame)
-        );
-        return new Response(JSON.stringify(fallbackList), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-
-      throw err;
-    }
-  };
-})();
