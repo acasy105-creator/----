@@ -3323,10 +3323,10 @@ updateDynamicSeoMeta();
 window.addEventListener("popstate", updateDynamicSeoMeta);
 document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
 // ============================================================================
-// サイト全体ビジュアル化エンジン v3（カード内グリッド完全整列 ＆ 改行崩れ防止版）
+// サイト全体ビジュアル化エンジン v4（カード整列 ＋ 下部FAQ・リンク集の図解ベントーグリッド化）
 // ============================================================================
 (() => {
-  // 1. デバイス専用レイアウトCSSの注入（縦潰れ・ボタン位置ズレを完全防止）
+  // 1. レイアウト＆図解ベントーグリッド用CSSの注入
   if (!document.getElementById("frag-clean-card-layout-css")) {
     document.head.insertAdjacentHTML(
       "beforeend",
@@ -3355,6 +3355,43 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
         .player-card .device-row:hover {
           background: rgba(191, 87, 255, 0.08) !important;
           border-color: rgba(191, 87, 255, 0.4) !important;
+        }
+        /* 下部ベントーグリッド＆チップのホバー演出 */
+        .frag-bento-card {
+          padding: 1.15rem 1.25rem;
+          border-radius: 12px;
+          background: rgba(16, 16, 22, 0.9);
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 0.85rem;
+          transition: transform 0.18s, border-color 0.18s;
+        }
+        .frag-bento-card:hover {
+          transform: translateY(-2px);
+          border-color: rgba(212, 255, 51, 0.45);
+        }
+        .frag-visual-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.38rem 0.75rem;
+          border-radius: 999px;
+          font-size: 0.78rem;
+          font-weight: 800;
+          text-decoration: none;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: #f4f4f5;
+          transition: all 0.15s;
+          white-space: nowrap;
+        }
+        .frag-visual-chip:hover {
+          transform: translateY(-1px);
+          background: rgba(212, 255, 51, 0.14);
+          border-color: #d4ff33;
+          color: #fff;
         }
       </style>`
     );
@@ -3409,8 +3446,8 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   window.renderDeviceVisualThumb = function (deviceName, categoryHint = "", size = "md") {
     if (!deviceName || deviceName === "データなし") return "";
     const theme = getDeviceVisualTheme(deviceName, categoryHint);
-    const w = size === "lg" ? 88 : size === "sm" ? 52 : 60;
-    const h = size === "lg" ? 64 : size === "sm" ? 44 : 46;
+    const w = size === "lg" ? 88 : size === "sm" ? 52 : size === "xs" ? 34 : 60;
+    const h = size === "lg" ? 64 : size === "sm" ? 44 : size === "xs" ? 26 : 46;
     const lower = String(deviceName).toLowerCase();
 
     let illustrationSvg = "";
@@ -3484,7 +3521,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     }
 
     return `
-      <span class="frag-device-thumb" style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: ${w}px; height: ${h}px; border-radius: 8px; background: radial-gradient(circle at 50% 35%, ${theme.subColor} 0%, #09090d 90%); border: 1px solid rgba(255,255,255,0.14); flex-shrink: 0; position: relative; overflow: hidden; box-shadow: inset 0 0 12px rgba(0,0,0,0.6);">
+      <span class="frag-device-thumb" style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: ${w}px; height: ${h}px; border-radius: 7px; background: radial-gradient(circle at 50% 35%, ${theme.subColor} 0%, #09090d 90%); border: 1px solid rgba(255,255,255,0.14); flex-shrink: 0; position: relative; overflow: hidden; box-shadow: inset 0 0 10px rgba(0,0,0,0.6);">
         <svg viewBox="0 0 88 56" style="width: 100%; height: 100%; display: block;">
           ${illustrationSvg}
         </svg>
@@ -3523,7 +3560,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       </div>`;
   }
 
-  // 5. 振り向き(cm/360°)ゲージ（見出しの改行崩れを完全解消）
+  // 5. 振り向き(cm/360°)ゲージ
   function buildVisualSensGaugeHtml(sensText) {
     const match = String(sensText || "").match(/(\d+(?:\.\d+)?)\s*cm\s*\/\s*360/i);
     if (!match) return "";
@@ -3563,8 +3600,211 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     `;
   }
 
-  // 7. サイト全体への適用処理
+  // 7. 下部の「よくある質問＆直リンク集」を直感的な【図解ベントーグリッド＋アイコンチップ】へ自動変換
+  function upgradeSeoFaqToVisualBento() {
+    const faqSection = document.querySelector(".seo-faq-section");
+    if (!faqSection || faqSection.dataset.bentoUpgraded === "true") return;
+    faqSection.dataset.bentoUpgraded = "true";
+
+    const gproThumb = window.renderDeviceVisualThumb("Logicool G PRO X SUPERLIGHT 2", "マウス", "xs");
+    const viperThumb = window.renderDeviceVisualThumb("Razer Viper V3 Pro", "マウス", "xs");
+    const wootingThumb = window.renderDeviceVisualThumb("Wooting 60HE+", "キーボード", "xs");
+    const soraThumb = window.renderDeviceVisualThumb("Ninjutso Sora V2", "マウス", "xs");
+    const zeroThumb = window.renderDeviceVisualThumb("Artisan Ninja FX Zero", "マウスパッド", "xs");
+    const wallhackThumb = window.renderDeviceVisualThumb("Wallhack SP-004", "マウスパッド", "xs");
+
+    faqSection.style.padding = "2rem";
+    faqSection.style.background = "linear-gradient(180deg, rgba(20,20,28,0.85) 0%, rgba(10,10,14,0.95) 100%)";
+    faqSection.style.border = "1px solid rgba(255,255,255,0.12)";
+    faqSection.style.borderRadius = "16px";
+
+    faqSection.innerHTML = `
+      <!-- 見出し -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.35rem;">
+        <div>
+          <div class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>VISUAL GUIDE &amp; QUICK ACCESS</div>
+          <h2 style="font-size: 1.3rem; margin: 0.3rem 0 0; color: #fff; font-weight: 800;">⚡ ひと目でわかる！FPS感度変換 ＆ デバイス選びのポイント</h2>
+        </div>
+        <span style="font-size: 0.75rem; color: #a1a1aa;">カードやタグを押すと直接その機能へジャンプします</span>
+      </div>
+
+      <!-- 1. クリック不要でパッと見てわかる「図解ベントーグリッド（5枚）」 -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
+
+        <!-- 図解カード①：感度変換 -->
+        <div class="frag-bento-card">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem;">
+              <span style="padding: 0.2rem 0.55rem; border-radius: 6px; background: rgba(212,255,51,0.15); border: 1px solid rgba(212,255,51,0.4); color: #d4ff33; font-size: 0.7rem; font-weight: 800;">🎯 感度コンバーター</span>
+              <span style="font-size: 0.7rem; color: #71717a; font-family: monospace;">cm / 360°</span>
+            </div>
+            <h3 style="margin: 0 0 0.5rem; font-size: 0.98rem; color: #fff; font-weight: 800;">3タイトル間で感度を1秒相互変換</h3>
+            <!-- 視覚ダイアグラム -->
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; padding: 0.65rem; border-radius: 8px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.06); font-size: 0.72rem; font-weight: 800; text-align: center; margin-bottom: 0.55rem;">
+              <div style="flex:1; padding:0.35rem; border-radius:5px; background:rgba(255,255,255,0.05); color:#fff;">VALORANT<div style="font-size:0.62rem; color:#a1a1aa; font-weight:normal;">係数 0.07</div></div>
+              <span style="color:#d4ff33; font-size:0.9rem;">⇄</span>
+              <div style="flex:1; padding:0.35rem; border-radius:5px; background:rgba(212,255,51,0.12); border:1px solid rgba(212,255,51,0.35); color:#d4ff33;">振り向き cm<div style="font-size:0.62rem; color:#e4e4e7; font-weight:normal;">共通基準</div></div>
+              <span style="color:#d4ff33; font-size:0.9rem;">⇄</span>
+              <div style="flex:1; padding:0.35rem; border-radius:5px; background:rgba(255,255,255,0.05); color:#fff;">Apex / OW2<div style="font-size:0.62rem; color:#a1a1aa; font-weight:normal;">0.022 / 0.0066</div></div>
+            </div>
+            <p style="margin: 0; font-size: 0.78rem; color: #a1a1aa; line-height: 1.5;">DPIと感度を入れるだけで全ゲームへ換算し、感覚が一番近いプロや配信者のクロスヘアもコピーできます。</p>
+          </div>
+          <a href="?tab=match" class="js-quick-spa-link" style="text-decoration:none; text-align:center; padding:0.5rem; border-radius:8px; background:rgba(212,255,51,0.14); border:1px solid rgba(212,255,51,0.4); color:#d4ff33; font-size:0.78rem; font-weight:800;">⚡ 感度マッチで換算する →</a>
+        </div>
+
+        <!-- 図解カード②：プロ使用率トップギア -->
+        <div class="frag-bento-card">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem;">
+              <span style="padding: 0.2rem 0.55rem; border-radius: 6px; background: rgba(56,189,248,0.15); border: 1px solid rgba(56,189,248,0.4); color: #bae6fd; font-size: 0.7rem; font-weight: 800;">👑 プロ・配信者の定番</span>
+              <span style="font-size: 0.7rem; color: #71717a;">90名超の集計</span>
+            </div>
+            <h3 style="margin: 0 0 0.5rem; font-size: 0.98rem; color: #fff; font-weight: 800;">迷ったらこの「2強マウス＋ラピトリ」</h3>
+            <div style="display: grid; gap: 0.4rem; margin-bottom: 0.55rem;">
+              <div style="display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.6rem; border-radius:7px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.06);">
+                ${gproThumb}
+                <div style="font-size:0.75rem; line-height:1.25;"><strong style="color:#fff;">G PRO X SUPERLIGHT 2</strong><div style="color:#38bdf8; font-size:0.66rem;">マウス使用率 No.1（60g・王道左右対称）</div></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.6rem; border-radius:7px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.06);">
+                ${wootingThumb}
+                <div style="font-size:0.75rem; line-height:1.25;"><strong style="color:#fff;">Wooting 60HE+</strong><div style="color:#facc15; font-size:0.66rem;">キーボード使用率 No.1（ラピッドトリガー）</div></div>
+              </div>
+            </div>
+          </div>
+          <a href="?tab=rankings&amp;game=VALORANT" class="js-quick-spa-link" style="text-decoration:none; text-align:center; padding:0.5rem; border-radius:8px; background:rgba(56,189,248,0.14); border:1px solid rgba(56,189,248,0.4); color:#bae6fd; font-size:0.78rem; font-weight:800;">👑 使用率ランキングを見る →</a>
+        </div>
+
+        <!-- 図解カード③：実寸シルエット＆パッド2次元マップ -->
+        <div class="frag-bento-card">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem;">
+              <span style="padding: 0.2rem 0.55rem; border-radius: 6px; background: rgba(191,87,255,0.15); border: 1px solid rgba(191,87,255,0.4); color: #e9d5ff; font-size: 0.7rem; font-weight: 800;">📐 サイズ＆滑り比較</span>
+              <span style="font-size: 0.7rem; color: #71717a;">1:1スケール図解</span>
+            </div>
+            <h3 style="margin: 0 0 0.5rem; font-size: 0.98rem; color: #fff; font-weight: 800;">今のマウスとのサイズ差・パッドの滑りを可視化</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-bottom: 0.55rem;">
+              <div style="padding:0.55rem; border-radius:8px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.06); text-align:center;">
+                <div style="font-size:0.66rem; color:#d4ff33; font-weight:800; margin-bottom:0.2rem;">🖱 マウス実寸重ね合わせ</div>
+                <div style="font-size:0.68rem; color:#d4d4d8;">上面・側面のコブ位置と重量差(-41g等)を自動算出</div>
+              </div>
+              <div style="padding:0.55rem; border-radius:8px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.06); text-align:center;">
+                <div style="font-size:0.66rem; color:#38bdf8; font-weight:800; margin-bottom:0.2rem;">🗺️ パッド2次元マップ</div>
+                <div style="font-size:0.68rem; color:#d4d4d8;">止め重視(Zero)〜ガラス(SP-004)を座標比較</div>
+              </div>
+            </div>
+            <p style="margin: 0; font-size: 0.76rem; color: #a1a1aa;">※気になるデバイス名をクリックすると比較図とYouTube動画が開きます。</p>
+          </div>
+          <a href="?tab=search" class="js-quick-spa-link" style="text-decoration:none; text-align:center; padding:0.5rem; border-radius:8px; background:rgba(191,87,255,0.14); border:1px solid rgba(191,87,255,0.4); color:#e9d5ff; font-size:0.78rem; font-weight:800;">🔍 デバイスをクリックして比較する →</a>
+        </div>
+
+        <!-- 図解カード④：一式総額 vs 高コスパ代替プラン -->
+        <div class="frag-bento-card">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem;">
+              <span style="padding: 0.2rem 0.55rem; border-radius: 6px; background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.4); color: #bbf7d0; font-size: 0.7rem; font-weight: 800;">💰 一式予算シミュレーター</span>
+              <span style="font-size: 0.7rem; color: #d4ff33; font-weight: 800;">半額以下の代替案つき</span>
+            </div>
+            <h3 style="margin: 0 0 0.5rem; font-size: 0.98rem; color: #fff; font-weight: 800;">推しと同じ環境の総額＆高コスパ構成</h3>
+            <div style="padding: 0.65rem; border-radius: 8px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 0.55rem; font-size: 0.74rem;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:0.35rem;">
+                <span style="color:#a1a1aa;">🏆 プロ本人4点一式（平均）</span>
+                <strong style="color:#fff; font-family:monospace;">約 ¥85,000〜¥110,000</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; padding-top:0.35rem; border-top:1px dashed rgba(255,255,255,0.1);">
+                <span style="color:#38bdf8; font-weight:800;">💡 高コスパ代替4点プラン</span>
+                <strong style="color:#d4ff33; font-family:monospace;">約 ¥38,800（半額以下！）</strong>
+              </div>
+            </div>
+            <p style="margin: 0; font-size: 0.76rem; color: #a1a1aa;">各選手の「💰 一式見積もり」ボタンから4点の内訳をチェックできます。</p>
+          </div>
+          <a href="?tab=search&amp;estimatePlayer=釈迦%20(SHAKA)" class="js-quick-spa-link" style="text-decoration:none; text-align:center; padding:0.5rem; border-radius:8px; background:rgba(74,222,128,0.14); border:1px solid rgba(74,222,128,0.4); color:#bbf7d0; font-size:0.78rem; font-weight:800;">💰 一式見積もりサンプルを見る →</a>
+        </div>
+
+      </div>
+
+      <!-- 2. カテゴリ別に色分け整理した「ワンタップ検索ショートチップ」 -->
+      <div style="padding-top: 1.35rem; border-top: 1px solid rgba(255,255,255,0.1);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.9rem;">
+          <h3 style="font-size: 0.95rem; color: #fff; margin: 0; font-weight: 800;">📌 人気プレイヤー・デバイス 1タップ検索</h3>
+          <span style="font-size: 0.72rem; color: #a1a1aa;">名前を押すとその選手・デバイスのデータへ直行します</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.9rem;">
+
+          <!-- カテゴリA：VTuber -->
+          <div style="padding: 0.95rem 1.05rem; border-radius: 12px; background: rgba(191,87,255,0.06); border: 1px solid rgba(191,87,255,0.28);">
+            <div style="font-size: 0.76rem; font-weight: 800; color: #e9d5ff; margin-bottom: 0.65rem; display:flex; justify-content:space-between; align-items:center;">
+              <span>✨ 人気VTuber（ぶいすぽ・にじさんじ）</span>
+              <a href="?tab=search&amp;type=vtuber" class="js-quick-spa-link" style="color:#d4ff33; font-size:0.7rem; text-decoration:none;">全員見る →</a>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=ぶいすぽ" title="ぶいすぽっ！ 使用デバイス一覧" style="border-color:rgba(244,114,182,0.45); background:rgba(244,114,182,0.12);">🩷 ぶいすぽっ！</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=葛葉" title="葛葉 (にじさんじ) 感度・マウス">🟣 葛葉</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=ローレン" title="ローレン・イロアス デバイス">🟣 ローレン</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=猫汰つな" title="猫汰つな 感度・クロスヘア">🩷 猫汰つな</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=橘ひなの" title="橘ひなの Apex感度・マウス">🩷 橘ひなの</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=夢野あかり" title="夢野あかり VALORANT感度">🩷 夢野あかり</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=紡木こかげ" title="紡木こかげ デバイス・感度">🩷 紡木こかげ</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=胡桃のあ" title="胡桃のあ Apex感度・パッド">🩷 胡桃のあ</a>
+            </div>
+          </div>
+
+          <!-- カテゴリB：ストリーマー＆プロ選手 -->
+          <div style="padding: 0.95rem 1.05rem; border-radius: 12px; background: rgba(56,189,248,0.06); border: 1px solid rgba(56,189,248,0.28);">
+            <div style="font-size: 0.76rem; font-weight: 800; color: #bae6fd; margin-bottom: 0.65rem; display:flex; justify-content:space-between; align-items:center;">
+              <span>🎙 人気ストリーマー ＆ 🏆 トッププロ</span>
+              <a href="?tab=search&amp;type=streamer" class="js-quick-spa-link" style="color:#d4ff33; font-size:0.7rem; text-decoration:none;">配信者一覧 →</a>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=釈迦" title="釈迦 (SHAKA) デバイス・感度">🔵 釈迦 (SHAKA)</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=だるまいずごっと" title="だるまいずごっと デバイス">🔵 だるまいずごっと</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=ありさか" title="ありさか 感度・マウス">🔵 ありさか</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=Laz" title="Laz (ZETA) デバイス・クロスヘア">🟢 Laz (ZETA)</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=Dep" title="Dep (ZETA) 感度・マウス">🟢 Dep (ZETA)</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=Meiy" title="Meiy (DFM) 感度・マウス">🟢 Meiy (DFM)</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=TenZ" title="TenZ 使用マウス・感度">🟢 TenZ</a>
+            </div>
+          </div>
+
+          <!-- カテゴリC：人気デバイス（イラスト付きチップ） -->
+          <div style="padding: 0.95rem 1.05rem; border-radius: 12px; background: rgba(212,255,51,0.04); border: 1px solid rgba(212,255,51,0.25);">
+            <div style="font-size: 0.76rem; font-weight: 800; color: #d4ff33; margin-bottom: 0.65rem; display:flex; justify-content:space-between; align-items:center;">
+              <span>🖱 人気デバイスから使用者＆実寸を探す</span>
+              <a href="?tab=rankings&amp;game=VALORANT" class="js-quick-spa-link" style="color:#d4ff33; font-size:0.7rem; text-decoration:none;">ランキング →</a>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=SUPERLIGHT" title="G PRO X SUPERLIGHT 2 使用プロ">${gproThumb} SUPERLIGHT 2</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=Viper" title="Razer Viper V3 Pro 実寸比較">${viperThumb} Viper V3 Pro</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=Sora" title="Ninjutso Sora V2 実寸比較">${soraThumb} Sora V2</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=Wooting" title="Wooting 60HE+ 使用プロ一覧">${wootingThumb} Wooting 60HE+</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=Artisan" title="Artisan Zero / 疾風乙 比較">${zeroThumb} Artisan Zero</a>
+              <a class="frag-visual-chip js-quick-spa-link" href="?tab=search&amp;q=Wallhack" title="Wallhack SP-004 ガラスパッド">${wallhackThumb} Wallhack SP-004</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    // チップやカードをクリックした際、ページ再読み込みなしで即座にタブ切り替え＆スクロール
+    faqSection.querySelectorAll(".js-quick-spa-link").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        const href = link.getAttribute("href");
+        if (!href || !href.startsWith("?")) return;
+        e.preventDefault();
+        window.history.pushState(null, "", href);
+        hasRestoredFromUrl = false;
+        restoreStateFromUrlParams(true);
+        if (typeof updateDynamicSeoMeta === "function") updateDynamicSeoMeta();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+  }
+
+  // 8. サイト全体への適用処理
   function applyVisualEnhancementsAcrossSite() {
+    upgradeSeoFaqToVisualBento();
+
     // A. アバター＆振り向きゲージ
     document.querySelectorAll(".player-card, .match-card").forEach((card) => {
       const avatarEl = card.querySelector(".player-avatar");
@@ -3581,7 +3821,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       }
     });
 
-    // B. プレイヤー検索カード内のデバイス行を「左サムネイル＋右3段固定構造」に完全統一
+    // B. プレイヤー検索カード内のデバイス行（左サムネイル＋右3段固定構造）
     document.querySelectorAll(".player-card .device-row").forEach((row) => {
       if (row.dataset.visualThumbAdded) return;
       row.dataset.visualThumbAdded = "true";
@@ -3597,20 +3837,15 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       row.innerHTML = `
         ${thumbHtml}
         <div style="min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; width: 100%;">
-          <!-- 1段目：カテゴリ名（横書き固定） ＋ 参考価格 -->
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem;">
             <span style="font-size: 0.66rem; font-weight: 800; color: #a1a1aa; background: rgba(255,255,255,0.06); padding: 0.1rem 0.42rem; border-radius: 4px; white-space: nowrap;">
               ${escapeHtml(catLabel)}
             </span>
             ${price > 0 ? `<span style="font-size: 0.72rem; font-weight: 800; color: #d4ff33; font-family: monospace; white-space: nowrap;">${formatYen(price)}</span>` : ""}
           </div>
-
-          <!-- 2段目：デバイス名 -->
           <strong style="font-size: 0.86rem; font-weight: 800; color: #fff; line-height: 1.3; word-break: break-word;">
             ${escapeHtml(devName)}
           </strong>
-
-          <!-- 3段目：アクションボタン列（全行で同じ位置に整列） -->
           ${hasValidDevice ? `
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; margin-top: 0.15rem; flex-wrap: wrap;">
               <span style="color: #d8b4fe; font-size: 0.66rem; font-weight: 800; white-space: nowrap;">▶ 動画・比較</span>
@@ -3686,7 +3921,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     });
   }
 
-  // お気に入りボタンの「☆/★」状態と確実に同期させる
   const _origRefresh = refreshAllInteractiveEnhancements;
   refreshAllInteractiveEnhancements = function () {
     applyVisualEnhancementsAcrossSite();
