@@ -3323,45 +3323,42 @@ updateDynamicSeoMeta();
 window.addEventListener("popstate", updateDynamicSeoMeta);
 document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
 // ============================================================================
-// サイト全体ビジュアル化エンジン（デバイス実機風サムネイル・振り向き図解・アバター自動生成）
+// サイト全体ビジュアル化エンジン v2（Amazon・楽天ボタン完全表示 ＆ 視認性改善版）
 // ============================================================================
 (() => {
-  // 1. デバイス名からブランドカラー・形状タイプを判定して実機風SVGサムネイルを生成
+  // 1. デバイス名からブランドカラー・形状タイプを判定
   function getDeviceVisualTheme(deviceName, categoryHint = "") {
     const name = String(deviceName || "");
     const lower = name.toLowerCase();
 
-    // ブランド・モデル別の固有カラーとアクセント設定
     let accent = "#d4ff33";
     let bodyColor = "#1e1e26";
     let subColor = "#2e2e3a";
-    let badge = "PRO GEAR";
 
     if (/logicool|logitech|superlight|g703|g304|g502/i.test(lower)) {
-      accent = "#38bdf8"; bodyColor = "#f4f4f6"; subColor = "#27272a"; badge = "LOGICOOL G";
+      accent = "#38bdf8"; bodyColor = "#f4f4f6"; subColor = "#27272a";
     } else if (/razer|viper|deathadder|huntsman|blackshark/i.test(lower)) {
-      accent = "#4ade80"; bodyColor = "#141418"; subColor = "#1f2937"; badge = "RAZER";
+      accent = "#4ade80"; bodyColor = "#141418"; subColor = "#1f2937";
     } else if (/wooting/i.test(lower)) {
-      accent = "#facc15"; bodyColor = "#18181b"; subColor = "#f59e0b"; badge = "WOOTING";
+      accent = "#facc15"; bodyColor = "#18181b"; subColor = "#f59e0b";
     } else if (/artisan|zero|hayate|hien|疾風|飛燕/i.test(lower)) {
-      accent = "#ef4444"; bodyColor = "#16161a"; subColor = "#7f1d1d"; badge = "ARTISAN";
+      accent = "#ef4444"; bodyColor = "#16161a"; subColor = "#7f1d1d";
     } else if (/wallhack|skypad/i.test(lower)) {
-      accent = "#e2e8f0"; bodyColor = "#0f172a"; subColor = "#38bdf8"; badge = "GLASS PAD";
+      accent = "#e2e8f0"; bodyColor = "#0f172a"; subColor = "#38bdf8";
     } else if (/finalmouse|ultralight|beast/i.test(lower)) {
-      accent = "#fbbf24"; bodyColor = "#1c1917"; subColor = "#78350f"; badge = "ULTRALIGHT";
+      accent = "#fbbf24"; bodyColor = "#1c1917"; subColor = "#78350f";
     } else if (/sora|ninjutso|lamzu|atlantis/i.test(lower)) {
-      accent = "#c084fc"; bodyColor = "#1e1b4b"; subColor = "#4c1d95"; badge = "ULTRA LIGHT";
+      accent = "#c084fc"; bodyColor = "#1e1b4b"; subColor = "#4c1d95";
     } else if (/vaxee|zowie|ec2|g-sr|xl25/i.test(lower)) {
-      accent = "#fb923c"; bodyColor = "#18181b"; subColor = "#9a3412"; badge = "ESPORTS";
+      accent = "#fb923c"; bodyColor = "#18181b"; subColor = "#9a3412";
     } else if (/steelseries|apex pro|qck|arctis/i.test(lower)) {
-      accent = "#f97316"; bodyColor = "#18181b"; subColor = "#431407"; badge = "STEELSERIES";
+      accent = "#f97316"; bodyColor = "#18181b"; subColor = "#431407";
     } else if (/shure|se215|se846|ie 100|sennheiser|earpods|bose|inzone|hyperx/i.test(lower)) {
-      accent = "#2dd4bf"; bodyColor = "#131c21"; subColor = "#115e59"; badge = "PRO AUDIO";
+      accent = "#2dd4bf"; bodyColor = "#131c21"; subColor = "#115e59";
     } else if (/drunkdeer|realforce/i.test(lower)) {
-      accent = "#ec4899"; bodyColor = "#1f1624"; subColor = "#831843"; badge = "RAPID KB";
+      accent = "#ec4899"; bodyColor = "#1f1624"; subColor = "#831843";
     }
 
-    // カテゴリの自動判定
     let cat = categoryHint;
     if (!cat) {
       if (/wooting|huntsman|apex pro|realforce|drunkdeer|celeritas|rapid|キーボード/i.test(lower)) cat = "キーボード";
@@ -3371,15 +3368,15 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       else cat = "マウス";
     }
 
-    return { accent, bodyColor, subColor, badge, cat, isLightBody: bodyColor === "#f4f4f6" };
+    return { accent, bodyColor, subColor, cat, isLightBody: bodyColor === "#f4f4f6" };
   }
 
-  // デバイス種別ごとの高精細SVGイラスト生成
+  // デバイス種別ごとのSVGイラスト生成
   window.renderDeviceVisualThumb = function (deviceName, categoryHint = "", size = "md") {
     if (!deviceName || deviceName === "データなし") return "";
     const theme = getDeviceVisualTheme(deviceName, categoryHint);
-    const w = size === "lg" ? 88 : size === "sm" ? 44 : 62;
-    const h = size === "lg" ? 64 : size === "sm" ? 34 : 46;
+    const w = size === "lg" ? 88 : size === "sm" ? 44 : 60;
+    const h = size === "lg" ? 64 : size === "sm" ? 34 : 44;
     const lower = String(deviceName).toLowerCase();
 
     let illustrationSvg = "";
@@ -3388,35 +3385,24 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       const isHoneycomb = /finalmouse|ultralight|beast/i.test(lower);
       const strokeCol = theme.isLightBody ? "#a1a1aa" : "rgba(255,255,255,0.28)";
       illustrationSvg = `
-        <!-- マウス本体シルエット -->
         <rect x="33" y="8" width="22" height="40" rx="11" fill="${theme.bodyColor}" stroke="${strokeCol}" stroke-width="1.6"/>
-        <!-- クリック分割線＆サイドくびれ -->
         <line x1="34" y1="21" x2="54" y2="21" stroke="${strokeCol}" stroke-width="1"/>
         <line x1="44" y1="8" x2="44" y2="21" stroke="${strokeCol}" stroke-width="1"/>
-        <!-- スクロールホイール -->
         <rect x="42.2" y="12" width="3.6" height="7" rx="1.8" fill="${theme.accent}"/>
-        <!-- サイドボタン -->
         <rect x="31.5" y="22" width="1.8" height="5" rx="0.9" fill="${theme.accent}"/>
         <rect x="31.5" y="28.5" width="1.8" height="4.5" rx="0.9" fill="${theme.accent}"/>
         ${isHoneycomb ? `
-          <!-- ハニカム軽量シェル模様 -->
           <circle cx="41" cy="31" r="1.6" fill="${theme.accent}" opacity="0.7"/>
           <circle cx="47" cy="31" r="1.6" fill="${theme.accent}" opacity="0.7"/>
           <circle cx="44" cy="36" r="1.6" fill="${theme.accent}" opacity="0.7"/>
-        ` : `
-          <!-- ブランドロゴ発光ポイント -->
-          <circle cx="44" cy="37" r="2.6" fill="${theme.accent}" opacity="0.85"/>
-        `}
+        ` : `<circle cx="44" cy="37" r="2.6" fill="${theme.accent}" opacity="0.85"/>`}
       `;
     } else if (theme.cat === "キーボード") {
       const hasStrap = /wooting/i.test(lower);
       illustrationSvg = `
         ${hasStrap ? `<path d="M 10 24 L 16 20 L 16 34 L 10 30 Z" fill="#facc15"/>` : ""}
-        <!-- 60%〜TKLキーボード筐体 -->
         <rect x="15" y="14" width="58" height="28" rx="4" fill="${theme.bodyColor}" stroke="rgba(255,255,255,0.28)" stroke-width="1.5"/>
-        <!-- RGBアンダーグローライン -->
         <line x1="18" y1="39" x2="70" y2="39" stroke="${theme.accent}" stroke-width="1.8" stroke-linecap="round"/>
-        <!-- キーキャップ配列（WASD強調） -->
         <rect x="19" y="18" width="5" height="4.5" rx="1" fill="${theme.accent}"/>
         <rect x="25.5" y="18" width="5" height="4.5" rx="1" fill="#3f3f46"/>
         <rect x="32" y="18" width="5" height="4.5" rx="1" fill="${theme.accent}"/>
@@ -3424,13 +3410,11 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
         <rect x="45" y="18" width="5" height="4.5" rx="1" fill="#3f3f46"/>
         <rect x="51.5" y="18" width="5" height="4.5" rx="1" fill="#3f3f46"/>
         <rect x="58" y="18" width="11" height="4.5" rx="1" fill="${theme.subColor}"/>
-        <!-- 2段目（WASD） -->
         <rect x="20" y="24.5" width="5.5" height="4.5" rx="1" fill="${theme.accent}"/>
         <rect x="27" y="24.5" width="5.5" height="4.5" rx="1" fill="${theme.accent}"/>
         <rect x="34" y="24.5" width="5.5" height="4.5" rx="1" fill="${theme.accent}"/>
         <rect x="41" y="24.5" width="16" height="4.5" rx="1" fill="#27272a"/>
         <rect x="58.5" y="24.5" width="10.5" height="4.5" rx="1" fill="#3f3f46"/>
-        <!-- スペースバー段 -->
         <rect x="19" y="31" width="9" height="4.5" rx="1" fill="#3f3f46"/>
         <rect x="30" y="31" width="24" height="4.5" rx="1" fill="${theme.accent}" opacity="0.85"/>
         <rect x="56" y="31" width="13" height="4.5" rx="1" fill="#3f3f46"/>
@@ -3438,31 +3422,25 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     } else if (theme.cat === "マウスパッド") {
       const isGlass = /wallhack|skypad/i.test(lower);
       illustrationSvg = `
-        <!-- マウスパッドサーフェス -->
         <rect x="16" y="10" width="56" height="36" rx="4" fill="${theme.bodyColor}" stroke="${isGlass ? '#38bdf8' : 'rgba(255,255,255,0.25)'}" stroke-width="1.6" ${isGlass ? '' : 'stroke-dasharray="3 1"'}/>
-        <!-- クロスヘア＆滑走軌道グラフィック -->
         <path d="M 22 38 Q 42 16, 64 22" fill="none" stroke="${theme.accent}" stroke-width="1.6" stroke-dasharray="2 2"/>
         <circle cx="64" cy="22" r="3" fill="${theme.accent}"/>
-        <!-- 右下ブランド織りネームタグ -->
         <rect x="56" y="37" width="12" height="5" rx="1" fill="${theme.accent}"/>
       `;
     } else if (theme.cat === "ヘッドセット") {
       const isIem = /shure|se215|se846|earpods|bose|sennheiser|ie 100|inzone/i.test(lower);
       illustrationSvg = isIem ? `
-        <!-- IEM（カナル型モニターイヤホン）シルエット -->
         <path d="M 24 38 C 24 14, 42 12, 46 24" fill="none" stroke="${theme.accent}" stroke-width="2" stroke-linecap="round"/>
         <ellipse cx="47" cy="28" rx="9" ry="6.5" fill="${theme.bodyColor}" stroke="${theme.accent}" stroke-width="1.8"/>
         <circle cx="49" cy="28" r="2.5" fill="${theme.accent}"/>
         <rect x="55" y="26" width="5" height="4" rx="2" fill="#e4e4e7"/>
       ` : `
-        <!-- ゲーミングヘッドセットシルエット -->
         <path d="M 28 32 A 16 15 0 0 1 60 32" fill="none" stroke="#e4e4e7" stroke-width="3" stroke-linecap="round"/>
         <rect x="24" y="27" width="7" height="14" rx="3.5" fill="${theme.bodyColor}" stroke="${theme.accent}" stroke-width="1.6"/>
         <rect x="57" y="27" width="7" height="14" rx="3.5" fill="${theme.bodyColor}" stroke="${theme.accent}" stroke-width="1.6"/>
         <path d="M 27 39 Q 34 45, 42 43" fill="none" stroke="${theme.accent}" stroke-width="1.6" stroke-linecap="round"/>
       `;
     } else {
-      // モニター等
       illustrationSvg = `
         <rect x="18" y="10" width="52" height="30" rx="3" fill="${theme.bodyColor}" stroke="${theme.accent}" stroke-width="1.6"/>
         <line x1="44" y1="40" x2="44" y2="47" stroke="#a1a1aa" stroke-width="2.5"/>
@@ -3479,7 +3457,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       </span>`;
   };
 
-  // 2. プレイヤーの属性（VTuber / Streamer / Pro）に応じたビジュアルアバターSVG生成
+  // 2. 属性別アバターSVG生成
   function buildVisualAvatarSvg(playerName, cardText = "") {
     const text = `${playerName} ${cardText}`;
     const isVtuber = /VTuber|ぶいすぽ|にじさんじ|猫汰|橘|夢野|紡木|胡桃|葛葉|ローレン/i.test(text);
@@ -3493,7 +3471,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
 
     const borderColor = isVtuber ? "#f472b6" : isStreamer ? "#38bdf8" : "#d4ff33";
     const initial = escapeHtml(String(playerName || "P").replace(/^[✨🎙🏆\s]+/, "").slice(0, 1));
-
     const iconOverlay = isVtuber ? `✨` : isStreamer ? `🎙` : `👑`;
 
     return `
@@ -3512,36 +3489,49 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       </div>`;
   }
 
-  // 3. 「振り向き(cm/360°)」が1秒で直感理解できるマウスパッド移動幅ビジュアルバー生成
+  // 3. 振り向き(cm/360°)ゲージ（右端の文字がバーと重なってもクッキリ読めるように改善）
   function buildVisualSensGaugeHtml(sensText) {
     const match = String(sensText || "").match(/(\d+(?:\.\d+)?)\s*cm\s*\/\s*360/i);
     if (!match) return "";
     const cm = parseFloat(match[1]);
     if (!Number.isFinite(cm)) return "";
 
-    // 一般的な大型マウスパッド（幅45cm〜60cm）に対する移動割合を視覚化
     const pct = Math.min(96, Math.max(12, Math.round((cm / 65) * 100)));
     const color = cm < 35 ? "#38bdf8" : cm <= 50 ? "#d4ff33" : "#f472b6";
     const styleLabel = cm < 35 ? "手首主体（省スペース）" : cm <= 50 ? "手首＋腕バランス" : "腕振り主体（大判パッド推奨）";
 
     return `
-      <div class="js-visual-sens-gauge" style="margin-top: 0.45rem; padding: 0.5rem 0.65rem; border-radius: 8px; background: rgba(0,0,0,0.38); border: 1px solid rgba(255,255,255,0.07);">
-        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; margin-bottom: 0.3rem;">
-          <span style="color: #a1a1aa;">🖱️ 360°回転のマウス移動幅イメージ</span>
+      <div class="js-visual-sens-gauge" style="margin-top: 0.5rem; padding: 0.55rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.09);">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; margin-bottom: 0.35rem;">
+          <span style="color: #d4d4d8; font-weight: 600;">🖱️ 360°回転のマウス移動幅イメージ</span>
           <strong style="color: ${color};">${styleLabel} (${cm.toFixed(1)}cm)</strong>
         </div>
-        <!-- マウスパッド上の移動幅バー -->
-        <div style="position: relative; height: 14px; border-radius: 4px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); overflow: hidden; display: flex; align-items: center;">
-          <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, rgba(212,255,51,0.12) 0%, ${color} 100%); opacity: 0.75; border-right: 2px solid #fff;"></div>
-          <span style="position: absolute; left: 6px; font-size: 0.6rem; color: #fff; font-weight: 800; text-shadow: 0 1px 3px #000;">START</span>
-          <span style="position: absolute; right: 6px; font-size: 0.6rem; color: #71717a; font-family: monospace;">パッド端 (65cm)</span>
+        <div style="position: relative; height: 18px; border-radius: 5px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); overflow: hidden; display: flex; align-items: center;">
+          <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, rgba(212,255,51,0.18) 0%, ${color} 100%); opacity: 0.82; border-right: 2px solid #fff;"></div>
+          <span style="position: absolute; left: 6px; font-size: 0.62rem; color: #fff; font-weight: 800; background: rgba(9,9,11,0.75); padding: 0.05rem 0.35rem; border-radius: 3px;">START</span>
+          <span style="position: absolute; right: 6px; font-size: 0.62rem; color: #f4f4f5; font-weight: 700; font-family: monospace; background: rgba(9,9,11,0.82); padding: 0.05rem 0.35rem; border-radius: 3px; border: 1px solid rgba(255,255,255,0.15);">パッド端 65cm</span>
         </div>
       </div>`;
   }
 
-  // 4. ページ内の全カード・ランキング・相談結果・見積もりモーダルへビジュアルを一括注入
+  // 4. Amazon ＆ 楽天の明示的なミニボタンセットを生成
+  function buildDualShopButtonsHtml(deviceName) {
+    if (!deviceName || deviceName === "データなし") return "";
+    const amzUrl = getAmazonAffiliateUrl(deviceName);
+    const rakUrl = getRakutenAffiliateUrl(deviceName);
+    return `
+      <a href="${escapeHtml(amzUrl)}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();"
+         style="text-decoration:none; font-size:0.66rem; padding:0.18rem 0.45rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.55); color:#ffb84d; font-weight:800; white-space:nowrap;"
+         title="Amazonで「${escapeHtml(deviceName)}」を見る">🛒 Amazon</a>
+      <a href="${escapeHtml(rakUrl)}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();"
+         style="text-decoration:none; font-size:0.66rem; padding:0.18rem 0.45rem; border-radius:4px; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.55); color:#fca5a5; font-weight:800; white-space:nowrap;"
+         title="楽天市場で「${escapeHtml(deviceName)}」を見る">🛍 楽天</a>
+    `;
+  }
+
+  // 5. サイト全体への適用処理
   function applyVisualEnhancementsAcrossSite() {
-    // A. プレイヤー検索カード ＆ 感度マッチカードのアバター视觉化
+    // A. アバター＆振り向きゲージ
     document.querySelectorAll(".player-card, .match-card").forEach((card) => {
       const avatarEl = card.querySelector(".player-avatar");
       const headingEl = card.querySelector("h3, h2");
@@ -3550,7 +3540,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
         avatarEl.outerHTML = buildVisualAvatarSvg(headingEl.textContent.trim(), card.textContent);
       }
 
-      // 振り向きビジュアルゲージの追加
       const sensEl = card.querySelector(".player-sens");
       if (sensEl && !card.querySelector(".js-visual-sens-gauge")) {
         const gaugeHtml = buildVisualSensGaugeHtml(sensEl.textContent);
@@ -3558,7 +3547,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       }
     });
 
-    // B. プレイヤー検索カード内の各デバイス行に「実機風サムネイル」を追加
+    // B. プレイヤー検索カード内のデバイス行（サムネイル追加 ＋ Amazon・楽天ボタン両方表示）
     document.querySelectorAll(".device-row").forEach((row) => {
       if (row.dataset.visualThumbAdded) return;
       row.dataset.visualThumbAdded = "true";
@@ -3575,9 +3564,15 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
         firstSpan.style.gap = "0.45rem";
         firstSpan.insertAdjacentHTML("afterbegin", thumbHtml);
       }
+
+      // 既存の「🛒」のみのリンクを「🛒 Amazon」「🛍 楽天」の2ボタンにアップグレード
+      const singleCartLink = row.querySelector('a[href*="amazon.co.jp"]');
+      if (singleCartLink && !row.querySelector('a[href*="rakuten"], a[href*="moshimo"]')) {
+        singleCartLink.outerHTML = buildDualShopButtonsHtml(devName);
+      }
     });
 
-    // C. 感度マッチカード内のデバイス枠に「実機風サムネイル」を追加
+    // C. 感度マッチカード内のデバイス枠
     document.querySelectorAll(".match-device").forEach((box) => {
       if (box.dataset.visualThumbAdded) return;
       const strongEl = box.querySelector("strong");
@@ -3594,7 +3589,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       }
     });
 
-    // D. プロ使用率ランキングの各行に「実機風サムネイル」を追加
+    // D. プロ使用率ランキングの各行（サムネイル ＋ Amazon・楽天ボタン両方表示）
     document.querySelectorAll(".rank-row").forEach((row) => {
       if (row.dataset.visualThumbAdded) return;
       const devName = row.dataset.device;
@@ -3607,13 +3602,18 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       if (rankNum && thumbHtml) {
         rankNum.insertAdjacentHTML("afterend", thumbHtml);
         row.style.display = "grid";
-        row.style.gridTemplateColumns = isTop3 ? "28px 62px 1fr auto" : "28px 44px 1fr auto";
+        row.style.gridTemplateColumns = isTop3 ? "28px 60px 1fr auto" : "28px 44px 1fr auto";
         row.style.alignItems = "center";
         row.style.gap = "0.6rem";
       }
+
+      const singleCartLink = row.querySelector('a[href*="amazon.co.jp"]');
+      if (singleCartLink && !row.querySelector('a[href*="rakuten"], a[href*="moshimo"]')) {
+        singleCartLink.outerHTML = buildDualShopButtonsHtml(devName);
+      }
     });
 
-    // E. デバイス相談（01）の推奨モデルカード3枚に大型ビジュアルサムネイルを追加
+    // E. デバイス相談（01）の推奨モデルカード
     document.querySelectorAll("#consult-result .js-consult-yt-trigger").forEach((btn) => {
       const card = btn.closest("div[style*='flex-direction: column']");
       if (!card || card.dataset.visualThumbAdded) return;
@@ -3631,14 +3631,12 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     });
   }
 
-  // 既存の更新関数・モーダル関数と連動させる
   const _origRefresh = refreshAllInteractiveEnhancements;
   refreshAllInteractiveEnhancements = function () {
     _origRefresh();
     applyVisualEnhancementsAcrossSite();
   };
 
-  // 一式見積もりモーダルを開いた際にも各デバイスにビジュアルサムネイルを追加
   const _origOpenEstimate = window.openSetupEstimateModal;
   window.openSetupEstimateModal = function (playerName, event) {
     _origOpenEstimate(playerName, event);
@@ -3660,7 +3658,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     });
   };
 
-  // 初回即時実行＆イベント連動
   applyVisualEnhancementsAcrossSite();
   document.addEventListener("click", () => setTimeout(applyVisualEnhancementsAcrossSite, 60));
 })();
