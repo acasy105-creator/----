@@ -3323,10 +3323,44 @@ updateDynamicSeoMeta();
 window.addEventListener("popstate", updateDynamicSeoMeta);
 document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
 // ============================================================================
-// サイト全体ビジュアル化エンジン v2（Amazon・楽天ボタン完全表示 ＆ 視認性改善版）
+// サイト全体ビジュアル化エンジン v3（カード内グリッド完全整列 ＆ 改行崩れ防止版）
 // ============================================================================
 (() => {
-  // 1. デバイス名からブランドカラー・形状タイプを判定
+  // 1. デバイス専用レイアウトCSSの注入（縦潰れ・ボタン位置ズレを完全防止）
+  if (!document.getElementById("frag-clean-card-layout-css")) {
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      `<style id="frag-clean-card-layout-css">
+        .player-card {
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
+        }
+        .player-card .device-list {
+          display: grid !important;
+          gap: 0.55rem !important;
+          margin: 0.65rem 0 !important;
+        }
+        .player-card .device-row {
+          display: grid !important;
+          grid-template-columns: 52px 1fr !important;
+          align-items: center !important;
+          gap: 0.7rem !important;
+          padding: 0.6rem 0.7rem !important;
+          border-radius: 8px !important;
+          background: rgba(255, 255, 255, 0.025) !important;
+          border: 1px solid rgba(255, 255, 255, 0.07) !important;
+          box-sizing: border-box !important;
+        }
+        .player-card .device-row:hover {
+          background: rgba(191, 87, 255, 0.08) !important;
+          border-color: rgba(191, 87, 255, 0.4) !important;
+        }
+      </style>`
+    );
+  }
+
+  // 2. デバイス名からブランドカラー・形状タイプを判定
   function getDeviceVisualTheme(deviceName, categoryHint = "") {
     const name = String(deviceName || "");
     const lower = name.toLowerCase();
@@ -3371,12 +3405,12 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     return { accent, bodyColor, subColor, cat, isLightBody: bodyColor === "#f4f4f6" };
   }
 
-  // デバイス種別ごとのSVGイラスト生成
+  // 3. デバイス種別ごとのSVGイラスト生成
   window.renderDeviceVisualThumb = function (deviceName, categoryHint = "", size = "md") {
     if (!deviceName || deviceName === "データなし") return "";
     const theme = getDeviceVisualTheme(deviceName, categoryHint);
-    const w = size === "lg" ? 88 : size === "sm" ? 44 : 60;
-    const h = size === "lg" ? 64 : size === "sm" ? 34 : 44;
+    const w = size === "lg" ? 88 : size === "sm" ? 52 : 60;
+    const h = size === "lg" ? 64 : size === "sm" ? 44 : 46;
     const lower = String(deviceName).toLowerCase();
 
     let illustrationSvg = "";
@@ -3457,7 +3491,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       </span>`;
   };
 
-  // 2. 属性別アバターSVG生成
+  // 4. 属性別アバターSVG生成
   function buildVisualAvatarSvg(playerName, cardText = "") {
     const text = `${playerName} ${cardText}`;
     const isVtuber = /VTuber|ぶいすぽ|にじさんじ|猫汰|橘|夢野|紡木|胡桃|葛葉|ローレン/i.test(text);
@@ -3489,7 +3523,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       </div>`;
   }
 
-  // 3. 振り向き(cm/360°)ゲージ（右端の文字がバーと重なってもクッキリ読めるように改善）
+  // 5. 振り向き(cm/360°)ゲージ（見出しの改行崩れを完全解消）
   function buildVisualSensGaugeHtml(sensText) {
     const match = String(sensText || "").match(/(\d+(?:\.\d+)?)\s*cm\s*\/\s*360/i);
     if (!match) return "";
@@ -3502,34 +3536,34 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
 
     return `
       <div class="js-visual-sens-gauge" style="margin-top: 0.5rem; padding: 0.55rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.09);">
-        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; margin-bottom: 0.35rem;">
-          <span style="color: #d4d4d8; font-weight: 600;">🖱️ 360°回転のマウス移動幅イメージ</span>
-          <strong style="color: ${color};">${styleLabel} (${cm.toFixed(1)}cm)</strong>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.5rem; font-size: 0.7rem; margin-bottom: 0.38rem;">
+          <span style="color: #a1a1aa; font-weight: 700; white-space: nowrap;">🖱️ 360°振り向き移動幅</span>
+          <strong style="color: ${color}; white-space: nowrap; margin-left: auto;">${styleLabel} (${cm.toFixed(1)}cm)</strong>
         </div>
         <div style="position: relative; height: 18px; border-radius: 5px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); overflow: hidden; display: flex; align-items: center;">
           <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, rgba(212,255,51,0.18) 0%, ${color} 100%); opacity: 0.82; border-right: 2px solid #fff;"></div>
-          <span style="position: absolute; left: 6px; font-size: 0.62rem; color: #fff; font-weight: 800; background: rgba(9,9,11,0.75); padding: 0.05rem 0.35rem; border-radius: 3px;">START</span>
-          <span style="position: absolute; right: 6px; font-size: 0.62rem; color: #f4f4f5; font-weight: 700; font-family: monospace; background: rgba(9,9,11,0.82); padding: 0.05rem 0.35rem; border-radius: 3px; border: 1px solid rgba(255,255,255,0.15);">パッド端 65cm</span>
+          <span style="position: absolute; left: 6px; font-size: 0.6rem; color: #fff; font-weight: 800; background: rgba(9,9,11,0.78); padding: 0.05rem 0.35rem; border-radius: 3px;">START</span>
+          <span style="position: absolute; right: 6px; font-size: 0.6rem; color: #f4f4f5; font-weight: 700; font-family: monospace; background: rgba(9,9,11,0.85); padding: 0.05rem 0.35rem; border-radius: 3px; border: 1px solid rgba(255,255,255,0.15);">パッド端 65cm</span>
         </div>
       </div>`;
   }
 
-  // 4. Amazon ＆ 楽天の明示的なミニボタンセットを生成
+  // 6. Amazon ＆ 楽天のミニボタンセット
   function buildDualShopButtonsHtml(deviceName) {
     if (!deviceName || deviceName === "データなし") return "";
     const amzUrl = getAmazonAffiliateUrl(deviceName);
     const rakUrl = getRakutenAffiliateUrl(deviceName);
     return `
       <a href="${escapeHtml(amzUrl)}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();"
-         style="text-decoration:none; font-size:0.66rem; padding:0.18rem 0.45rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.55); color:#ffb84d; font-weight:800; white-space:nowrap;"
+         style="text-decoration:none; font-size:0.65rem; padding:0.18rem 0.48rem; border-radius:4px; background:rgba(255,153,0,0.16); border:1px solid rgba(255,153,0,0.55); color:#ffb84d; font-weight:800; white-space:nowrap;"
          title="Amazonで「${escapeHtml(deviceName)}」を見る">🛒 Amazon</a>
       <a href="${escapeHtml(rakUrl)}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();"
-         style="text-decoration:none; font-size:0.66rem; padding:0.18rem 0.45rem; border-radius:4px; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.55); color:#fca5a5; font-weight:800; white-space:nowrap;"
+         style="text-decoration:none; font-size:0.65rem; padding:0.18rem 0.48rem; border-radius:4px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.55); color:#fca5a5; font-weight:800; white-space:nowrap;"
          title="楽天市場で「${escapeHtml(deviceName)}」を見る">🛍 楽天</a>
     `;
   }
 
-  // 5. サイト全体への適用処理
+  // 7. サイト全体への適用処理
   function applyVisualEnhancementsAcrossSite() {
     // A. アバター＆振り向きゲージ
     document.querySelectorAll(".player-card, .match-card").forEach((card) => {
@@ -3547,29 +3581,50 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       }
     });
 
-    // B. プレイヤー検索カード内のデバイス行（サムネイル追加 ＋ Amazon・楽天ボタン両方表示）
-    document.querySelectorAll(".device-row").forEach((row) => {
+    // B. プレイヤー検索カード内のデバイス行を「左サムネイル＋右3段固定構造」に完全統一
+    document.querySelectorAll(".player-card .device-row").forEach((row) => {
       if (row.dataset.visualThumbAdded) return;
       row.dataset.visualThumbAdded = "true";
 
       const catLabel = row.querySelector("span:first-child")?.textContent?.trim() || "";
-      const devName = row.dataset.device || row.querySelector("strong")?.textContent?.trim() || "";
-      if (!devName || devName === "データなし") return;
+      const devName = row.dataset.device || row.querySelector("strong")?.textContent?.trim() || "データなし";
+      const hasValidDevice = devName && devName !== "データなし";
+      const price = hasValidDevice ? getDevicePrice(devName, catLabel) : 0;
+      const thumbHtml = hasValidDevice
+        ? window.renderDeviceVisualThumb(devName, catLabel, "sm")
+        : `<span style="width:52px; height:44px; border-radius:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); display:inline-block;"></span>`;
 
-      const thumbHtml = window.renderDeviceVisualThumb(devName, catLabel, "sm");
-      const firstSpan = row.querySelector("span:first-child");
-      if (firstSpan && thumbHtml) {
-        firstSpan.style.display = "inline-flex";
-        firstSpan.style.alignItems = "center";
-        firstSpan.style.gap = "0.45rem";
-        firstSpan.insertAdjacentHTML("afterbegin", thumbHtml);
-      }
+      row.innerHTML = `
+        ${thumbHtml}
+        <div style="min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; width: 100%;">
+          <!-- 1段目：カテゴリ名（横書き固定） ＋ 参考価格 -->
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem;">
+            <span style="font-size: 0.66rem; font-weight: 800; color: #a1a1aa; background: rgba(255,255,255,0.06); padding: 0.1rem 0.42rem; border-radius: 4px; white-space: nowrap;">
+              ${escapeHtml(catLabel)}
+            </span>
+            ${price > 0 ? `<span style="font-size: 0.72rem; font-weight: 800; color: #d4ff33; font-family: monospace; white-space: nowrap;">${formatYen(price)}</span>` : ""}
+          </div>
 
-      // 既存の「🛒」のみのリンクを「🛒 Amazon」「🛍 楽天」の2ボタンにアップグレード
-      const singleCartLink = row.querySelector('a[href*="amazon.co.jp"]');
-      if (singleCartLink && !row.querySelector('a[href*="rakuten"], a[href*="moshimo"]')) {
-        singleCartLink.outerHTML = buildDualShopButtonsHtml(devName);
-      }
+          <!-- 2段目：デバイス名 -->
+          <strong style="font-size: 0.86rem; font-weight: 800; color: #fff; line-height: 1.3; word-break: break-word;">
+            ${escapeHtml(devName)}
+          </strong>
+
+          <!-- 3段目：アクションボタン列（全行で同じ位置に整列） -->
+          ${hasValidDevice ? `
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; margin-top: 0.15rem; flex-wrap: wrap;">
+              <span style="color: #d8b4fe; font-size: 0.66rem; font-weight: 800; white-space: nowrap;">▶ 動画・比較</span>
+              <div style="display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto;">
+                ${buildDualShopButtonsHtml(devName)}
+                <button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(devName)}"
+                        onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)"
+                        title="欲しいものリストに保存"
+                        style="cursor:pointer; padding:0.16rem 0.42rem; border-radius:4px; font-size:0.66rem; font-weight:800; line-height:1;">☆</button>
+              </div>
+            </div>
+          ` : ""}
+        </div>
+      `;
     });
 
     // C. 感度マッチカード内のデバイス枠
@@ -3589,7 +3644,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       }
     });
 
-    // D. プロ使用率ランキングの各行（サムネイル ＋ Amazon・楽天ボタン両方表示）
+    // D. プロ使用率ランキングの各行
     document.querySelectorAll(".rank-row").forEach((row) => {
       if (row.dataset.visualThumbAdded) return;
       const devName = row.dataset.device;
@@ -3602,7 +3657,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       if (rankNum && thumbHtml) {
         rankNum.insertAdjacentHTML("afterend", thumbHtml);
         row.style.display = "grid";
-        row.style.gridTemplateColumns = isTop3 ? "28px 60px 1fr auto" : "28px 44px 1fr auto";
+        row.style.gridTemplateColumns = isTop3 ? "28px 60px 1fr auto" : "28px 52px 1fr auto";
         row.style.alignItems = "center";
         row.style.gap = "0.6rem";
       }
@@ -3631,10 +3686,11 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     });
   }
 
+  // お気に入りボタンの「☆/★」状態と確実に同期させる
   const _origRefresh = refreshAllInteractiveEnhancements;
   refreshAllInteractiveEnhancements = function () {
-    _origRefresh();
     applyVisualEnhancementsAcrossSite();
+    _origRefresh();
   };
 
   const _origOpenEstimate = window.openSetupEstimateModal;
@@ -3658,6 +3714,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     });
   };
 
-  applyVisualEnhancementsAcrossSite();
-  document.addEventListener("click", () => setTimeout(applyVisualEnhancementsAcrossSite, 60));
+  refreshAllInteractiveEnhancements();
+  document.addEventListener("click", () => setTimeout(refreshAllInteractiveEnhancements, 60));
 })();
