@@ -3322,3 +3322,345 @@ function updateDynamicSeoMeta() {
 updateDynamicSeoMeta();
 window.addEventListener("popstate", updateDynamicSeoMeta);
 document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
+// ============================================================================
+// サイト全体ビジュアル化エンジン（デバイス実機風サムネイル・振り向き図解・アバター自動生成）
+// ============================================================================
+(() => {
+  // 1. デバイス名からブランドカラー・形状タイプを判定して実機風SVGサムネイルを生成
+  function getDeviceVisualTheme(deviceName, categoryHint = "") {
+    const name = String(deviceName || "");
+    const lower = name.toLowerCase();
+
+    // ブランド・モデル別の固有カラーとアクセント設定
+    let accent = "#d4ff33";
+    let bodyColor = "#1e1e26";
+    let subColor = "#2e2e3a";
+    let badge = "PRO GEAR";
+
+    if (/logicool|logitech|superlight|g703|g304|g502/i.test(lower)) {
+      accent = "#38bdf8"; bodyColor = "#f4f4f6"; subColor = "#27272a"; badge = "LOGICOOL G";
+    } else if (/razer|viper|deathadder|huntsman|blackshark/i.test(lower)) {
+      accent = "#4ade80"; bodyColor = "#141418"; subColor = "#1f2937"; badge = "RAZER";
+    } else if (/wooting/i.test(lower)) {
+      accent = "#facc15"; bodyColor = "#18181b"; subColor = "#f59e0b"; badge = "WOOTING";
+    } else if (/artisan|zero|hayate|hien|疾風|飛燕/i.test(lower)) {
+      accent = "#ef4444"; bodyColor = "#16161a"; subColor = "#7f1d1d"; badge = "ARTISAN";
+    } else if (/wallhack|skypad/i.test(lower)) {
+      accent = "#e2e8f0"; bodyColor = "#0f172a"; subColor = "#38bdf8"; badge = "GLASS PAD";
+    } else if (/finalmouse|ultralight|beast/i.test(lower)) {
+      accent = "#fbbf24"; bodyColor = "#1c1917"; subColor = "#78350f"; badge = "ULTRALIGHT";
+    } else if (/sora|ninjutso|lamzu|atlantis/i.test(lower)) {
+      accent = "#c084fc"; bodyColor = "#1e1b4b"; subColor = "#4c1d95"; badge = "ULTRA LIGHT";
+    } else if (/vaxee|zowie|ec2|g-sr|xl25/i.test(lower)) {
+      accent = "#fb923c"; bodyColor = "#18181b"; subColor = "#9a3412"; badge = "ESPORTS";
+    } else if (/steelseries|apex pro|qck|arctis/i.test(lower)) {
+      accent = "#f97316"; bodyColor = "#18181b"; subColor = "#431407"; badge = "STEELSERIES";
+    } else if (/shure|se215|se846|ie 100|sennheiser|earpods|bose|inzone|hyperx/i.test(lower)) {
+      accent = "#2dd4bf"; bodyColor = "#131c21"; subColor = "#115e59"; badge = "PRO AUDIO";
+    } else if (/drunkdeer|realforce/i.test(lower)) {
+      accent = "#ec4899"; bodyColor = "#1f1624"; subColor = "#831843"; badge = "RAPID KB";
+    }
+
+    // カテゴリの自動判定
+    let cat = categoryHint;
+    if (!cat) {
+      if (/wooting|huntsman|apex pro|realforce|drunkdeer|celeritas|rapid|キーボード/i.test(lower)) cat = "キーボード";
+      else if (/artisan|zero|hayate|hien|vaxee pa|saturn|qck|g-sr|wallhack|skypad|パッド/i.test(lower)) cat = "マウスパッド";
+      else if (/shure|se215|se846|earpods|bose|sennheiser|inzone|cloud|blackshark|arctis|g pro x 2|ヘッド/i.test(lower)) cat = "ヘッドセット";
+      else if (/xl25|oled|aw25|モニター/i.test(lower)) cat = "モニター";
+      else cat = "マウス";
+    }
+
+    return { accent, bodyColor, subColor, badge, cat, isLightBody: bodyColor === "#f4f4f6" };
+  }
+
+  // デバイス種別ごとの高精細SVGイラスト生成
+  window.renderDeviceVisualThumb = function (deviceName, categoryHint = "", size = "md") {
+    if (!deviceName || deviceName === "データなし") return "";
+    const theme = getDeviceVisualTheme(deviceName, categoryHint);
+    const w = size === "lg" ? 88 : size === "sm" ? 44 : 62;
+    const h = size === "lg" ? 64 : size === "sm" ? 34 : 46;
+    const lower = String(deviceName).toLowerCase();
+
+    let illustrationSvg = "";
+
+    if (theme.cat === "マウス") {
+      const isHoneycomb = /finalmouse|ultralight|beast/i.test(lower);
+      const strokeCol = theme.isLightBody ? "#a1a1aa" : "rgba(255,255,255,0.28)";
+      illustrationSvg = `
+        <!-- マウス本体シルエット -->
+        <rect x="33" y="8" width="22" height="40" rx="11" fill="${theme.bodyColor}" stroke="${strokeCol}" stroke-width="1.6"/>
+        <!-- クリック分割線＆サイドくびれ -->
+        <line x1="34" y1="21" x2="54" y2="21" stroke="${strokeCol}" stroke-width="1"/>
+        <line x1="44" y1="8" x2="44" y2="21" stroke="${strokeCol}" stroke-width="1"/>
+        <!-- スクロールホイール -->
+        <rect x="42.2" y="12" width="3.6" height="7" rx="1.8" fill="${theme.accent}"/>
+        <!-- サイドボタン -->
+        <rect x="31.5" y="22" width="1.8" height="5" rx="0.9" fill="${theme.accent}"/>
+        <rect x="31.5" y="28.5" width="1.8" height="4.5" rx="0.9" fill="${theme.accent}"/>
+        ${isHoneycomb ? `
+          <!-- ハニカム軽量シェル模様 -->
+          <circle cx="41" cy="31" r="1.6" fill="${theme.accent}" opacity="0.7"/>
+          <circle cx="47" cy="31" r="1.6" fill="${theme.accent}" opacity="0.7"/>
+          <circle cx="44" cy="36" r="1.6" fill="${theme.accent}" opacity="0.7"/>
+        ` : `
+          <!-- ブランドロゴ発光ポイント -->
+          <circle cx="44" cy="37" r="2.6" fill="${theme.accent}" opacity="0.85"/>
+        `}
+      `;
+    } else if (theme.cat === "キーボード") {
+      const hasStrap = /wooting/i.test(lower);
+      illustrationSvg = `
+        ${hasStrap ? `<path d="M 10 24 L 16 20 L 16 34 L 10 30 Z" fill="#facc15"/>` : ""}
+        <!-- 60%〜TKLキーボード筐体 -->
+        <rect x="15" y="14" width="58" height="28" rx="4" fill="${theme.bodyColor}" stroke="rgba(255,255,255,0.28)" stroke-width="1.5"/>
+        <!-- RGBアンダーグローライン -->
+        <line x1="18" y1="39" x2="70" y2="39" stroke="${theme.accent}" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- キーキャップ配列（WASD強調） -->
+        <rect x="19" y="18" width="5" height="4.5" rx="1" fill="${theme.accent}"/>
+        <rect x="25.5" y="18" width="5" height="4.5" rx="1" fill="#3f3f46"/>
+        <rect x="32" y="18" width="5" height="4.5" rx="1" fill="${theme.accent}"/>
+        <rect x="38.5" y="18" width="5" height="4.5" rx="1" fill="#3f3f46"/>
+        <rect x="45" y="18" width="5" height="4.5" rx="1" fill="#3f3f46"/>
+        <rect x="51.5" y="18" width="5" height="4.5" rx="1" fill="#3f3f46"/>
+        <rect x="58" y="18" width="11" height="4.5" rx="1" fill="${theme.subColor}"/>
+        <!-- 2段目（WASD） -->
+        <rect x="20" y="24.5" width="5.5" height="4.5" rx="1" fill="${theme.accent}"/>
+        <rect x="27" y="24.5" width="5.5" height="4.5" rx="1" fill="${theme.accent}"/>
+        <rect x="34" y="24.5" width="5.5" height="4.5" rx="1" fill="${theme.accent}"/>
+        <rect x="41" y="24.5" width="16" height="4.5" rx="1" fill="#27272a"/>
+        <rect x="58.5" y="24.5" width="10.5" height="4.5" rx="1" fill="#3f3f46"/>
+        <!-- スペースバー段 -->
+        <rect x="19" y="31" width="9" height="4.5" rx="1" fill="#3f3f46"/>
+        <rect x="30" y="31" width="24" height="4.5" rx="1" fill="${theme.accent}" opacity="0.85"/>
+        <rect x="56" y="31" width="13" height="4.5" rx="1" fill="#3f3f46"/>
+      `;
+    } else if (theme.cat === "マウスパッド") {
+      const isGlass = /wallhack|skypad/i.test(lower);
+      illustrationSvg = `
+        <!-- マウスパッドサーフェス -->
+        <rect x="16" y="10" width="56" height="36" rx="4" fill="${theme.bodyColor}" stroke="${isGlass ? '#38bdf8' : 'rgba(255,255,255,0.25)'}" stroke-width="1.6" ${isGlass ? '' : 'stroke-dasharray="3 1"'}/>
+        <!-- クロスヘア＆滑走軌道グラフィック -->
+        <path d="M 22 38 Q 42 16, 64 22" fill="none" stroke="${theme.accent}" stroke-width="1.6" stroke-dasharray="2 2"/>
+        <circle cx="64" cy="22" r="3" fill="${theme.accent}"/>
+        <!-- 右下ブランド織りネームタグ -->
+        <rect x="56" y="37" width="12" height="5" rx="1" fill="${theme.accent}"/>
+      `;
+    } else if (theme.cat === "ヘッドセット") {
+      const isIem = /shure|se215|se846|earpods|bose|sennheiser|ie 100|inzone/i.test(lower);
+      illustrationSvg = isIem ? `
+        <!-- IEM（カナル型モニターイヤホン）シルエット -->
+        <path d="M 24 38 C 24 14, 42 12, 46 24" fill="none" stroke="${theme.accent}" stroke-width="2" stroke-linecap="round"/>
+        <ellipse cx="47" cy="28" rx="9" ry="6.5" fill="${theme.bodyColor}" stroke="${theme.accent}" stroke-width="1.8"/>
+        <circle cx="49" cy="28" r="2.5" fill="${theme.accent}"/>
+        <rect x="55" y="26" width="5" height="4" rx="2" fill="#e4e4e7"/>
+      ` : `
+        <!-- ゲーミングヘッドセットシルエット -->
+        <path d="M 28 32 A 16 15 0 0 1 60 32" fill="none" stroke="#e4e4e7" stroke-width="3" stroke-linecap="round"/>
+        <rect x="24" y="27" width="7" height="14" rx="3.5" fill="${theme.bodyColor}" stroke="${theme.accent}" stroke-width="1.6"/>
+        <rect x="57" y="27" width="7" height="14" rx="3.5" fill="${theme.bodyColor}" stroke="${theme.accent}" stroke-width="1.6"/>
+        <path d="M 27 39 Q 34 45, 42 43" fill="none" stroke="${theme.accent}" stroke-width="1.6" stroke-linecap="round"/>
+      `;
+    } else {
+      // モニター等
+      illustrationSvg = `
+        <rect x="18" y="10" width="52" height="30" rx="3" fill="${theme.bodyColor}" stroke="${theme.accent}" stroke-width="1.6"/>
+        <line x1="44" y1="40" x2="44" y2="47" stroke="#a1a1aa" stroke-width="2.5"/>
+        <line x1="34" y1="47" x2="54" y2="47" stroke="#a1a1aa" stroke-width="2.5" stroke-linecap="round"/>
+        <text x="44" y="28" text-anchor="middle" fill="${theme.accent}" font-size="9" font-weight="900" font-family="monospace">240Hz+</text>
+      `;
+    }
+
+    return `
+      <span class="frag-device-thumb" style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: ${w}px; height: ${h}px; border-radius: 8px; background: radial-gradient(circle at 50% 35%, ${theme.subColor} 0%, #09090d 90%); border: 1px solid rgba(255,255,255,0.14); flex-shrink: 0; position: relative; overflow: hidden; box-shadow: inset 0 0 12px rgba(0,0,0,0.6);">
+        <svg viewBox="0 0 88 56" style="width: 100%; height: 100%; display: block;">
+          ${illustrationSvg}
+        </svg>
+      </span>`;
+  };
+
+  // 2. プレイヤーの属性（VTuber / Streamer / Pro）に応じたビジュアルアバターSVG生成
+  function buildVisualAvatarSvg(playerName, cardText = "") {
+    const text = `${playerName} ${cardText}`;
+    const isVtuber = /VTuber|ぶいすぽ|にじさんじ|猫汰|橘|夢野|紡木|胡桃|葛葉|ローレン/i.test(text);
+    const isStreamer = /STREAMER|釈迦|SHAKA|だるま|ありさか/i.test(text);
+
+    const bgGrad = isVtuber
+      ? "linear-gradient(135deg, #a855f7 0%, #ec4899 100%)"
+      : isStreamer
+      ? "linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)"
+      : "linear-gradient(135deg, #84cc16 0%, #10b981 100%)";
+
+    const borderColor = isVtuber ? "#f472b6" : isStreamer ? "#38bdf8" : "#d4ff33";
+    const initial = escapeHtml(String(playerName || "P").replace(/^[✨🎙🏆\s]+/, "").slice(0, 1));
+
+    const iconOverlay = isVtuber ? `✨` : isStreamer ? `🎙` : `👑`;
+
+    return `
+      <div style="position: relative; width: 46px; height: 46px; border-radius: 12px; background: ${bgGrad}; border: 1.5px solid ${borderColor}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 14px rgba(0,0,0,0.45);">
+        <svg viewBox="0 0 44 44" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.28;">
+          <circle cx="22" cy="16" r="7" fill="#fff"/>
+          <path d="M 9 38 C 9 27, 35 27, 35 38" fill="#fff"/>
+          <path d="M 12 16 A 10 10 0 0 1 32 16" fill="none" stroke="#fff" stroke-width="2.5"/>
+        </svg>
+        <span style="position: relative; z-index: 2; font-size: 1.15rem; font-weight: 900; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.65); font-family: 'Manrope', sans-serif;">
+          ${initial}
+        </span>
+        <span style="position: absolute; right: -5px; bottom: -5px; z-index: 3; font-size: 0.68rem; background: #09090b; border: 1px solid ${borderColor}; border-radius: 999px; width: 19px; height: 19px; display: flex; align-items: center; justify-content: center;">
+          ${iconOverlay}
+        </span>
+      </div>`;
+  }
+
+  // 3. 「振り向き(cm/360°)」が1秒で直感理解できるマウスパッド移動幅ビジュアルバー生成
+  function buildVisualSensGaugeHtml(sensText) {
+    const match = String(sensText || "").match(/(\d+(?:\.\d+)?)\s*cm\s*\/\s*360/i);
+    if (!match) return "";
+    const cm = parseFloat(match[1]);
+    if (!Number.isFinite(cm)) return "";
+
+    // 一般的な大型マウスパッド（幅45cm〜60cm）に対する移動割合を視覚化
+    const pct = Math.min(96, Math.max(12, Math.round((cm / 65) * 100)));
+    const color = cm < 35 ? "#38bdf8" : cm <= 50 ? "#d4ff33" : "#f472b6";
+    const styleLabel = cm < 35 ? "手首主体（省スペース）" : cm <= 50 ? "手首＋腕バランス" : "腕振り主体（大判パッド推奨）";
+
+    return `
+      <div class="js-visual-sens-gauge" style="margin-top: 0.45rem; padding: 0.5rem 0.65rem; border-radius: 8px; background: rgba(0,0,0,0.38); border: 1px solid rgba(255,255,255,0.07);">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; margin-bottom: 0.3rem;">
+          <span style="color: #a1a1aa;">🖱️ 360°回転のマウス移動幅イメージ</span>
+          <strong style="color: ${color};">${styleLabel} (${cm.toFixed(1)}cm)</strong>
+        </div>
+        <!-- マウスパッド上の移動幅バー -->
+        <div style="position: relative; height: 14px; border-radius: 4px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); overflow: hidden; display: flex; align-items: center;">
+          <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, rgba(212,255,51,0.12) 0%, ${color} 100%); opacity: 0.75; border-right: 2px solid #fff;"></div>
+          <span style="position: absolute; left: 6px; font-size: 0.6rem; color: #fff; font-weight: 800; text-shadow: 0 1px 3px #000;">START</span>
+          <span style="position: absolute; right: 6px; font-size: 0.6rem; color: #71717a; font-family: monospace;">パッド端 (65cm)</span>
+        </div>
+      </div>`;
+  }
+
+  // 4. ページ内の全カード・ランキング・相談結果・見積もりモーダルへビジュアルを一括注入
+  function applyVisualEnhancementsAcrossSite() {
+    // A. プレイヤー検索カード ＆ 感度マッチカードのアバター视觉化
+    document.querySelectorAll(".player-card, .match-card").forEach((card) => {
+      const avatarEl = card.querySelector(".player-avatar");
+      const headingEl = card.querySelector("h3, h2");
+      if (avatarEl && headingEl && !avatarEl.dataset.visualUpgraded) {
+        avatarEl.dataset.visualUpgraded = "true";
+        avatarEl.outerHTML = buildVisualAvatarSvg(headingEl.textContent.trim(), card.textContent);
+      }
+
+      // 振り向きビジュアルゲージの追加
+      const sensEl = card.querySelector(".player-sens");
+      if (sensEl && !card.querySelector(".js-visual-sens-gauge")) {
+        const gaugeHtml = buildVisualSensGaugeHtml(sensEl.textContent);
+        if (gaugeHtml) sensEl.insertAdjacentHTML("afterend", gaugeHtml);
+      }
+    });
+
+    // B. プレイヤー検索カード内の各デバイス行に「実機風サムネイル」を追加
+    document.querySelectorAll(".device-row").forEach((row) => {
+      if (row.dataset.visualThumbAdded) return;
+      row.dataset.visualThumbAdded = "true";
+
+      const catLabel = row.querySelector("span:first-child")?.textContent?.trim() || "";
+      const devName = row.dataset.device || row.querySelector("strong")?.textContent?.trim() || "";
+      if (!devName || devName === "データなし") return;
+
+      const thumbHtml = window.renderDeviceVisualThumb(devName, catLabel, "sm");
+      const firstSpan = row.querySelector("span:first-child");
+      if (firstSpan && thumbHtml) {
+        firstSpan.style.display = "inline-flex";
+        firstSpan.style.alignItems = "center";
+        firstSpan.style.gap = "0.45rem";
+        firstSpan.insertAdjacentHTML("afterbegin", thumbHtml);
+      }
+    });
+
+    // C. 感度マッチカード内のデバイス枠に「実機風サムネイル」を追加
+    document.querySelectorAll(".match-device").forEach((box) => {
+      if (box.dataset.visualThumbAdded) return;
+      const strongEl = box.querySelector("strong");
+      if (!strongEl) return;
+      box.dataset.visualThumbAdded = "true";
+
+      const devName = strongEl.textContent.trim();
+      const thumbHtml = window.renderDeviceVisualThumb(devName, "", "md");
+      if (thumbHtml) {
+        strongEl.style.display = "inline-flex";
+        strongEl.style.alignItems = "center";
+        strongEl.style.gap = "0.55rem";
+        strongEl.insertAdjacentHTML("afterbegin", thumbHtml);
+      }
+    });
+
+    // D. プロ使用率ランキングの各行に「実機風サムネイル」を追加
+    document.querySelectorAll(".rank-row").forEach((row) => {
+      if (row.dataset.visualThumbAdded) return;
+      const devName = row.dataset.device;
+      if (!devName) return;
+      row.dataset.visualThumbAdded = "true";
+
+      const rankNum = row.querySelector(".rank-num");
+      const isTop3 = rankNum && ["01", "02", "03"].includes(rankNum.textContent.trim());
+      const thumbHtml = window.renderDeviceVisualThumb(devName, "", isTop3 ? "md" : "sm");
+      if (rankNum && thumbHtml) {
+        rankNum.insertAdjacentHTML("afterend", thumbHtml);
+        row.style.display = "grid";
+        row.style.gridTemplateColumns = isTop3 ? "28px 62px 1fr auto" : "28px 44px 1fr auto";
+        row.style.alignItems = "center";
+        row.style.gap = "0.6rem";
+      }
+    });
+
+    // E. デバイス相談（01）の推奨モデルカード3枚に大型ビジュアルサムネイルを追加
+    document.querySelectorAll("#consult-result .js-consult-yt-trigger").forEach((btn) => {
+      const card = btn.closest("div[style*='flex-direction: column']");
+      if (!card || card.dataset.visualThumbAdded) return;
+      card.dataset.visualThumbAdded = "true";
+
+      const devName = btn.dataset.device;
+      const thumbHtml = window.renderDeviceVisualThumb(devName, "", "lg");
+      const headerBox = card.querySelector("div:first-child");
+      if (headerBox && thumbHtml) {
+        headerBox.insertAdjacentHTML(
+          "afterbegin",
+          `<div style="display:flex; justify-content:center; padding: 0.5rem 0 0.65rem; margin-bottom: 0.45rem; background: rgba(0,0,0,0.35); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">${thumbHtml}</div>`
+        );
+      }
+    });
+  }
+
+  // 既存の更新関数・モーダル関数と連動させる
+  const _origRefresh = refreshAllInteractiveEnhancements;
+  refreshAllInteractiveEnhancements = function () {
+    _origRefresh();
+    applyVisualEnhancementsAcrossSite();
+  };
+
+  // 一式見積もりモーダルを開いた際にも各デバイスにビジュアルサムネイルを追加
+  const _origOpenEstimate = window.openSetupEstimateModal;
+  window.openSetupEstimateModal = function (playerName, event) {
+    _origOpenEstimate(playerName, event);
+    const modalRoot = document.getElementById("frag-sync-modal-root");
+    if (!modalRoot) return;
+    modalRoot.querySelectorAll("div[style*='justify-content: space-between']").forEach((row) => {
+      const titleEl = row.querySelector("div[style*='font-size: 0.92rem']");
+      if (!titleEl || row.dataset.visualThumbAdded) return;
+      row.dataset.visualThumbAdded = "true";
+      const devName = titleEl.textContent.trim();
+      const thumbHtml = window.renderDeviceVisualThumb(devName, "", "md");
+      if (thumbHtml && titleEl.parentElement) {
+        const leftWrap = titleEl.parentElement;
+        leftWrap.style.display = "flex";
+        leftWrap.style.alignItems = "center";
+        leftWrap.style.gap = "0.75rem";
+        leftWrap.innerHTML = `${thumbHtml}<div>${leftWrap.innerHTML}</div>`;
+      }
+    });
+  };
+
+  // 初回即時実行＆イベント連動
+  applyVisualEnhancementsAcrossSite();
+  document.addEventListener("click", () => setTimeout(applyVisualEnhancementsAcrossSite, 60));
+})();
