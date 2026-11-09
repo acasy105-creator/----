@@ -1,0 +1,19 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/match", "destination": "/index.html" },
+    { "source": "/vtuber", "destination": "/index.html" },
+    { "source": "/streamer", "destination": "/index.html" },
+    { "source": "/pro", "destination": "/index.html" },
+    { "source": "/rankings", "destination": "/index.html" },
+    { "source": "/valorant", "destination": "/index.html" },
+    { "source": "/apex", "destination": "/index.html" },
+    { "source": "/ow2", "destination": "/index.html" },
+    { "source": "/vspo", "destination": "/index.html" },
+    { "source": "/nijisanji", "destination": "/index.html" },
+    { "source": "/wooting", "destination": "/index.html" },
+    { "source": "/superlight", "destination": "/index.html" },
+    { "source": "/viper", "destination": "/index.html" }
+  ]
+}
