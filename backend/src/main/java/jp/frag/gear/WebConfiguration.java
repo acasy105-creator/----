@@ -10,9 +10,14 @@ public class WebConfiguration implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins("*")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
+                .allowedOriginPatterns(
+                        "https://frag-gear.vercel.app",
+                        "https://*-frag-gear.vercel.app",
+                        "http://localhost:*",
+                        "http://127.0.0.1:*"
+                )
+                .allowedMethods("GET", "OPTIONS")
+                .allowedHeaders("Content-Type", "Accept", "Origin")
                 .allowCredentials(false)
                 .maxAge(3600);
     }
