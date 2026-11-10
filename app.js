@@ -5490,3 +5490,212 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   setupSearchAutocompleteAndReset();
   setupMobileBottomNavigation();
 })();
+// ============================================================================
+// UI＆ロジック修正パッチ：プロ使用率のPCレイアウト改善 ＆ 感度マッチの選択ゲーム上位3名抽出
+// ============================================================================
+(() => {
+  // --------------------------------------------------------------------------
+  // 1. 感度マッチ（/api/match）で「選択したゲームタイトルの選手上位3名」を確実に出力する
+  // --------------------------------------------------------------------------
+  const prevFetch = window.fetch.bind(window);
+  window.fetch = async function (input, init) {
+    const urlStr = typeof input === "string" ? input : (input instanceof URL ? input.toString() : input?.url || "");
+
+    if (urlStr.includes("/api/match")) {
+      const parsedUrl = new URL(urlStr, window.location.origin);
+      const selectedGame = parsedUrl.searchParams.get("game") || document.getElementById("match-game")?.value || "VALORANT";
+      const normalizedTargetGame = normalizeGameName(selectedGame);
+      const dpi = Number(parsedUrl.searchParams.get("dpi")) || 800;
+      const sens = Number(parsedUrl.searchParams.get("sens")) || 0.35;
+      const userCm = toCm360(dpi, sens, selectedGame);
+
+      let apiPlayers = [];
+      try {
+        const res = await prevFetch(input, init);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) apiPlayers = data;
+        }
+      } catch (e) {}
+
+      // APIから返った選手 ＋ フロント統合DBの選手を合わせ、重複を除外して「選択したゲーム」だけで絞り込む
+      const combinedPool = [...apiPlayers, ...getMergedPlayersList()];
+      const seen = new Set();
+      const sameGameCandidates = [];
+
+      combinedPool.forEach((p) => {
+        if (!p || typeof p.name !== "string") return;
+        const pGame = normalizeGameName(p.game);
+        if (pGame !== normalizedTargetGame) return; // 選んだゲーム以外は除外
+
+        const key = p.name.split(/[（(]/)[0].trim().toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        const pDpi = Number(p.dpi);
+        const pSens = Number(p.sens);
+        const cmPer360 = Number.isFinite(Number(p.cmPer360))
+          ? Number(p.cmPer360)
+          : toCm360(pDpi, pSens, p.game);
+
+        if (!Number.isFinite(cmPer360)) return;
+        const diff = Number.isFinite(userCm) ? Math.abs(cmPer360 - userCm) : 9999;
+
+        sameGameCandidates.push({
+          ...ensurePlayerFourDevices(p),
+          game: selectedGame,
+          cmPer360,
+          _diff: diff
+        });
+      });
+
+      // 振り向き（cm/360°）が近い順にソートし、きっちり上位3名を返す
+      const topThreePlayers = sameGameCandidates
+        .sort((a, b) => a._diff - b._diff)
+        .slice(0, 3);
+
+      return new Response(JSON.stringify(topThreePlayers), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return prevFetch(input, init);
+  };
+
+  // --------------------------------------------------------------------------
+  // 2. プロ使用率ランキングのPCレイアウト崩れ修正（2×2グリッド化 ＆ 行内の3段整理）
+  // --------------------------------------------------------------------------
+  if (!document.getElementById("frag-ranking-pc-fix-css")) {
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      `<style id="frag-ranking-pc-fix-css">
+        /* PC画面で4列に潰れるのを防ぎ、見やすい2列×2段グリッドに固定 */
+        #ranking-content {
+          display: grid !important;
+          grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)) !important;
+          gap: 1.5rem !important;
+        }
+        @media (max-width: 560px) {
+          #ranking-content {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        #ranking-content .category-card {
+          padding: 1.35rem !important;
+          box-sizing: border-box !important;
+          overflow: hidden !important;
+        }
+        #ranking-content .rank-row {
+          display: grid !important;
+          grid-template-columns: 28px 54px 1fr !important;
+          align-items: center !important;
+          gap: 0.75rem !important;
+          padding: 0.65rem 0.75rem !important;
+          margin-bottom: 0.5rem !important;
+          border-radius: 10px !important;
+          background: rgba(255, 255, 255, 0.025) !important;
+          border: 1px solid rgba(255, 255, 255, 0.07) !important;
+          box-sizing: border-box !important;
+        }
+        #ranking-content .rank-row:hover {
+          background: rgba(191, 87, 255, 0.1) !important;
+          border-color: rgba(191, 87, 255, 0.45) !important;
+        }
+      </style>`
+    );
+  }
+
+  // G640 や G840 などのマウスパッドがマウス画像になるのを防ぐ補強
+  const prevThumbFn = window.renderDeviceVisualThumb;
+  window.renderDeviceVisualThumb = function (deviceName, categoryHint = "", size = "md") {
+    let fixedHint = categoryHint;
+    if (!fixedHint && /g640|g840|g240|gigantus|strider|qck|zero|hayate|hien|vaxee pa|saturn|g-sr|wallhack|skypad/i.test(String(deviceName))) {
+      fixedHint = "マウスパッド";
+    }
+    return prevThumbFn(deviceName, fixedHint, size);
+  };
+
+  // プロ使用率ランキングの各行を「はみ出しゼロの3段構成」に再構築する関数
+  function reformatRankingRowsCleanly() {
+    document.querySelectorAll("#ranking-content .category-card").forEach((card) => {
+      const categoryTitle = card.querySelector(".category-heading h3")?.textContent?.trim() || "";
+
+      card.querySelectorAll(".rank-row").forEach((row) => {
+        if (row.dataset.cleanLayoutApplied === "true") return;
+        row.dataset.cleanLayoutApplied = "true";
+
+        const devName = row.dataset.device || "";
+        if (!devName) return;
+
+        const rankNumText = row.querySelector(".rank-num")?.textContent?.trim() || "01";
+        const pctText = row.querySelector(".rank-percent")?.textContent?.trim() || "0%";
+        const price = getDevicePrice(devName, categoryTitle);
+        const thumbHtml = window.renderDeviceVisualThumb(devName, categoryTitle, "sm");
+        const amzUrl = getAmazonAffiliateUrl(devName);
+        const rakUrl = getRakutenAffiliateUrl(devName);
+        const isTop1 = rankNumText === "01";
+
+        row.innerHTML = `
+          <!-- 1列目：順位 -->
+          <span class="rank-num" style="font-size: 0.9rem; font-weight: 900; color: ${isTop1 ? '#d4ff33' : '#a1a1aa'}; font-family: monospace; text-align: center;">
+            ${escapeHtml(rankNumText)}
+          </span>
+
+          <!-- 2列目：カテゴリ別デバイスサムネイル（G640も正しくマウスパッド画像で描画） -->
+          ${thumbHtml}
+
+          <!-- 3列目：1段目(製品名＋使用率%) / 2段目(バー) / 3段目(価格＋動画＋Amazon＋楽天＋☆) -->
+          <div style="min-width: 0; display: flex; flex-direction: column; gap: 0.32rem; width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;">
+              <strong style="font-size: 0.88rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(devName)}">
+                ${escapeHtml(devName)}
+              </strong>
+              <span style="font-size: 0.82rem; font-weight: 900; color: #d4ff33; font-family: monospace; flex-shrink: 0;">
+                ${escapeHtml(pctText)}
+              </span>
+            </div>
+
+            <div class="rank-bar-wrap" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;">
+              <div class="rank-bar" style="width: ${escapeHtml(pctText)}; height: 100%; background: linear-gradient(90deg, #d4ff33, #38bdf8);"></div>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.1rem;">
+              <div style="display: inline-flex; align-items: center; gap: 0.45rem;">
+                ${price > 0 ? `<span style="font-size: 0.72rem; color: #a1a1aa; font-family: monospace; font-weight: 700;">${formatYen(price)}</span>` : ""}
+                <span style="font-size: 0.68rem; color: #d8b4fe; font-weight: 800; white-space: nowrap;">▶ 動画・比較</span>
+              </div>
+
+              <div style="display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto;">
+                <a href="${escapeHtml(amzUrl)}" target="_blank" rel="sponsored noopener noreferrer" class="frag-shop-btn-amz" onclick="event.stopPropagation();"
+                   style="text-decoration:none; font-size:0.65rem; padding:0.18rem 0.48rem; border-radius:4px; background:rgba(255,153,0,0.16); border:1px solid rgba(255,153,0,0.55); color:#ffb84d; font-weight:800; white-space:nowrap;">🛒 Amazon価格</a>
+                <a href="${escapeHtml(rakUrl)}" target="_blank" rel="sponsored noopener noreferrer" class="frag-shop-btn-rak" onclick="event.stopPropagation();"
+                   style="text-decoration:none; font-size:0.65rem; padding:0.18rem 0.48rem; border-radius:4px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.55); color:#fca5a5; font-weight:800; white-space:nowrap;">🛍 楽天最安</a>
+                <button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(devName)}"
+                        onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)"
+                        title="欲しいものリストに保存"
+                        style="cursor:pointer; padding:0.16rem 0.42rem; border-radius:4px; font-size:0.66rem; font-weight:800; line-height:1;">☆</button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    });
+  }
+
+  // ランキング再描画や画面更新のたびにクリーンレイアウトを適用
+  const prevRefresh = refreshAllInteractiveEnhancements;
+  refreshAllInteractiveEnhancements = function () {
+    reformatRankingRowsCleanly();
+    prevRefresh();
+  };
+
+  // 初回即時適用（現在のランキングと感度マッチを再描画）
+  const currentRankingGame = document.querySelector(".game-tab.selected")?.dataset?.game || "VALORANT";
+  renderRankings(currentRankingGame);
+  reformatRankingRowsCleanly();
+
+  if (document.getElementById("page-match")?.classList.contains("active")) {
+    document.getElementById("match-form")?.dispatchEvent(new Event("submit", { cancelable: true }));
+  }
+})();
