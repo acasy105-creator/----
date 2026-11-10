@@ -4798,3 +4798,695 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   upgradeExistingShopButtonsMicrocopy();
   document.addEventListener("click", () => setTimeout(upgradeExistingShopButtonsMicrocopy, 80));
 })();
+// ============================================================================
+// UX大幅改善①＆②：マイ環境グローバル同期ミニバー ＆ デバイスクリック時の自動スクロール
+// ============================================================================
+(() => {
+  const USER_ENV_STORAGE_KEY = "frag_user_baseline_env_v1";
+
+  // 1. ハイライトアニメーション＆ミニバー用CSSの注入
+  if (!document.getElementById("frag-ux-bar-scroll-css")) {
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      `<style id="frag-ux-bar-scroll-css">
+        @keyframes fragSectionPulse {
+          0%   { box-shadow: 0 0 0 0 rgba(212, 255, 51, 0.75); border-color: #d4ff33; }
+          60%  { box-shadow: 0 0 28px 6px rgba(191, 87, 255, 0.35); border-color: #bf57ff; }
+          100% { box-shadow: none; border-color: rgba(255, 255, 255, 0.12); }
+        }
+        .frag-scroll-highlight {
+          animation: fragSectionPulse 1.3s ease-out;
+        }
+        #frag-global-env-bar {
+          margin: 0 auto 1.25rem;
+          padding: 0.65rem 1.1rem;
+          border-radius: 12px;
+          background: linear-gradient(90deg, rgba(18, 18, 24, 0.95) 0%, rgba(28, 24, 38, 0.92) 100%);
+          border: 1px solid rgba(212, 255, 51, 0.32);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.65rem 1rem;
+          box-sizing: border-box;
+        }
+        #frag-global-env-bar select,
+        #frag-global-env-bar input {
+          padding: 0.32rem 0.55rem;
+          border-radius: 6px;
+          background: rgba(0, 0, 0, 0.65);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #fff;
+          font-size: 0.76rem;
+          font-weight: 700;
+          box-sizing: border-box;
+        }
+        #frag-global-env-bar input:focus,
+        #frag-global-env-bar select:focus {
+          outline: none;
+          border-color: #d4ff33;
+        }
+      </style>`
+    );
+  }
+
+  // 2. ローカル保存されたマイ環境の読み込み・保存
+  function loadSavedUserEnv() {
+    try {
+      const raw = localStorage.getItem(USER_ENV_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return {
+        game: parsed.game || document.getElementById("match-game")?.value || "VALORANT",
+        dpi: Number(parsed.dpi) || Number(document.getElementById("match-dpi")?.value) || 800,
+        sens: Number(parsed.sens) || Number(document.getElementById("match-sens")?.value) || 0.32,
+        mouse: localStorage.getItem("frag_user_mouse") || "Logicool G703h (定番エルゴ / 95g)"
+      };
+    } catch (e) {
+      return { game: "VALORANT", dpi: 800, sens: 0.32, mouse: "Logicool G703h (定番エルゴ / 95g)" };
+    }
+  }
+
+  function saveUserEnvState(env) {
+    try {
+      localStorage.setItem(USER_ENV_STORAGE_KEY, JSON.stringify({
+        game: env.game,
+        dpi: env.dpi,
+        sens: env.sens
+      }));
+      if (env.mouse) {
+        currentUserMouseName = env.mouse;
+        localStorage.setItem("frag_user_mouse", env.mouse);
+      }
+    } catch (e) {}
+  }
+
+  // 3. グローバルマイ環境バーの構築と全タブ同期
+  function setupGlobalUserEnvBar() {
+    if (document.getElementById("frag-global-env-bar")) return;
+
+    const firstPage = document.querySelector(".page");
+    const targetParent = firstPage ? firstPage.parentElement : document.querySelector("main") || document.body;
+    const saved = loadSavedUserEnv();
+
+    // 初期値を感度マッチのフォームにも反映
+    const matchGameEl = document.getElementById("match-game");
+    const matchDpiEl = document.getElementById("match-dpi");
+    const matchSensEl = document.getElementById("match-sens");
+    if (matchGameEl) matchGameEl.value = saved.game;
+    if (matchDpiEl) matchDpiEl.value = String(saved.dpi);
+    if (matchSensEl) matchSensEl.value = String(saved.sens);
+    currentUserMouseName = saved.mouse;
+
+    const mouseOptionsHtml = Object.keys(MOUSE_SPECS_DB)
+      .filter((k) => k !== "Logitech G PRO X SUPERLIGHT 2")
+      .map((k) => `<option value="${escapeHtml(k)}" ${k === saved.mouse ? "selected" : ""}>${escapeHtml(k.split("(")[0].trim())} (${MOUSE_SPECS_DB[k].weight}g)</option>`)
+      .join("");
+
+    const cmVal = toCm360(saved.dpi, saved.sens, saved.game);
+
+    const barHtml = `
+      <section id="frag-global-env-bar" aria-label="マイ環境設定バー（全タブ自動同期）">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="padding: 0.2rem 0.5rem; border-radius: 5px; background: #d4ff33; color: #09090b; font-size: 0.66rem; font-weight: 900; letter-spacing: 0.04em;">MY SETUP</span>
+          <span style="font-size: 0.76rem; font-weight: 800; color: #fff;">マイ基準環境（全タブのSYNC率・比較に自動連動）</span>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
+          <label style="display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: #a1a1aa;">
+            <span>ゲーム:</span>
+            <select id="g-env-game">
+              <option value="VALORANT" ${saved.game === "VALORANT" ? "selected" : ""}>VALORANT</option>
+              <option value="Apex Legends" ${saved.game === "Apex Legends" ? "selected" : ""}>Apex Legends</option>
+              <option value="Overwatch 2" ${saved.game === "Overwatch 2" ? "selected" : ""}>Overwatch 2</option>
+            </select>
+          </label>
+
+          <div style="display: inline-flex; align-items: center; gap: 0.25rem;">
+            <span style="font-size: 0.72rem; color: #a1a1aa;">DPI:</span>
+            <input type="number" id="g-env-dpi" value="${saved.dpi}" min="100" max="32000" step="50" style="width: 68px;">
+            <button type="button" class="js-g-dpi-preset" data-dpi="400" style="cursor:pointer; padding:0.22rem 0.4rem; border-radius:4px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:#d4d4d8; font-size:0.65rem; font-weight:700;">400</button>
+            <button type="button" class="js-g-dpi-preset" data-dpi="800" style="cursor:pointer; padding:0.22rem 0.4rem; border-radius:4px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:#d4d4d8; font-size:0.65rem; font-weight:700;">800</button>
+            <button type="button" class="js-g-dpi-preset" data-dpi="1600" style="cursor:pointer; padding:0.22rem 0.4rem; border-radius:4px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:#d4d4d8; font-size:0.65rem; font-weight:700;">1600</button>
+          </div>
+
+          <label style="display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: #a1a1aa;">
+            <span>感度:</span>
+            <input type="number" id="g-env-sens" value="${saved.sens}" min="0.01" max="50" step="0.01" style="width: 68px;">
+          </label>
+
+          <label style="display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: #a1a1aa;">
+            <span>今のマウス:</span>
+            <select id="g-env-mouse" style="max-width: 175px;">
+              ${mouseOptionsHtml}
+            </select>
+          </label>
+
+          <span id="g-env-cm-badge" style="padding: 0.28rem 0.65rem; border-radius: 999px; background: rgba(212, 255, 51, 0.14); border: 1px solid #d4ff33; color: #d4ff33; font-size: 0.74rem; font-weight: 900; font-family: monospace; white-space: nowrap;">
+            振り向き ${Number.isFinite(cmVal) ? cmVal.toFixed(1) : "--"} cm/360°
+          </span>
+        </div>
+      </section>
+    `;
+
+    if (firstPage) {
+      firstPage.insertAdjacentHTML("beforebegin", barHtml);
+    } else {
+      targetParent.insertAdjacentHTML("afterbegin", barHtml);
+    }
+
+    const gGame = document.getElementById("g-env-game");
+    const gDpi = document.getElementById("g-env-dpi");
+    const gSens = document.getElementById("g-env-sens");
+    const gMouse = document.getElementById("g-env-mouse");
+    const gCmBadge = document.getElementById("g-env-cm-badge");
+
+    function applyGlobalEnvUpdate(triggerMatchSubmit = false) {
+      const nextEnv = {
+        game: gGame.value || "VALORANT",
+        dpi: Number(gDpi.value) || 800,
+        sens: Number(gSens.value) || 0.32,
+        mouse: gMouse.value || currentUserMouseName
+      };
+
+      saveUserEnvState(nextEnv);
+
+      // 振り向きバッジの即時更新
+      const nextCm = toCm360(nextEnv.dpi, nextEnv.sens, nextEnv.game);
+      if (gCmBadge) {
+        gCmBadge.textContent = `振り向き ${Number.isFinite(nextCm) ? nextCm.toFixed(1) : "--"} cm/360°`;
+      }
+
+      // 感度マッチのフォームへ同期
+      if (matchGameEl) matchGameEl.value = nextEnv.game;
+      if (matchDpiEl) matchDpiEl.value = String(nextEnv.dpi);
+      if (matchSensEl) matchSensEl.value = String(nextEnv.sens);
+
+      // プレイヤー検索カードのSYNC率を再計算して描画更新
+      renderPlayers();
+
+      // 表示中のマウス比較パネルがあれば現在のマウスを即時反映
+      document.querySelectorAll("[id$='-mouse-vs']").forEach((el) => {
+        const targetDev = el.dataset.targetDevice;
+        if (targetDev && findMouseSpec(targetDev)) {
+          el.outerHTML = buildMouseComparisonHtml(targetDev, el.id);
+        }
+      });
+
+      // もし現在「04: 感度マッチ」タブを開いているならそのまま自動再検索
+      const isMatchActive = document.getElementById("page-match")?.classList.contains("active");
+      if (triggerMatchSubmit || isMatchActive) {
+        document.getElementById("match-form")?.dispatchEvent(new Event("submit", { cancelable: true }));
+      }
+    }
+
+    [gGame, gDpi, gSens, gMouse].forEach((el) => {
+      el?.addEventListener("change", () => applyGlobalEnvUpdate(false));
+    });
+    [gDpi, gSens].forEach((el) => {
+      el?.addEventListener("input", () => {
+        const nextCm = toCm360(Number(gDpi.value) || 800, Number(gSens.value) || 0.32, gGame.value);
+        if (gCmBadge) {
+          gCmBadge.textContent = `振り向き ${Number.isFinite(nextCm) ? nextCm.toFixed(1) : "--"} cm/360°`;
+        }
+      });
+    });
+
+    // DPIワンタッププリセットボタン（400 / 800 / 1600）
+    document.querySelectorAll(".js-g-dpi-preset").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        gDpi.value = btn.dataset.dpi;
+        applyGlobalEnvUpdate(false);
+      });
+    });
+
+    // 逆方向の同期：感度マッチ側やマウス比較プルダウン側で変更されたときも上部バーへ反映
+    document.getElementById("match-form")?.addEventListener("submit", () => {
+      if (matchGameEl && gGame) gGame.value = matchGameEl.value;
+      if (matchDpiEl && gDpi) gDpi.value = matchDpiEl.value;
+      if (matchSensEl && gSens) gSens.value = matchSensEl.value;
+      saveUserEnvState({
+        game: gGame.value,
+        dpi: Number(gDpi.value),
+        sens: Number(gSens.value),
+        mouse: currentUserMouseName
+      });
+      const cm = toCm360(Number(gDpi.value), Number(gSens.value), gGame.value);
+      if (gCmBadge) gCmBadge.textContent = `振り向き ${Number.isFinite(cm) ? cm.toFixed(1) : "--"} cm/360°`;
+      renderPlayers();
+    });
+
+    document.addEventListener("change", (e) => {
+      const mouseSelect = e.target.closest(".js-user-mouse-select");
+      if (mouseSelect && gMouse) {
+        gMouse.value = mouseSelect.value;
+        saveUserEnvState({
+          game: gGame.value,
+          dpi: Number(gDpi.value),
+          sens: Number(gSens.value),
+          mouse: mouseSelect.value
+        });
+        renderPlayers();
+      }
+    });
+  }
+
+  // 4. デバイスクリック時の「スムーズスクロール ＆ 枠発光ハイライト」
+  document.addEventListener("click", (e) => {
+    // 🛒購入ボタンや☆お気に入りボタンを押したときはスクロールさせない
+    if (e.target.closest("a, .js-fav-device-btn, .js-fav-player-btn")) return;
+
+    const trigger = e.target.closest(".js-search-yt-trigger, .js-ranking-yt-trigger, .js-consult-yt-trigger, .js-yt-trigger");
+    if (!trigger) return;
+
+    let targetSectionId = "search-youtube-section";
+    if (trigger.classList.contains("js-ranking-yt-trigger")) targetSectionId = "ranking-youtube-section";
+    else if (trigger.classList.contains("js-consult-yt-trigger")) targetSectionId = "consult-youtube-section";
+    else if (trigger.classList.contains("js-yt-trigger")) targetSectionId = "youtube-reviews-section";
+
+    setTimeout(() => {
+      const sec = document.getElementById(targetSectionId);
+      if (!sec) return;
+
+      // 画面上部から少し余白を持たせてスムーズスクロール
+      const rect = sec.getBoundingClientRect();
+      const targetY = window.scrollY + rect.top - 72;
+      window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+
+      // 切り替わったことが一目でわかるパルス発光アニメーション
+      sec.classList.remove("frag-scroll-highlight");
+      void sec.offsetWidth; // リフローさせてアニメーションを再トリガー
+      sec.classList.add("frag-scroll-highlight");
+    }, 90);
+  });
+
+  // 初回実行
+  setupGlobalUserEnvBar();
+  renderPlayers();
+})();
+// ============================================================================
+// UX大幅改善③・④・⑤：感度リアルタイムスライダー ＆ 検索サジェスト・一発クリア ＆ スマホ下部固定ナビ
+// ============================================================================
+(() => {
+  // 1. スライダー・リセットボタン・スマホ下部ナビゲーション用CSSの注入
+  if (!document.getElementById("frag-ux-pack-345-css")) {
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      `<style id="frag-ux-pack-345-css">
+        /* ③ 感度レンジスライダーのカスタムスタイル */
+        .frag-sens-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          height: 6px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #38bdf8 0%, #d4ff33 50%, #f472b6 100%);
+          outline: none;
+          margin-top: 0.45rem;
+          cursor: pointer;
+        }
+        .frag-sens-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: #fff;
+          border: 2.5px solid #09090b;
+          box-shadow: 0 0 10px rgba(212, 255, 51, 0.9);
+          cursor: grab;
+          transition: transform 0.12s ease;
+        }
+        .frag-sens-slider::-webkit-slider-thumb:active {
+          cursor: grabbing;
+          transform: scale(1.2);
+          background: #d4ff33;
+        }
+        .frag-dpi-quick-btn {
+          cursor: pointer;
+          padding: 0.2rem 0.48rem;
+          border-radius: 5px;
+          font-size: 0.68rem;
+          font-weight: 800;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          color: #d4d4d8;
+          transition: all 0.15s;
+        }
+        .frag-dpi-quick-btn.is-active,
+        .frag-dpi-quick-btn:hover {
+          background: rgba(212, 255, 51, 0.18);
+          border-color: #d4ff33;
+          color: #d4ff33;
+        }
+
+        /* ⑤ スマホ専用ボトムナビゲーション（768px以下で表示） */
+        #frag-mobile-bottom-nav {
+          display: none;
+        }
+        @media (max-width: 768px) {
+          body {
+            padding-bottom: 74px !important;
+          }
+          #frag-compare-tray-root > button {
+            bottom: 4.8rem !important;
+            right: 1rem !important;
+          }
+          #frag-mobile-bottom-nav {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 62px;
+            z-index: 9997;
+            background: rgba(10, 10, 15, 0.96);
+            backdrop-filter: blur(14px);
+            border-top: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.75);
+            padding: 0 0.25rem;
+            box-sizing: border-box;
+          }
+          .frag-m-nav-btn {
+            appearance: none;
+            background: transparent;
+            border: none;
+            color: #a1a1aa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.18rem;
+            font-size: 0.66rem;
+            font-weight: 800;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.15s;
+          }
+          .frag-m-nav-btn .m-icon {
+            font-size: 1.05rem;
+            line-height: 1;
+          }
+          .frag-m-nav-btn.is-active {
+            color: #d4ff33;
+          }
+          .frag-m-nav-btn.is-active::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 22%;
+            right: 22%;
+            height: 2.5px;
+            border-radius: 0 0 4px 4px;
+            background: #d4ff33;
+            box-shadow: 0 0 8px #d4ff33;
+          }
+        }
+      </style>`
+    );
+  }
+
+  // ==========================================================================
+  // ③ 感度マッチ：リアルタイム・スライダー ＆ DPIワンタップ切替
+  // ==========================================================================
+  function setupRealtimeMatchSliders() {
+    const matchForm = document.getElementById("match-form");
+    const gameSelect = document.getElementById("match-game");
+    const dpiInput = document.getElementById("match-dpi");
+    const sensInput = document.getElementById("match-sens");
+    if (!matchForm || !gameSelect || !dpiInput || !sensInput || document.getElementById("frag-sens-range-slider")) return;
+
+    // ゲームタイトルごとの感度スライダー範囲定義
+    const SLIDER_SPECS = {
+      "VALORANT": { min: 0.05, max: 1.0, step: 0.005 },
+      "Apex Legends": { min: 0.2, max: 4.0, step: 0.05 },
+      "Overwatch 2": { min: 1.0, max: 15.0, step: 0.1 }
+    };
+
+    // A. DPI入力欄の下にワンタップボタン（400 / 800 / 1600 / 3200）を追加
+    const dpiBarHtml = `
+      <div id="frag-match-dpi-presets" style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.4rem; flex-wrap: wrap;">
+        <span style="font-size: 0.65rem; color: #a1a1aa;">定番DPI:</span>
+        ${[400, 800, 1600, 3200].map((d) => `
+          <button type="button" class="frag-dpi-quick-btn ${Number(dpiInput.value) === d ? 'is-active' : ''}" data-dpi="${d}">${d}</button>
+        `).join("")}
+      </div>
+    `;
+    dpiInput.insertAdjacentHTML("afterend", dpiBarHtml);
+
+    // B. 感度入力欄の下にリアルタイム・スライダーとライブ振り向きプレビューを追加
+    const initGame = normalizeGameName(gameSelect.value) || "VALORANT";
+    const sSpec = SLIDER_SPECS[initGame] || SLIDER_SPECS["VALORANT"];
+    const initCm = toCm360(Number(dpiInput.value) || 800, Number(sensInput.value) || 0.35, initGame);
+
+    const sliderWrapHtml = `
+      <div style="margin-top: 0.35rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem;">
+          <span style="color: #a1a1aa;">スライダーで微調整（自動検索）</span>
+          <strong id="frag-live-cm-preview" style="color: #d4ff33; font-family: monospace;">
+            振り向き ${Number.isFinite(initCm) ? initCm.toFixed(1) : "--"} cm/360°
+          </strong>
+        </div>
+        <input type="range" id="frag-sens-range-slider" class="frag-sens-slider"
+               min="${sSpec.min}" max="${sSpec.max}" step="${sSpec.step}" value="${sensInput.value || 0.35}">
+      </div>
+    `;
+    sensInput.insertAdjacentHTML("afterend", sliderWrapHtml);
+
+    const sliderEl = document.getElementById("frag-sens-range-slider");
+    const liveCmEl = document.getElementById("frag-live-cm-preview");
+    const dpiBtns = matchForm.querySelectorAll(".frag-dpi-quick-btn");
+
+    let debounceTimer = null;
+    function triggerRealtimeMatch() {
+      const g = gameSelect.value;
+      const d = Number(dpiInput.value) || 800;
+      const s = Number(sensInput.value) || 0.35;
+      const cm = toCm360(d, s, g);
+      if (liveCmEl) {
+        liveCmEl.textContent = `振り向き ${Number.isFinite(cm) ? cm.toFixed(1) : "--"} cm/360°`;
+      }
+
+      // 上部のマイ環境バーにも数値を同期
+      const gGame = document.getElementById("g-env-game");
+      const gDpi = document.getElementById("g-env-dpi");
+      const gSens = document.getElementById("g-env-sens");
+      const gBadge = document.getElementById("g-env-cm-badge");
+      if (gGame) gGame.value = g;
+      if (gDpi) gDpi.value = String(d);
+      if (gSens) gSens.value = String(s);
+      if (gBadge) gBadge.textContent = `振り向き ${Number.isFinite(cm) ? cm.toFixed(1) : "--"} cm/360°`;
+
+      dpiBtns.forEach((b) => b.classList.toggle("is-active", Number(b.dataset.dpi) === d));
+
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        matchForm.dispatchEvent(new Event("submit", { cancelable: true }));
+      }, 180);
+    }
+
+    // スライダー操作時
+    sliderEl.addEventListener("input", () => {
+      sensInput.value = sliderEl.value;
+      triggerRealtimeMatch();
+    });
+
+    // 数値直接入力時
+    sensInput.addEventListener("input", () => {
+      sliderEl.value = sensInput.value;
+      triggerRealtimeMatch();
+    });
+    dpiInput.addEventListener("input", triggerRealtimeMatch);
+
+    // DPIボタンクリック時
+    dpiBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        dpiInput.value = btn.dataset.dpi;
+        triggerRealtimeMatch();
+      });
+    });
+
+    // ゲーム変更時にスライダーの最小・最大レンジを自動調整
+    gameSelect.addEventListener("change", () => {
+      const nextGame = normalizeGameName(gameSelect.value) || "VALORANT";
+      const nextSpec = SLIDER_SPECS[nextGame] || SLIDER_SPECS["VALORANT"];
+      sliderEl.min = nextSpec.min;
+      sliderEl.max = nextSpec.max;
+      sliderEl.step = nextSpec.step;
+
+      // 現在の振り向き距離を維持したまま新ゲームの感度へ自動換算
+      const currentCm = parseFloat((liveCmEl?.textContent || "").replace(/[^\d.]/g, "")) || 35;
+      const converted = fromCm360ToSens(currentCm, Number(dpiInput.value) || 800, nextGame);
+      if (Number.isFinite(converted)) {
+        const rounded = nextGame === "VALORANT" ? converted.toFixed(3) : converted.toFixed(2);
+        sensInput.value = rounded;
+        sliderEl.value = rounded;
+      }
+      triggerRealtimeMatch();
+    });
+  }
+
+  // ==========================================================================
+  // ④ プレイヤー検索：予測サジェスト候補（datalist）＆「↺ 条件一発クリア」ボタン
+  // ==========================================================================
+  function setupSearchAutocompleteAndReset() {
+    const queryInput = document.getElementById("player-query");
+    if (!queryInput || document.getElementById("frag-search-Reset-btn")) return;
+
+    // A. 全プレイヤー名・全デバイス名・主要タグを網羅した予測変換リスト（<datalist>）を生成
+    const suggestions = new Set([
+      "ぶいすぽっ！", "にじさんじ", "ZETA DIVISION", "ラピトリ 0.10mm", "4:3 引き伸ばし", "4000Hz"
+    ]);
+    getMergedPlayersList().forEach((p) => {
+      if (p?.name) suggestions.add(p.name);
+      Object.values(p?.devices || {}).forEach((dev) => {
+        if (dev && dev !== "データなし") suggestions.add(dev);
+      });
+    });
+
+    const datalistHtml = `
+      <datalist id="frag-player-device-suggestions">
+        ${[...suggestions].map((item) => `<option value="${escapeHtml(item)}"></option>`).join("")}
+      </datalist>
+    `;
+    document.body.insertAdjacentHTML("beforeend", datalistHtml);
+    queryInput.setAttribute("list", "frag-player-device-suggestions");
+    queryInput.placeholder = "選手名・配信者・デバイス名で検索（例: 葛葉, ぶいすぽ, Wooting, Sora V2...）";
+
+    // B. 検索入力欄のすぐ横に「✕ クリア」ボタン、フィルターバーに「↺ 条件をすべてリセット」を追加
+    const parentWrap = queryInput.parentElement;
+    if (parentWrap) {
+      parentWrap.style.position = "relative";
+      queryInput.style.paddingRight = "4.8rem";
+      parentWrap.insertAdjacentHTML(
+        "beforeend",
+        `<button type="button" id="frag-search-Reset-btn"
+                 title="検索ワードと絞り込み条件をすべて初期状態に戻す"
+                 style="position: absolute; right: 0.45rem; bottom: 0.42rem; cursor: pointer; padding: 0.26rem 0.55rem; border-radius: 6px; background: rgba(239, 68, 68, 0.16); border: 1px solid rgba(239, 68, 68, 0.45); color: #fca5a5; font-size: 0.7rem; font-weight: 800; display: none;">
+           ↺ クリア
+         </button>`
+      );
+    }
+
+    const clearBtn = document.getElementById("frag-search-Reset-btn");
+
+    function updateClearButtonVisibility() {
+      if (!clearBtn) return;
+      const hasFilter =
+        queryInput.value.trim() !== "" ||
+        document.getElementById("search-game")?.value !== "" ||
+        document.getElementById("search-role")?.value !== "" ||
+        currentCreatorTypeFilter !== "all" ||
+        currentSensBandFilter !== "all" ||
+        currentSortOrder !== "default" ||
+        showOnlyFavoritePlayers;
+      clearBtn.style.display = hasFilter ? "inline-flex" : "none";
+    }
+
+    window.resetAllSearchFilters = function () {
+      queryInput.value = "";
+      const sGame = document.getElementById("search-game");
+      const sRole = document.getElementById("search-role");
+      const sSort = document.getElementById("search-sort-order");
+      if (sGame) sGame.value = "";
+      if (sRole) populateRoleOptions(sRole, "", true);
+      if (sSort) sSort.value = "default";
+
+      currentCreatorTypeFilter = "all";
+      currentSensBandFilter = "all";
+      currentSortOrder = "default";
+      showOnlyFavoritePlayers = false;
+
+      document.querySelectorAll(".js-creator-tab").forEach((t) => {
+        const active = t.dataset.type === "all";
+        t.style.borderColor = active ? "#d4ff33" : "rgba(255,255,255,0.12)";
+        t.style.background = active ? "rgba(212, 255, 51, 0.15)" : "rgba(255,255,255,0.03)";
+        t.style.color = active ? "#fff" : "#a1a1aa";
+      });
+      document.querySelectorAll(".js-sens-band-tab").forEach((t) => {
+        const active = t.dataset.band === "all";
+        t.style.borderColor = active ? "#d4ff33" : "rgba(255,255,255,0.12)";
+        t.style.background = active ? "rgba(212, 255, 51, 0.15)" : "rgba(255,255,255,0.03)";
+        t.style.color = active ? "#fff" : "#a1a1aa";
+      });
+
+      renderPlayers();
+      syncUrlWithCurrentState();
+      updateClearButtonVisibility();
+    };
+
+    clearBtn?.addEventListener("click", window.resetAllSearchFilters);
+
+    // フィルターバーの右端にも常設リセットボタンを追加
+    const filterBar = document.getElementById("creator-type-filter-bar");
+    if (filterBar && !document.getElementById("frag-bar-reset-all-btn")) {
+      filterBar.insertAdjacentHTML(
+        "beforeend",
+        `<button type="button" id="frag-bar-reset-all-btn"
+                 onclick="window.resetAllSearchFilters()"
+                 style="cursor: pointer; padding: 0.36rem 0.75rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.04); color: #d4d4d8;">
+           ↺ 条件リセット
+         </button>`
+      );
+    }
+
+    queryInput.addEventListener("input", updateClearButtonVisibility);
+    document.addEventListener("click", () => setTimeout(updateClearButtonVisibility, 50));
+    document.addEventListener("change", () => setTimeout(updateClearButtonVisibility, 50));
+  }
+
+  // ==========================================================================
+  // ⑤ スマホ操作特化：画面下部固定のアプリ風ボトムナビゲーション（4タブ連動）
+  // ==========================================================================
+  function setupMobileBottomNavigation() {
+    if (document.getElementById("frag-mobile-bottom-nav")) return;
+
+    const activeNav = document.querySelector(".nav-item.active")?.dataset?.page || "consult";
+    const mobileTabs = [
+      { page: "consult", icon: "💡", label: "デバイス相談" },
+      { page: "search", icon: "🔍", label: "選手・配信者" },
+      { page: "rankings", icon: "👑", label: "プロ使用率" },
+      { page: "match", icon: "🎯", label: "感度マッチ" }
+    ];
+
+    const navHtml = `
+      <nav id="frag-mobile-bottom-nav" aria-label="モバイル用下部タブナビゲーション">
+        ${mobileTabs.map((t) => `
+          <button type="button" class="frag-m-nav-btn ${t.page === activeNav ? 'is-active' : ''}" data-target-page="${t.page}">
+            <span class="m-icon">${t.icon}</span>
+            <span>${t.label}</span>
+          </button>
+        `).join("")}
+      </nav>
+    `;
+    document.body.insertAdjacentHTML("beforeend", navHtml);
+
+    const mobileBtns = document.querySelectorAll(".frag-m-nav-btn");
+
+    // 下部ナビをタップしたときに既存の上部タブをクリックして画面上へスムーズ移動
+    mobileBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const page = btn.dataset.targetPage;
+        const desktopNavBtn = document.querySelector(`.nav-item[data-page="${page}"]`);
+        if (desktopNavBtn) desktopNavBtn.click();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+
+    // 上部タブやディープリンクでタブが切り替わったときも下部ナビのハイライトを同期
+    document.querySelectorAll(".nav-item").forEach((desktopBtn) => {
+      desktopBtn.addEventListener("click", () => {
+        const currentPage = desktopBtn.dataset.page;
+        mobileBtns.forEach((mBtn) => {
+          mBtn.classList.toggle("is-active", mBtn.dataset.targetPage === currentPage);
+        });
+      });
+    });
+  }
+
+  // 初回セットアップ実行
+  setupRealtimeMatchSliders();
+  setupSearchAutocompleteAndReset();
+  setupMobileBottomNavigation();
+})();
