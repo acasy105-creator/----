@@ -5491,7 +5491,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   setupMobileBottomNavigation();
 })();
 // ============================================================================
-// UI＆ロジック修正パッチ：プロ使用率のPCレイアウト改善 ＆ 感度マッチの選択ゲーム上位3名抽出
+// UI＆ロジック修正パッチ（完全版）：プロ使用率のデバイス名表示・二重画像修正 ＆ 感度マッチ3名抽出
 // ============================================================================
 (() => {
   // --------------------------------------------------------------------------
@@ -5518,7 +5518,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
         }
       } catch (e) {}
 
-      // APIから返った選手 ＋ フロント統合DBの選手を合わせ、重複を除外して「選択したゲーム」だけで絞り込む
       const combinedPool = [...apiPlayers, ...getMergedPlayersList()];
       const seen = new Set();
       const sameGameCandidates = [];
@@ -5526,7 +5525,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       combinedPool.forEach((p) => {
         if (!p || typeof p.name !== "string") return;
         const pGame = normalizeGameName(p.game);
-        if (pGame !== normalizedTargetGame) return; // 選んだゲーム以外は除外
+        if (pGame !== normalizedTargetGame) return;
 
         const key = p.name.split(/[（(]/)[0].trim().toLowerCase();
         if (seen.has(key)) return;
@@ -5549,7 +5548,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
         });
       });
 
-      // 振り向き（cm/360°）が近い順にソートし、きっちり上位3名を返す
       const topThreePlayers = sameGameCandidates
         .sort((a, b) => a._diff - b._diff)
         .slice(0, 3);
@@ -5564,17 +5562,16 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   };
 
   // --------------------------------------------------------------------------
-  // 2. プロ使用率ランキングのPCレイアウト崩れ修正（2×2グリッド化 ＆ 行内の3段整理）
+  // 2. プロ使用率ランキングの描画関数（renderRankings）を直接クリーン版に置き換え
   // --------------------------------------------------------------------------
-  if (!document.getElementById("frag-ranking-pc-fix-css")) {
+  if (!document.getElementById("frag-ranking-clean-v2-css")) {
     document.head.insertAdjacentHTML(
       "beforeend",
-      `<style id="frag-ranking-pc-fix-css">
-        /* PC画面で4列に潰れるのを防ぎ、見やすい2列×2段グリッドに固定 */
+      `<style id="frag-ranking-clean-v2-css">
         #ranking-content {
           display: grid !important;
-          grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)) !important;
-          gap: 1.5rem !important;
+          grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)) !important;
+          gap: 1.35rem !important;
         }
         @media (max-width: 560px) {
           #ranking-content {
@@ -5582,21 +5579,20 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
           }
         }
         #ranking-content .category-card {
-          padding: 1.35rem !important;
+          padding: 1.25rem !important;
           box-sizing: border-box !important;
-          overflow: hidden !important;
         }
         #ranking-content .rank-row {
-          display: grid !important;
-          grid-template-columns: 28px 54px 1fr !important;
+          display: flex !important;
           align-items: center !important;
           gap: 0.75rem !important;
-          padding: 0.65rem 0.75rem !important;
-          margin-bottom: 0.5rem !important;
+          padding: 0.7rem 0.8rem !important;
+          margin-bottom: 0.55rem !important;
           border-radius: 10px !important;
           background: rgba(255, 255, 255, 0.025) !important;
-          border: 1px solid rgba(255, 255, 255, 0.07) !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
           box-sizing: border-box !important;
+          width: 100% !important;
         }
         #ranking-content .rank-row:hover {
           background: rgba(191, 87, 255, 0.1) !important;
@@ -5606,96 +5602,172 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     );
   }
 
-  // G640 や G840 などのマウスパッドがマウス画像になるのを防ぐ補強
-  const prevThumbFn = window.renderDeviceVisualThumb;
+  // G640 等のマウスパッドがマウス画像になるのを防ぐ
+  const origThumb = window.renderDeviceVisualThumb;
   window.renderDeviceVisualThumb = function (deviceName, categoryHint = "", size = "md") {
     let fixedHint = categoryHint;
     if (!fixedHint && /g640|g840|g240|gigantus|strider|qck|zero|hayate|hien|vaxee pa|saturn|g-sr|wallhack|skypad/i.test(String(deviceName))) {
       fixedHint = "マウスパッド";
     }
-    return prevThumbFn(deviceName, fixedHint, size);
+    return origThumb ? origThumb(deviceName, fixedHint, size) : "";
   };
 
-  // プロ使用率ランキングの各行を「はみ出しゼロの3段構成」に再構築する関数
-  function reformatRankingRowsCleanly() {
-    document.querySelectorAll("#ranking-content .category-card").forEach((card) => {
-      const categoryTitle = card.querySelector(".category-heading h3")?.textContent?.trim() || "";
+  // renderRankings 自体を上書きし、最初から「順位 ＋ 画像1個 ＋ 名前・バー・ボタン」で描画する
+  window.renderRankings = function (game) {
+    const normalizedGame = normalizeGameName(game);
+    const allMerged = getMergedPlayersList();
+    const gamePlayers = allMerged.filter((player) => normalizeGameName(player?.game) === normalizedGame);
+    const sourceLabel = players === demoPlayers ? "DEMO DATA" : "PRO & CREATOR DB";
+    const totalEl = document.getElementById("ranking-total");
+    if (totalEl) totalEl.textContent = `${gamePlayers.length} PLAYERS · ${sourceLabel}`;
 
-      card.querySelectorAll(".rank-row").forEach((row) => {
-        if (row.dataset.cleanLayoutApplied === "true") return;
-        row.dataset.cleanLayoutApplied = "true";
+    const rankingContentEl = document.getElementById("ranking-content");
+    if (!rankingContentEl) return;
 
-        const devName = row.dataset.device || "";
-        if (!devName) return;
+    let topDeviceForInitialVideo = null;
 
-        const rankNumText = row.querySelector(".rank-num")?.textContent?.trim() || "01";
-        const pctText = row.querySelector(".rank-percent")?.textContent?.trim() || "0%";
-        const price = getDevicePrice(devName, categoryTitle);
-        const thumbHtml = window.renderDeviceVisualThumb(devName, categoryTitle, "sm");
-        const amzUrl = getAmazonAffiliateUrl(devName);
-        const rakUrl = getRakutenAffiliateUrl(devName);
-        const isTop1 = rankNumText === "01";
+    rankingContentEl.innerHTML = categoryLabels.map((category) => {
+      const counts = new Map();
+      let observedProfiles = 0;
+      gamePlayers.forEach((player) => {
+        const device = player?.devices && player.devices[category];
+        if (device && device !== "データなし") {
+          observedProfiles++;
+          counts.set(device, (counts.get(device) || 0) + 1);
+        }
+      });
 
-        row.innerHTML = `
-          <!-- 1列目：順位 -->
-          <span class="rank-num" style="font-size: 0.9rem; font-weight: 900; color: ${isTop1 ? '#d4ff33' : '#a1a1aa'}; font-family: monospace; text-align: center;">
-            ${escapeHtml(rankNumText)}
-          </span>
+      const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"));
+      if (!topDeviceForInitialVideo && ranked.length > 0) {
+        topDeviceForInitialVideo = ranked[0][0];
+      }
 
-          <!-- 2列目：カテゴリ別デバイスサムネイル（G640も正しくマウスパッド画像で描画） -->
-          ${thumbHtml}
+      const rowsHtml = ranked.length
+        ? ranked.map(([name, count], index) => {
+            const percentage = observedProfiles ? Math.round((count / observedProfiles) * 100) : 0;
+            const price = getDevicePrice(name, category);
+            const rankStr = String(index + 1).padStart(2, "0");
+            const isTop1 = index === 0;
+            const thumbHtml = window.renderDeviceVisualThumb(name, category, "sm");
+            const amzUrl = getAmazonAffiliateUrl(name);
+            const rakUrl = getRakutenAffiliateUrl(name);
 
-          <!-- 3列目：1段目(製品名＋使用率%) / 2段目(バー) / 3段目(価格＋動画＋Amazon＋楽天＋☆) -->
-          <div style="min-width: 0; display: flex; flex-direction: column; gap: 0.32rem; width: 100%;">
-            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;">
-              <strong style="font-size: 0.88rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(devName)}">
-                ${escapeHtml(devName)}
-              </strong>
-              <span style="font-size: 0.82rem; font-weight: 900; color: #d4ff33; font-family: monospace; flex-shrink: 0;">
-                ${escapeHtml(pctText)}
-              </span>
-            </div>
+            // data-visual-thumb-added="true" を最初から付与し、他処理による2個目の画像挿入を完全ブロック
+            return `
+              <div class="rank-row js-ranking-yt-trigger"
+                   data-device="${escapeHtml(name)}"
+                   data-visual-thumb-added="true"
+                   data-clean-layout-applied="true"
+                   style="cursor: pointer;"
+                   title="クリックして「${escapeHtml(name)}」のスペック比較＆レビュー動画を表示">
 
-            <div class="rank-bar-wrap" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;">
-              <div class="rank-bar" style="width: ${escapeHtml(pctText)}; height: 100%; background: linear-gradient(90deg, #d4ff33, #38bdf8);"></div>
-            </div>
+                <!-- 1. 順位 -->
+                <span class="rank-num" style="width: 24px; flex-shrink: 0; font-size: 0.92rem; font-weight: 900; color: ${isTop1 ? '#d4ff33' : '#a1a1aa'}; font-family: monospace; text-align: center;">
+                  ${rankStr}
+                </span>
 
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.1rem;">
-              <div style="display: inline-flex; align-items: center; gap: 0.45rem;">
-                ${price > 0 ? `<span style="font-size: 0.72rem; color: #a1a1aa; font-family: monospace; font-weight: 700;">${formatYen(price)}</span>` : ""}
-                <span style="font-size: 0.68rem; color: #d8b4fe; font-weight: 800; white-space: nowrap;">▶ 動画・比較</span>
-              </div>
+                <!-- 2. デバイスイラスト（1個のみ固定） -->
+                ${thumbHtml}
 
-              <div style="display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto;">
-                <a href="${escapeHtml(amzUrl)}" target="_blank" rel="sponsored noopener noreferrer" class="frag-shop-btn-amz" onclick="event.stopPropagation();"
-                   style="text-decoration:none; font-size:0.65rem; padding:0.18rem 0.48rem; border-radius:4px; background:rgba(255,153,0,0.16); border:1px solid rgba(255,153,0,0.55); color:#ffb84d; font-weight:800; white-space:nowrap;">🛒 Amazon価格</a>
-                <a href="${escapeHtml(rakUrl)}" target="_blank" rel="sponsored noopener noreferrer" class="frag-shop-btn-rak" onclick="event.stopPropagation();"
-                   style="text-decoration:none; font-size:0.65rem; padding:0.18rem 0.48rem; border-radius:4px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.55); color:#fca5a5; font-weight:800; white-space:nowrap;">🛍 楽天最安</a>
-                <button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(devName)}"
-                        onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)"
-                        title="欲しいものリストに保存"
-                        style="cursor:pointer; padding:0.16rem 0.42rem; border-radius:4px; font-size:0.66rem; font-weight:800; line-height:1;">☆</button>
-              </div>
-            </div>
+                <!-- 3. デバイス名 ＋ 使用率バー ＋ 価格・購入ボタン -->
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+
+                  <!-- 1段目：デバイス名（白太字で確実に見える） ＋ 使用率% -->
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;">
+                    <div style="font-size: 0.92rem; font-weight: 800; color: #ffffff; line-height: 1.3; word-break: break-word;">
+                      ${escapeHtml(name)}
+                    </div>
+                    <span style="font-size: 0.85rem; font-weight: 900; color: #d4ff33; font-family: monospace; flex-shrink: 0;">
+                      ${percentage}%
+                    </span>
+                  </div>
+
+                  <!-- 2段目：使用率プログレスバー -->
+                  <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;">
+                    <div style="width: ${percentage}%; height: 100%; background: linear-gradient(90deg, #d4ff33 0%, #38bdf8 100%); border-radius: 999px;"></div>
+                  </div>
+
+                  <!-- 3段目：参考価格 ＋ 動画比較 ＋ Amazon・楽天ボタン -->
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.1rem;">
+                    <div style="display: inline-flex; align-items: center; gap: 0.45rem;">
+                      ${price > 0 ? `<span style="font-size: 0.74rem; color: #d4d4d8; font-family: monospace; font-weight: 700;">${formatYen(price)}</span>` : ""}
+                      <span style="font-size: 0.68rem; color: #d8b4fe; font-weight: 800; white-space: nowrap;">▶ 動画・比較</span>
+                    </div>
+
+                    <div style="display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto;">
+                      <a href="${escapeHtml(amzUrl)}" target="_blank" rel="sponsored noopener noreferrer" class="frag-shop-btn-amz" data-ctr-upgraded="true" onclick="event.stopPropagation();"
+                         style="text-decoration:none; font-size:0.65rem; padding:0.18rem 0.48rem; border-radius:4px; background:rgba(255,153,0,0.16); border:1px solid rgba(255,153,0,0.55); color:#ffb84d; font-weight:800; white-space:nowrap;">🛒 Amazon価格</a>
+                      <a href="${escapeHtml(rakUrl)}" target="_blank" rel="sponsored noopener noreferrer" class="frag-shop-btn-rak" data-ctr-upgraded="true" onclick="event.stopPropagation();"
+                         style="text-decoration:none; font-size:0.65rem; padding:0.18rem 0.48rem; border-radius:4px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.55); color:#fca5a5; font-weight:800; white-space:nowrap;">🛍 楽天最安</a>
+                      <button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(name)}"
+                              onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)"
+                              title="欲しいものリストに保存"
+                              style="cursor:pointer; padding:0.16rem 0.42rem; border-radius:4px; font-size:0.66rem; font-weight:800; line-height:1;">☆</button>
+                    </div>
+                  </div>
+                </div>
+              </div>`;
+          }).join("")
+        : '<p class="ranking-empty">このカテゴリのデータはありません。</p>';
+
+      return `
+        <article class="category-card">
+          <div class="category-heading">
+            <h3>${escapeHtml(category)}</h3>
+            <span>${ranked.length} MODELS</span>
           </div>
-        `;
+          ${rowsHtml}
+        </article>`;
+    }).join("");
+
+    refreshAllInteractiveEnhancements();
+
+    const triggers = rankingContentEl.querySelectorAll(".js-ranking-yt-trigger");
+    triggers.forEach((trigger) => {
+      trigger.addEventListener("click", () => {
+        triggers.forEach((t) => {
+          t.style.background = "rgba(255, 255, 255, 0.025)";
+          t.style.outline = "none";
+        });
+        trigger.style.background = "rgba(191, 87, 255, 0.16)";
+        trigger.style.outline = "1px solid #bf57ff";
+        renderYouTubeSection({
+          sectionId: "ranking-youtube-section",
+          anchorElement: rankingContentEl,
+          position: "afterend",
+          titlePrefix: `${normalizedGame} 人気デバイス`,
+          deviceName: trigger.dataset.device,
+          hintText: "※ランキングの各モデルをクリックで切り替え"
+        });
       });
     });
-  }
 
-  // ランキング再描画や画面更新のたびにクリーンレイアウトを適用
-  const prevRefresh = refreshAllInteractiveEnhancements;
-  refreshAllInteractiveEnhancements = function () {
-    reformatRankingRowsCleanly();
-    prevRefresh();
+    if (topDeviceForInitialVideo) {
+      const firstTrigger = rankingContentEl.querySelector(".js-ranking-yt-trigger");
+      if (firstTrigger) {
+        firstTrigger.style.background = "rgba(191, 87, 255, 0.16)";
+        firstTrigger.style.outline = "1px solid #bf57ff";
+      }
+      renderYouTubeSection({
+        sectionId: "ranking-youtube-section",
+        anchorElement: rankingContentEl,
+        position: "afterend",
+        titlePrefix: `${normalizedGame} 使用率1位モデル`,
+        deviceName: topDeviceForInitialVideo,
+        hintText: "※ランキングの各モデルをクリックで切り替え"
+      });
+    }
   };
 
-  // 初回即時適用（現在のランキングと感度マッチを再描画）
-  const currentRankingGame = document.querySelector(".game-tab.selected")?.dataset?.game || "VALORANT";
-  renderRankings(currentRankingGame);
-  reformatRankingRowsCleanly();
+  // ゲーム切り替えタブ（VALORANT / APEX / OW2）のクリックイベントを新しい renderRankings に再接続
+  document.querySelectorAll(".game-tab").forEach((button) => {
+    button.onclick = () => {
+      document.querySelectorAll(".game-tab").forEach((tab) => tab.classList.toggle("selected", tab === button));
+      window.renderRankings(button.dataset.game);
+    };
+  });
 
-  if (document.getElementById("page-match")?.classList.contains("active")) {
-    document.getElementById("match-form")?.dispatchEvent(new Event("submit", { cancelable: true }));
-  }
+  // 初回即時描画
+  const currentRankingGame = document.querySelector(".game-tab.selected")?.dataset?.game || "VALORANT";
+  window.renderRankings(currentRankingGame);
 })();
