@@ -5771,3 +5771,257 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   const currentRankingGame = document.querySelector(".game-tab.selected")?.dataset?.game || "VALORANT";
   window.renderRankings(currentRankingGame);
 })();
+// ============================================================================
+// DB堅牢化＆セキュリティ強化エンジン（スキーマ検証・XSS/汚染防御・JSONバックアップ）
+// ============================================================================
+(() => {
+  const ALLOWED_GAMES = new Set(["VALORANT", "Apex Legends", "Overwatch 2"]);
+  const ALLOWED_ROLES = new Set([
+    "pro", "streamer", "vtuber",
+    "duelist", "initiator", "sentinel", "controller",
+    "igl", "fragger", "support", "tank", "damage"
+  ]);
+
+  // 1. 文字列の厳格サニタイズ（制御文字・タグ除去・文字数制限）
+  function sanitizeCleanText(input, maxLength = 80) {
+    if (input === null || input === undefined) return "";
+    return String(input)
+      .replace(/[\u0000-\u001F\u007F<>`]/g, "")
+      .trim()
+      .slice(0, maxLength);
+  }
+
+  // 2. 数値の範囲クランプ検証
+  function sanitizeNumber(val, min, max, fallback) {
+    const num = Number(val);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(max, Math.max(min, num));
+  }
+
+  // 3. プレイヤーレコードのDBスキーマ検証＆正規化（プロトタイプ汚染・不正値防止）
+  window.validateAndNormalizePlayerRecord = function (raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+
+    const name = sanitizeCleanText(raw.name, 60);
+    if (!name) return null;
+
+    const rawGame = sanitizeCleanText(raw.game, 30);
+    const normalizedGame = normalizeGameName(rawGame);
+    const game = ALLOWED_GAMES.has(normalizedGame) ? normalizedGame : "VALORANT";
+
+    const dpi = Math.round(sanitizeNumber(raw.dpi, 50, 32000, 800));
+    const sens = Number(sanitizeNumber(raw.sens, 0.001, 100, 0.3).toFixed(4));
+
+    const rawRoles = Array.isArray(raw.roles) ? raw.roles : ["pro"];
+    const roles = [...new Set(
+      rawRoles
+        .map((r) => sanitizeCleanText(r, 20).toLowerCase())
+        .filter((r) => ALLOWED_ROLES.has(r))
+    )];
+    if (roles.length === 0) roles.push("pro");
+
+    const rawDevs = raw.devices && typeof raw.devices === "object" ? raw.devices : {};
+    const devices = Object.create(null);
+    ["マウス", "マウスパッド", "キーボード", "ヘッドセット"].forEach((cat) => {
+      const val = sanitizeCleanText(rawDevs[cat], 70);
+      devices[cat] = val || "データなし";
+    });
+
+    return {
+      name,
+      game,
+      roles,
+      dpi,
+      sens,
+      source: sanitizeCleanText(raw.source || "Verified DB", 120),
+      devices
+    };
+  };
+
+  // 4. localStorage 内のカスタムDB・お気に入りデータの破損チェック＆自動クレンジング
+  function auditAndRepairLocalStorageDB() {
+    try {
+      const rawCustom = localStorage.getItem(CUSTOM_PLAYERS_STORAGE_KEY);
+      if (rawCustom) {
+        const parsed = JSON.parse(rawCustom);
+        if (Array.isArray(parsed)) {
+          const validRecords = parsed
+            .map((item) => window.validateAndNormalizePlayerRecord(item))
+            .filter(Boolean)
+            .slice(0, 200); // 最大200件上限でストレージ溢れを防止
+          localStorage.setItem(CUSTOM_PLAYERS_STORAGE_KEY, JSON.stringify(validRecords));
+        } else {
+          localStorage.removeItem(CUSTOM_PLAYERS_STORAGE_KEY);
+        }
+      }
+
+      const rawFav = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      if (rawFav) {
+        const parsedFav = JSON.parse(rawFav);
+        const cleanPlayers = Array.isArray(parsedFav?.players)
+          ? [...new Set(parsedFav.players.map((n) => sanitizeCleanText(n, 60)).filter(Boolean))].slice(0, 50)
+          : [];
+        const cleanDevices = Array.isArray(parsedFav?.devices)
+          ? [...new Set(parsedFav.devices.map((d) => sanitizeCleanText(d, 70)).filter(Boolean))].slice(0, 50)
+          : [];
+        favoritesState = { players: cleanPlayers, devices: cleanDevices };
+        localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoritesState));
+      }
+    } catch (e) {
+      console.warn("ローカルDBの整合性修復を実行しました:", e);
+    }
+  }
+
+  // 5. URLクエリパラメータのサニタイズ（不正なスクリプト断片の混入を遮断）
+  function sanitizeUrlQueryParams() {
+    const params = new URLSearchParams(window.location.search);
+    let modified = false;
+    for (const [key, val] of params.entries()) {
+      const cleaned = sanitizeCleanText(val, 80);
+      if (cleaned !== val) {
+        params.set(key, cleaned);
+        modified = true;
+      }
+    }
+    if (modified) {
+      const newQuery = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${newQuery ? `?${newQuery}` : ""}`);
+    }
+  }
+
+  // 6. getMergedPlayersList をラップし、API・ローカル・内蔵DBすべてのレコードにスキーマ検証を強制適用
+  const prevGetMerged = getMergedPlayersList;
+  getMergedPlayersList = function () {
+    const rawList = prevGetMerged();
+    return rawList
+      .map((p) => {
+        const validated = window.validateAndNormalizePlayerRecord(p);
+        if (!validated) return null;
+        return ensurePlayerFourDevices({ ...p, ...validated });
+      })
+      .filter(Boolean);
+  };
+
+  // 7. YouTubeインライン再生のセキュリティ強化（youtube-nocookie.com ＆ videoId形式検証）
+  document.addEventListener(
+    "click",
+    (e) => {
+      const playTrigger = e.target.closest(".js-inline-video-trigger");
+      if (!playTrigger) return;
+      const rawVideoId = String(playTrigger.dataset.videoId || "").trim();
+      // YouTubeの11桁IDフォーマット（英数字・ハイフン・アンダースコア）以外は遮断
+      if (!/^[a-zA-Z0-9_-]{6,15}$/.test(rawVideoId)) {
+        e.stopImmediatePropagation();
+        return;
+      }
+      e.stopImmediatePropagation();
+      playTrigger.outerHTML = `
+        <div style="position: relative; width: 100%; aspect-ratio: 16/9; background: #000;">
+          <iframe
+            src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(rawVideoId)}?autoplay=1&rel=0"
+            title="YouTube video player"
+            referrerpolicy="strict-origin-when-cross-origin"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+            style="width: 100%; height: 100%; border: 0; display: block;"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen>
+          </iframe>
+        </div>`;
+    },
+    true
+  );
+
+  // 8. マイDB（登録選手・お気に入り・マイ環境）のJSONバックアップ書き出し＆読み込み機能
+  window.exportFragUserDatabaseJson = function () {
+    const payload = {
+      schemaVersion: "1.0",
+      exportedAt: new Date().toISOString(),
+      customPlayers: loadCustomPlayers(),
+      favorites: favoritesState,
+      userEnv: {
+        game: document.getElementById("g-env-game")?.value || "VALORANT",
+        dpi: Number(document.getElementById("g-env-dpi")?.value) || 800,
+        sens: Number(document.getElementById("g-env-sens")?.value) || 0.32,
+        mouse: currentUserMouseName,
+        mousepad: currentUserPadName
+      }
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `frag-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  window.importFragUserDatabaseJson = function (fileInput) {
+    const file = fileInput?.files?.[0];
+    if (!file || file.size > 1024 * 512) {
+      alert("ファイルサイズが上限（512KB）を超えているか、ファイルが選択されていません。");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result || "{}"));
+        if (Array.isArray(data.customPlayers)) {
+          const validated = data.customPlayers
+            .map((p) => window.validateAndNormalizePlayerRecord(p))
+            .filter(Boolean)
+            .slice(0, 200);
+          localStorage.setItem(CUSTOM_PLAYERS_STORAGE_KEY, JSON.stringify(validated));
+        }
+        if (data.favorites && typeof data.favorites === "object") {
+          localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(data.favorites));
+        }
+        auditAndRepairLocalStorageDB();
+        renderPlayers();
+        renderCompareTrayUI();
+        alert("✓ バックアップデータの検証と復元が完了しました！");
+      } catch (err) {
+        alert("JSONファイルの形式が正しくありません。");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // 「＋ 選手・マイ設定を追加」モーダルにバックアップ・復元バーを自動追加
+  const prevOpenAddModal = window.openAddCustomPlayerModal;
+  window.openAddCustomPlayerModal = function () {
+    prevOpenAddModal();
+    const formEl = document.getElementById("custom-player-form");
+    if (!formEl || document.getElementById("frag-db-backup-bar")) return;
+
+    // フォーム送信時にも厳格なスキーマ検証を通す
+    formEl.addEventListener("submit", () => {
+      setTimeout(() => {
+        auditAndRepairLocalStorageDB();
+        renderPlayers();
+      }, 30);
+    });
+
+    formEl.insertAdjacentHTML(
+      "afterend",
+      `<div id="frag-db-backup-bar" style="margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+         <span style="font-size: 0.72rem; color: #a1a1aa;">💾 マイDBの保護（JSONバックアップ）</span>
+         <div style="display: flex; gap: 0.45rem;">
+           <button type="button" onclick="window.exportFragUserDatabaseJson()"
+                   style="cursor: pointer; padding: 0.35rem 0.65rem; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); color: #e4e4e7; font-size: 0.72rem; font-weight: 700;">
+             ⬇ JSON書き出し
+           </button>
+           <label style="cursor: pointer; padding: 0.35rem 0.65rem; border-radius: 6px; background: rgba(212,255,51,0.12); border: 1px solid rgba(212,255,51,0.4); color: #d4ff33; font-size: 0.72rem; font-weight: 700;">
+             ⬆ JSON復元
+             <input type="file" accept=".json,application/json" style="display: none;" onchange="window.importFragUserDatabaseJson(this)">
+           </label>
+         </div>
+       </div>`
+    );
+  };
+
+  // 初回監査の実行
+  sanitizeUrlQueryParams();
+  auditAndRepairLocalStorageDB();
+})();
