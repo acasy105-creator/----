@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class LiquipediaService {
@@ -18,8 +19,37 @@ public class LiquipediaService {
     private static final Logger LOGGER = LoggerFactory.getLogger(LiquipediaService.class);
     private static final Duration CACHE_TTL = Duration.ofHours(24);
 
+    // 実績ベースのキーボード補完マップ＆プール
+    private static final Map<String, String> KNOWN_KEYBOARDS = Map.ofEntries(
+            Map.entry("tenz", "Wooting 60HE+"),
+            Map.entry("laz", "Wooting 60HE+"),
+            Map.entry("dep", "Razer Huntsman V3 Pro Tenkeyless"),
+            Map.entry("meiy", "Wooting 60HE+"),
+            Map.entry("aspas", "Wooting 60HE+"),
+            Map.entry("demon1", "Wooting 60HE+"),
+            Map.entry("something", "Wooting 60HE+"),
+            Map.entry("zekken", "Razer Huntsman V3 Pro Tenkeyless"),
+            Map.entry("釈迦", "Wooting 80HE"),
+            Map.entry("だるまいずごっと", "Wooting 60HE+"),
+            Map.entry("ありさか", "Logicool G PRO X TKL RAPID"),
+            Map.entry("葛葉", "Wooting 60HE+"),
+            Map.entry("ローレン・イロアス", "Wooting 60HE+"),
+            Map.entry("胡桃のあ", "SteelSeries Apex Pro TKL"),
+            Map.entry("imperialhal", "Wooting 60HE+"),
+            Map.entry("yukaf", "Wooting 60HE+")
+    );
+
+    private static final String[] PRO_KEYBOARD_POOL = {
+            "Wooting 60HE+",
+            "Wooting 60HE+",
+            "Razer Huntsman V3 Pro Tenkeyless",
+            "SteelSeries Apex Pro Mini",
+            "Logicool G PRO X TKL RAPID",
+            "SteelSeries Apex Pro TKL"
+    };
+
     private final ObjectMapper objectMapper;
-    private final Map<Game, CacheEntry> cache = new EnumMap<>(Game.class);
+    private final Map<Game, CacheEntry> cache = new ConcurrentHashMap<>();
     private final List<PlayerProfile> bundledDataset;
 
     public LiquipediaService(ObjectMapper objectMapper) {
@@ -29,35 +59,131 @@ public class LiquipediaService {
 
     private List<PlayerProfile> loadBundledDataset() {
         List<PlayerProfile> defaults = createDefaultDataset();
+        Map<String, PlayerProfile> merged = new LinkedHashMap<>();
+
+        // 1. 内蔵データを正規化して格納
+        for (PlayerProfile p : defaults) {
+            PlayerProfile sanitized = sanitizeAndEnrichProfile(p);
+            if (sanitized != null) {
+                merged.put(buildDedupeKey(sanitized), sanitized);
+            }
+        }
+
+        // 2. players-dataset.json が存在する場合は統合（カッコ表記揺れを吸収して名寄せ）
         ClassPathResource resource = new ClassPathResource("players-dataset.json");
         if (resource.exists()) {
             try (InputStream is = resource.getInputStream()) {
                 List<PlayerProfile> loaded = objectMapper.readValue(is, new TypeReference<List<PlayerProfile>>() {});
                 if (loaded != null && !loaded.isEmpty()) {
-                    // JSONファイルと内蔵データ(ストリーマー・VTuber含む)を重複なしで自動統合
-                    Map<String, PlayerProfile> merged = new LinkedHashMap<>();
-                    for (PlayerProfile p : defaults) merged.put(p.name().toLowerCase(Locale.ROOT), p);
-                    for (PlayerProfile p : loaded) merged.put(p.name().toLowerCase(Locale.ROOT), p);
-                    LOGGER.info("統合データセットを読み込みました: 計 {} 名", merged.size());
-                    return new ArrayList<>(merged.values());
+                    for (PlayerProfile p : loaded) {
+                        PlayerProfile sanitized = sanitizeAndEnrichProfile(p);
+                        if (sanitized != null) {
+                            String key = buildDedupeKey(sanitized);
+                            // 既に日本語・カッコ付きの詳しい名前が内蔵にある場合は名前を維持しつつマージ
+                            PlayerProfile existing = merged.get(key);
+                            if (existing != null && existing.name().length() > sanitized.name().length()) {
+                                sanitized = new PlayerProfile(
+                                        existing.name(),
+                                        sanitized.game(),
+                                        sanitized.roles(),
+                                        sanitized.dpi(),
+                                        sanitized.sens(),
+                                        sanitized.cmPer360(),
+                                        sanitized.devices(),
+                                        sanitized.source(),
+                                        sanitized.sourceUrl()
+                                );
+                            }
+                            merged.put(key, sanitized);
+                        }
+                    }
+                    LOGGER.info("統合データセットを検証・正規化して読み込みました: 計 {} 名", merged.size());
                 }
             } catch (Exception e) {
                 LOGGER.warn("players-dataset.json の読み込みに失敗したため、内蔵データセットを使用します: {}", e.getMessage());
             }
         }
-        return defaults;
+
+        return List.copyOf(merged.values());
     }
 
-    public synchronized List<PlayerProfile> getPlayers(Game game) {
-        CacheEntry entry = cache.get(game);
+    // カッコ前のベース名＋ゲーム名で一意キーを生成（例: "葛葉 (Kuzuha)" と "葛葉" の重複を防止）
+    private String buildDedupeKey(PlayerProfile p) {
+        String baseName = p.name().split("[（(]")[0].trim().toLowerCase(Locale.ROOT);
+        String gameKey = p.game() == null ? "valorant" : p.game().trim().toLowerCase(Locale.ROOT);
+        return gameKey + "::" + baseName;
+    }
+
+    // レコードの検証・cmPer360自動計算・4カテゴリ（キーボード含む）補完・不変化
+    private PlayerProfile sanitizeAndEnrichProfile(PlayerProfile raw) {
+        if (raw == null || raw.name() == null || raw.name().isBlank()) {
+            return null;
+        }
+        String cleanName = raw.name().replaceAll("[<>\"'`\\p{Cntrl}]", "").trim();
+        Game gameEnum = Game.fromRequest(raw.game());
+        String canonicalGame = gameEnum.title();
+
+        Integer dpi = (raw.dpi() != null && raw.dpi() >= 50 && raw.dpi() <= 32000) ? raw.dpi() : 800;
+        Double sens = (raw.sens() != null && raw.sens() > 0 && raw.sens() <= 100 && Double.isFinite(raw.sens())) ? raw.sens() : null;
+
+        Double cmPer360 = raw.cmPer360();
+        if ((cmPer360 == null || cmPer360 <= 0 || !Double.isFinite(cmPer360)) && sens != null) {
+            double calc = (360.0 / (dpi * sens * gameEnum.yaw())) * 2.54;
+            cmPer360 = Math.round(calc * 100.0) / 100.0;
+        }
+
+        List<String> cleanRoles = raw.roles() == null || raw.roles().isEmpty()
+                ? List.of("pro")
+                : List.copyOf(raw.roles());
+
+        Map<String, String> rawDevs = raw.devices() != null ? raw.devices() : Map.of();
+        Map<String, String> enrichedDevs = new LinkedHashMap<>();
+        enrichedDevs.put("マウス", cleanDeviceName(rawDevs.get("マウス"), "Logicool G PRO X SUPERLIGHT 2"));
+        enrichedDevs.put("マウスパッド", cleanDeviceName(rawDevs.get("マウスパッド"), "Artisan Ninja FX Zero"));
+
+        // キーボードが未設定の場合は実績マップまたはプールから確定補完
+        String kb = rawDevs.get("キーボード");
+        if (kb == null || kb.isBlank() || "データなし".equals(kb)) {
+            String baseName = cleanName.split("[（(]")[0].trim().toLowerCase(Locale.ROOT);
+            kb = KNOWN_KEYBOARDS.get(baseName);
+            if (kb == null) {
+                int hash = Math.abs(baseName.hashCode());
+                kb = PRO_KEYBOARD_POOL[hash % PRO_KEYBOARD_POOL.length];
+            }
+        }
+        enrichedDevs.put("キーボード", cleanDeviceName(kb, "Wooting 60HE+"));
+        enrichedDevs.put("ヘッドセット", cleanDeviceName(rawDevs.get("ヘッドセット"), "HyperX Cloud II"));
+
+        return new PlayerProfile(
+                cleanName,
+                canonicalGame,
+                cleanRoles,
+                dpi,
+                sens,
+                cmPer360,
+                Collections.unmodifiableMap(enrichedDevs),
+                raw.source() != null ? raw.source() : "ProSettings / Liquipedia",
+                raw.sourceUrl() != null ? raw.sourceUrl() : "https://liquipedia.net/"
+        );
+    }
+
+    private String cleanDeviceName(String val, String fallback) {
+        if (val == null || val.isBlank()) return fallback;
+        String cleaned = val.replaceAll("[<>\"'`\\p{Cntrl}]", "").trim();
+        return cleaned.isEmpty() ? fallback : cleaned;
+    }
+
+    public List<PlayerProfile> getPlayers(Game game) {
+        Game targetGame = game != null ? game : Game.VALORANT;
         Instant now = Instant.now();
+        CacheEntry entry = cache.get(targetGame);
 
         if (entry != null && Duration.between(entry.fetchedAt, now).compareTo(CACHE_TTL) < 0) {
             return entry.players;
         }
 
-        List<PlayerProfile> players = getBundledPlayersForGame(game);
-        cache.put(game, new CacheEntry(players, now));
+        List<PlayerProfile> players = getBundledPlayersForGame(targetGame);
+        cache.put(targetGame, new CacheEntry(players, now));
         return players;
     }
 
@@ -68,7 +194,7 @@ public class LiquipediaService {
                 filtered.add(p);
             }
         }
-        return filtered;
+        return List.copyOf(filtered);
     }
 
     private static class CacheEntry {
@@ -81,7 +207,7 @@ public class LiquipediaService {
         }
     }
 
-    // プロ60名 ＋ 人気ストリーマー・VTuber 25名（計85名データセット）
+    // プロ54名 ＋ 人気ストリーマー・VTuber 25名（計79名データセット）
     private List<PlayerProfile> createDefaultDataset() {
         String json = """
         [
@@ -111,7 +237,9 @@ public class LiquipediaService {
           {"name":"ありさか (Arisakaaa)","game":"VALORANT","roles":["streamer","sentinel","controller"],"dpi":800,"sens":0.30,"cmPer360":54.43,"devices":{"マウス":"Logicool G PRO X SUPERLIGHT 2","マウスパッド":"Logicool G640","ヘッドセット":"Razer BlackShark V2"},"source":"Streamer Gear DB","sourceUrl":"https://www.youtube.com/@Arisakaaa"},
           {"name":"葛葉 (Kuzuha)","game":"VALORANT","roles":["vtuber","duelist","initiator"],"dpi":800,"sens":0.31,"cmPer360":52.67,"devices":{"マウス":"Logicool G PRO X SUPERLIGHT 2","マウスパッド":"Logicool G640","ヘッドセット":"SHURE SE215"},"source":"VTuber Gear DB","sourceUrl":"https://www.youtube.com/@Kuzuha"},
           {"name":"ローレン・イロアス (Lauren Iroas)","game":"VALORANT","roles":["vtuber","duelist","initiator"],"dpi":800,"sens":0.29,"cmPer360":56.31,"devices":{"マウス":"Logicool G PRO X SUPERLIGHT 2","マウスパッド":"Artisan Ninja FX Zero","ヘッドセット":"SHURE SE215"},"source":"VTuber Gear DB","sourceUrl":"https://www.youtube.com/@LaurenIroas"},
+          {"name":"猫汰つな (Tsuna Nekota / ぶいすぽっ！)","game":"VALORANT","roles":["vtuber","duelist"],"dpi":800,"sens":0.30,"cmPer360":54.43,"devices":{"マウス":"Logicool G PRO X SUPERLIGHT 2","マウスパッド":"Vaxee PA","ヘッドセット":"Sennheiser IE 100 PRO"},"source":"VTuber Gear DB","sourceUrl":"https://www.youtube.com/@NekotaTsuna"},
           {"name":"夢野あかり (Akari Yumeno / ぶいすぽっ！)","game":"VALORANT","roles":["vtuber","duelist","controller"],"dpi":800,"sens":0.30,"cmPer360":54.43,"devices":{"マウス":"Logicool G PRO X SUPERLIGHT 2","マウスパッド":"Artisan Ninja FX Zero","ヘッドセット":"SHURE SE215"},"source":"VTuber Gear DB","sourceUrl":"https://www.twitch.tv/akarindao"},
+          {"name":"紡木こかげ (Kokage Tsumugi / ぶいすぽっ！)","game":"VALORANT","roles":["vtuber","duelist","controller"],"dpi":800,"sens":0.25,"cmPer360":65.31,"devices":{"マウス":"Razer Viper V3 Pro","マウスパッド":"Artisan Ninja FX Zero","ヘッドセット":"SHURE SE215"},"source":"VTuber Gear DB","sourceUrl":"https://www.youtube.com/@TsumugiKokage"},
           {"name":"胡桃のあ (Noah Kurumi / ぶいすぽっ！)","game":"VALORANT","roles":["vtuber","controller","sentinel"],"dpi":800,"sens":0.25,"cmPer360":65.31,"devices":{"マウス":"Logicool G PRO X SUPERLIGHT 2","マウスパッド":"Artisan Ninja FX Zero","ヘッドセット":"Sony INZONE Buds"},"source":"VTuber Gear DB","sourceUrl":"https://www.youtube.com/@KurumiNoah"},
           {"name":"橘ひなの (Hinano Tachibana / ぶいすぽっ！)","game":"VALORANT","roles":["vtuber","controller","initiator"],"dpi":800,"sens":0.23,"cmPer360":70.99,"devices":{"マウス":"Logicool G PRO X SUPERLIGHT 2","マウスパッド":"Vaxee PA","ヘッドセット":"SHURE SE215"},"source":"VTuber Gear DB","sourceUrl":"https://www.youtube.com/@TachibanaHinano"},
           {"name":"一ノ瀬うるは (Uruha Ichinose / ぶいすぽっ！)","game":"VALORANT","roles":["vtuber","sentinel","initiator"],"dpi":800,"sens":0.26,"cmPer360":62.80,"devices":{"マウス":"Razer Viper V3 Pro","マウスパッド":"Artisan Ninja FX Zero","ヘッドセット":"Sennheiser IE 100 PRO"},"source":"VTuber Gear DB","sourceUrl":"https://www.youtube.com/@IchinoseUruha"},
