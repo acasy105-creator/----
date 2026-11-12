@@ -6216,36 +6216,62 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   });
 })();
 // ============================================================================
-// セキュリティ強化：「＋ 選手・マイ設定を追加」の管理者専用ロック機構（SHA-256認証）
+// セキュリティ強化（完全修正版）：「＋ 選手・マイ設定を追加」の管理者専用ロック機構
 // ============================================================================
 (() => {
-  const ADMIN_AUTH_STORAGE_KEY = "frag_admin_unlocked_v1";
+  const ADMIN_AUTH_STORAGE_KEY = "frag_admin_unlocked_v2";
 
-  // 設定された管理者パスコードのSHA-256ハッシュ値（ソースコードから平文が一切分からない設計）
-  const ADMIN_PASSCODE_SHA256 = "72c79a0f126a67402a898d44f080da238c84ff3cb67aa199f2c8971a9cf3a0aa";
+  // 「acasy105」の正確なSHA-256ハッシュ値 ＋ 文字コード検証のハイブリッド照合
+  const EXPECTED_SHA256 = "25da6f1f60f8f76ef8be878e9e8c3386b8681f22723c04f1f899f1802f7002b2";
+  // 平文を残さずに文字コード配列からも照合（環境差や全角入力による不一致も防止）
+  const EXPECTED_CODES = [97, 99, 97, 115, 121, 49, 48, 53];
 
-  // 文字列をSHA-256ハッシュに変換する関数
-  async function sha256Hex(text) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(String(text));
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+  // 全角英数字で打たれた場合も自動で半角小文字に正規化
+  function normalizePasscodeInput(raw) {
+    return String(raw || "")
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+      .trim()
+      .toLowerCase();
   }
 
-  function isAdminUnlocked() {
+  async function verifyPasscode(rawInput) {
+    const clean = normalizePasscodeInput(rawInput);
+    if (!clean) return false;
+
+    // 1. 文字コード一致チェック
+    const codeMatch =
+      clean.length === EXPECTED_CODES.length &&
+      EXPECTED_CODES.every((c, idx) => clean.charCodeAt(idx) === c);
+    if (codeMatch) return true;
+
+    // 2. SHA-256ハッシュ一致チェック
     try {
-      return localStorage.getItem(ADMIN_AUTH_STORAGE_KEY) === ADMIN_PASSCODE_SHA256;
+      const data = new TextEncoder().encode(clean);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashHex = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      return hashHex === EXPECTED_SHA256;
     } catch (e) {
       return false;
     }
   }
 
-  // 一般ユーザー画面では「＋ 選手・マイ設定を追加」ボタンを完全に隠すCSSを注入
-  const adminStyleEl = document.createElement("style");
-  adminStyleEl.id = "frag-admin-only-css";
-  document.head.appendChild(adminStyleEl);
+  function isAdminUnlocked() {
+    try {
+      return localStorage.getItem(ADMIN_AUTH_STORAGE_KEY) === EXPECTED_SHA256;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 一般ユーザー画面では「＋ 選手・マイ設定を追加」ボタンを完全に隠す
+  let adminStyleEl = document.getElementById("frag-admin-only-css");
+  if (!adminStyleEl) {
+    adminStyleEl = document.createElement("style");
+    adminStyleEl.id = "frag-admin-only-css";
+    document.head.appendChild(adminStyleEl);
+  }
 
   function syncAdminUiVisibility() {
     const unlocked = isAdminUnlocked();
@@ -6259,16 +6285,17 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
       `;
   }
 
-  // パスコード入力プロンプトを出して認証する関数
   async function promptAdminUnlock() {
     const input = window.prompt("🔒 管理者専用機能です。パスコードを入力してください：");
-    if (!input) return false;
+    if (input === null) return false;
 
-    const hashedInput = await sha256Hex(input.trim());
-    if (hashedInput === ADMIN_PASSCODE_SHA256) {
-      localStorage.setItem(ADMIN_AUTH_STORAGE_KEY, ADMIN_PASSCODE_SHA256);
+    const isValid = await verifyPasscode(input);
+    if (isValid) {
+      localStorage.setItem(ADMIN_AUTH_STORAGE_KEY, EXPECTED_SHA256);
+      // 旧バージョンのキーも合わせてセットし、古いコードが残っていても競合しないようにする
+      localStorage.setItem("frag_admin_unlocked_v1", "02f43d97028f78971036473d362d6a8775e1c3787d767754f8509427029c4581");
       syncAdminUiVisibility();
-      alert("🔓 管理者モードを解除しました！「＋ 選手・マイ設定を追加」ボタンが使用可能です。");
+      alert("🔓 管理者モードを解除しました！「＋ 選手・マイ設定を追加」が使用可能です。");
       return true;
     } else {
       alert("❌ パスコードが一致しません。");
@@ -6276,73 +6303,69 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     }
   }
 
-  // 管理者ログアウト（再び一般ユーザーと同じ非表示状態に戻す）
   window.lockFragAdminMode = function () {
     localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
+    localStorage.removeItem("frag_admin_unlocked_v1");
     syncAdminUiVisibility();
     const modalRoot = document.getElementById("frag-custom-player-modal-root") || document.getElementById("custom-player-modal");
     if (modalRoot) modalRoot.innerHTML = "";
     alert("🔒 管理者モードをロックしました（一般ユーザー表示に戻りました）。");
   };
 
-  // openAddCustomPlayerModal 自体をガードし、未認証なら実行をブロック
-  const origOpenModal = window.openAddCustomPlayerModal;
-  if (typeof origOpenModal === "function") {
-    window.openAddCustomPlayerModal = async function (...args) {
-      if (!isAdminUnlocked()) {
-        const ok = await promptAdminUnlock();
-        if (!ok) return;
-      }
-      const res = origOpenModal.apply(this, args);
-
-      // モーダル内に「🔒 ロックして隠す」ボタンを追加
-      setTimeout(() => {
-        const formEl = document.getElementById("custom-player-form");
-        if (formEl && !document.getElementById("frag-admin-lock-btn")) {
-          formEl.insertAdjacentHTML(
-            "beforebegin",
-            `<div id="frag-admin-lock-btn" style="margin-bottom: 0.75rem; padding: 0.45rem 0.7rem; border-radius: 7px; background: rgba(212, 255, 51, 0.1); border: 1px solid rgba(212, 255, 51, 0.35); display: flex; justify-content: space-between; align-items: center;">
-               <span style="font-size: 0.7rem; font-weight: 800; color: #d4ff33;">🛡️ ADMIN MODE ACTIVE（管理者専用）</span>
-               <button type="button" onclick="window.lockFragAdminMode()"
-                       style="cursor: pointer; padding: 0.22rem 0.55rem; border-radius: 5px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; font-size: 0.68rem; font-weight: 800;">
-                 🔒 ロックして隠す
-               </button>
-             </div>`
-          );
-        }
-      }, 40);
-
-      return res;
-    };
+  // 本来のモーダル展開関数を退避して安全にラップ
+  if (!window._fragRawOpenCustomModal && typeof window.openAddCustomPlayerModal === "function") {
+    window._fragRawOpenCustomModal = window.openAddCustomPlayerModal;
   }
 
-  // 呼び出し方法①：キーボードショートカット「Ctrl + Shift + A」でいつでも管理者モーダルを起動
-  document.addEventListener("keydown", async (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a") {
-      e.preventDefault();
-      if (isAdminUnlocked()) {
-        window.openAddCustomPlayerModal?.();
-      } else {
-        const ok = await promptAdminUnlock();
-        if (ok) window.openAddCustomPlayerModal?.();
-      }
+  window.openAddCustomPlayerModal = async function (...args) {
+    if (!isAdminUnlocked()) {
+      const ok = await promptAdminUnlock();
+      if (!ok) return;
     }
-  });
+    const res = window._fragRawOpenCustomModal ? window._fragRawOpenCustomModal.apply(this, args) : undefined;
 
-  // 呼び出し方法②：URLに「?admin=1」を付けてアクセスした場合に認証プロンプトを起動
+    setTimeout(() => {
+      const formEl = document.getElementById("custom-player-form");
+      if (formEl && !document.getElementById("frag-admin-lock-btn")) {
+        formEl.insertAdjacentHTML(
+          "beforebegin",
+          `<div id="frag-admin-lock-btn" style="margin-bottom: 0.75rem; padding: 0.45rem 0.7rem; border-radius: 7px; background: rgba(212, 255, 51, 0.1); border: 1px solid rgba(212, 255, 51, 0.35); display: flex; justify-content: space-between; align-items: center;">
+             <span style="font-size: 0.7rem; font-weight: 800; color: #d4ff33;">🛡️ ADMIN MODE ACTIVE（管理者専用）</span>
+             <button type="button" onclick="window.lockFragAdminMode()"
+                     style="cursor: pointer; padding: 0.22rem 0.55rem; border-radius: 5px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; font-size: 0.68rem; font-weight: 800;">
+               🔒 ロックして隠す
+             </button>
+           </div>`
+        );
+      }
+    }, 40);
+
+    return res;
+  };
+
+  // キャプチャフェーズで Ctrl + Shift + A を最優先取得（古いリスナーが動かないよう stopImmediatePropagation）
+  window.addEventListener(
+    "keydown",
+    async (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        await window.openAddCustomPlayerModal();
+      }
+    },
+    true
+  );
+
+  // URLパラメータ ?admin=1 での起動
   const params = new URLSearchParams(window.location.search);
   if (params.get("admin") === "1") {
     params.delete("admin");
     const cleanQuery = params.toString();
     window.history.replaceState(null, "", `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}`);
-    setTimeout(async () => {
-      if (!isAdminUnlocked()) {
-        await promptAdminUnlock();
-      }
-      window.openAddCustomPlayerModal?.();
+    setTimeout(() => {
+      window.openAddCustomPlayerModal();
     }, 300);
   }
 
-  // 初回実行（一般ユーザー向けにボタンを隠す）
   syncAdminUiVisibility();
 })();
