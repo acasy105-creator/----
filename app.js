@@ -6369,3 +6369,245 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
 
   syncAdminUiVisibility();
 })();
+// ============================================================================
+// 収益本番化モジュール：もしもアフィリエイト（楽天市場 a_id=5858550）全ボタン連動 ＆ 公式バナーPR枠
+// ============================================================================
+(() => {
+  // あなたのもしもアフィリエイト「楽天市場」専用パラメータ
+  const MOSHIMO_RAKUTEN_A_ID = "5858550";
+  const MOSHIMO_RAKUTEN_P_ID = "54";
+  const MOSHIMO_RAKUTEN_PC_ID = "54";
+  const MOSHIMO_RAKUTEN_PL_ID = "616";
+
+  // 1. サイト内の全「楽天」ボタン生成関数をあなたの専用アフィリエイトID（5858550）に完全連動
+  window.getRakutenAffiliateUrl = function (deviceName) {
+    const cleanName = String(deviceName || "")
+      .replace(/（.*?）|\(.*?\)/g, "")
+      .trim();
+    const targetRakutenUrl = cleanName
+      ? `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(cleanName)}/`
+      : "https://www.rakuten.co.jp/";
+
+    return `https://af.moshimo.com/af/c/click?a_id=${MOSHIMO_RAKUTEN_A_ID}&p_id=${MOSHIMO_RAKUTEN_P_ID}&pc_id=${MOSHIMO_RAKUTEN_PC_ID}&pl_id=${MOSHIMO_RAKUTEN_PL_ID}&url=${encodeURIComponent(targetRakutenUrl)}`;
+  };
+
+  // 既に描画されている画面内の楽天リンクもすべてあなたの a_id=5858550 に一括書き換え
+  function syncAllExistingRakutenLinks() {
+    document.querySelectorAll('a[href*="rakuten.co.jp"], a[href*="moshimo.com/af/c/click"]').forEach((a) => {
+      const href = a.getAttribute("href") || "";
+      if (href.includes("a_id=5858550")) return; // 既に適用済みならスキップ
+      if (href.includes("search.rakuten.co.jp") || href.includes("p_id=54")) {
+        try {
+          const urlObj = new URL(href, window.location.origin);
+          const innerUrl = urlObj.searchParams.get("url") || href;
+          a.setAttribute(
+            "href",
+            `https://af.moshimo.com/af/c/click?a_id=${MOSHIMO_RAKUTEN_A_ID}&p_id=${MOSHIMO_RAKUTEN_P_ID}&pc_id=${MOSHIMO_RAKUTEN_PC_ID}&pl_id=${MOSHIMO_RAKUTEN_PL_ID}&url=${encodeURIComponent(innerUrl)}`
+          );
+        } catch (e) {}
+      }
+    });
+  }
+
+  // 2. 貼り付けていただいた公式広告HTMLコードを組み込んだネイティブPRカード定義
+  const MOSHIMO_OFFERS = [
+    {
+      id: "offer-rakuten-official",
+      tag: "RAKUTEN ICHIBA // ゲーミングデバイス正規取扱・ポイント還元",
+      badgeText: "SPU・買い回り対象",
+      title: "楽天市場でプロ採用ゲーミングデバイスの最安値＆ポイント還元をチェック",
+      subCopy: "Logicool・Razer・Wooting・SHUREなど人気デバイスの国内正規販売店が多数出店。お買い物マラソンや0と5のつく日のポイント倍率アップでお得に揃えられます。",
+      ctaLabel: "🛍 楽天市場でゲーミングデバイス特集・セールを見る ↗",
+      accentColor: "#ef4444",
+      // ↓ ご提供いただいた広告HTML（プロトコル // を https:// に正規化して安全に読み込ませます）
+      rawHtml: `<a href="//af.moshimo.com/af/c/click?a_id=5858550&p_id=54&pc_id=54&pl_id=616" rel="nofollow" referrerpolicy="no-referrer-when-downgrade" attributionsrc><img src="//image.moshimo.com/af-img/0032/000000000616.gif" width="88" height="31" style="border:none;"></a><img src="//i.moshimo.com/af/i/impression?a_id=5858550&p_id=54&pc_id=54&pl_id=616" width="1" height="1" style="border:none;" loading="lazy">`
+    }
+  ];
+
+  // スタイル注入
+  if (!document.getElementById("frag-native-offer-css")) {
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      `<style id="frag-native-offer-css">
+        .frag-offer-showcase {
+          margin: 1.5rem 0;
+          padding: 1.15rem 1.25rem;
+          border-radius: 14px;
+          background: linear-gradient(135deg, rgba(18, 16, 24, 0.96) 0%, rgba(34, 18, 28, 0.92) 100%);
+          border: 1px solid rgba(239, 68, 68, 0.35);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+          box-sizing: border-box;
+        }
+        .frag-offer-card {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 1.05rem 1.15rem;
+          border-radius: 11px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          margin-top: 0.7rem;
+          transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .frag-offer-card:hover {
+          transform: translateY(-2px);
+          border-color: rgba(239, 68, 68, 0.65);
+          box-shadow: 0 8px 22px rgba(239, 68, 68, 0.15);
+        }
+        .frag-offer-cta {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.6rem 1.1rem;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 900;
+          text-decoration: none;
+          box-sizing: border-box;
+          transition: filter 0.15s ease, transform 0.15s ease;
+        }
+        .frag-offer-cta:hover {
+          filter: brightness(1.12);
+          transform: scale(1.01);
+        }
+      </style>`
+    );
+  }
+
+  // //af.moshimo.com などのプロトコル省略URLを https:// に補完して安全に抽出
+  function toHttpsUrl(rawUrl) {
+    const s = String(rawUrl || "").trim();
+    if (!s) return "";
+    if (s.startsWith("//")) return "https:" + s;
+    return s;
+  }
+
+  function parseMoshimoRawHtml(rawHtml) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(String(rawHtml || ""), "text/html");
+    const anchor = doc.querySelector("a");
+    const href = toHttpsUrl(anchor?.getAttribute("href")) || "#";
+
+    let bannerImgSrc = null;
+    let bannerWidth = "88";
+    let bannerHeight = "31";
+    let trackingPixelHtml = "";
+
+    doc.querySelectorAll("img").forEach((img) => {
+      const src = toHttpsUrl(img.getAttribute("src"));
+      const w = img.getAttribute("width");
+      const h = img.getAttribute("height");
+      if (w === "1" || h === "1" || src.includes("impression")) {
+        trackingPixelHtml += `<img src="${escapeHtml(src)}" width="1" height="1" style="border:none; position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;" loading="lazy" alt="">`;
+      } else if (src) {
+        bannerImgSrc = src;
+        if (w) bannerWidth = w;
+        if (h) bannerHeight = h;
+      }
+    });
+
+    return { href, bannerImgSrc, bannerWidth, bannerHeight, trackingPixelHtml };
+  }
+
+  function buildOfferShowcaseHtml(slotId) {
+    const cardsHtml = MOSHIMO_OFFERS.map((offer) => {
+      const parsed = parseMoshimoRawHtml(offer.rawHtml);
+
+      return `
+        <article class="frag-offer-card">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 240px;">
+              <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.45rem;">
+                <span style="font-size: 0.65rem; font-weight: 900; color: #fca5a5; letter-spacing: 0.05em; font-family: monospace;">
+                  ${escapeHtml(offer.tag)}
+                </span>
+                <span style="font-size: 0.62rem; font-weight: 800; padding: 0.14rem 0.45rem; border-radius: 999px; background: rgba(239, 68, 68, 0.18); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.45);">
+                  ${escapeHtml(offer.badgeText)}
+                </span>
+                <span style="font-size: 0.6rem; font-weight: 800; padding: 0.12rem 0.38rem; border-radius: 4px; background: rgba(255,255,255,0.08); color: #a1a1aa;">
+                  PR
+                </span>
+              </div>
+
+              <h4 style="margin: 0 0 0.38rem; font-size: 0.94rem; font-weight: 900; color: #fff; line-height: 1.4;">
+                ${escapeHtml(offer.title)}
+              </h4>
+
+              <p style="margin: 0; font-size: 0.74rem; color: #a1a1aa; line-height: 1.55;">
+                ${escapeHtml(offer.subCopy)}
+              </p>
+            </div>
+
+            ${parsed.bannerImgSrc ? `
+              <a href="${escapeHtml(parsed.href)}" target="_blank" rel="nofollow sponsored noopener" referrerpolicy="no-referrer-when-downgrade"
+                 title="楽天市場 公式バナー"
+                 style="flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; padding: 0.35rem 0.5rem; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);">
+                <img src="${escapeHtml(parsed.bannerImgSrc)}" width="${escapeHtml(parsed.bannerWidth)}" height="${escapeHtml(parsed.bannerHeight)}" style="border:none; display:block;" alt="楽天市場">
+              </a>
+            ` : ""}
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.2rem;">
+            <a href="${escapeHtml(parsed.href)}"
+               target="_blank"
+               rel="nofollow sponsored noopener"
+               referrerpolicy="no-referrer-when-downgrade"
+               class="frag-offer-cta"
+               style="flex: 1; background: linear-gradient(90deg, #ef4444 0%, #f97316 100%); color: #ffffff;">
+              ${escapeHtml(offer.ctaLabel)}
+            </a>
+            <!-- もしもアフィリエイト必須のインプレッション計測タグ (a_id=5858550) -->
+            ${parsed.trackingPixelHtml}
+          </div>
+        </article>
+      `;
+    }).join("");
+
+    return `
+      <aside id="${escapeHtml(slotId)}" class="frag-offer-showcase" aria-label="楽天市場プロモーション">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem;">
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <span style="padding: 0.16rem 0.45rem; border-radius: 4px; background: rgba(239, 68, 68, 0.22); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; font-size: 0.64rem; font-weight: 900;">
+              OFFICIAL PARTNER LINK
+            </span>
+            <span style="font-size: 0.76rem; font-weight: 800; color: #e4e4e7;">
+              ポイント還元でお得にデバイスを揃える
+            </span>
+          </div>
+          <span style="font-size: 0.64rem; color: #71717a;">Sponsored / PR</span>
+        </div>
+        ${cardsHtml}
+      </aside>
+    `;
+  }
+
+  function injectMoshimoOfferSlots() {
+    const placements = [
+      { anchorSelector: "#match-results", slotId: "frag-offer-slot-match", position: "afterend" },
+      { anchorSelector: "#ranking-content", slotId: "frag-offer-slot-ranking", position: "afterend" },
+      { anchorSelector: "#consult-results", slotId: "frag-offer-slot-consult", position: "afterend" }
+    ];
+
+    placements.forEach(({ anchorSelector, slotId, position }) => {
+      const existing = document.getElementById(slotId);
+      if (existing) existing.remove();
+      const anchor = document.querySelector(anchorSelector);
+      if (anchor) {
+        anchor.insertAdjacentHTML(position, buildOfferShowcaseHtml(slotId));
+      }
+    });
+
+    syncAllExistingRakutenLinks();
+  }
+
+  // 初回再描画して全カードの「🛍 楽天最安」ボタンも a_id=5858550 に更新
+  renderPlayers();
+  const currentRankingGame = document.querySelector(".game-tab.selected")?.dataset?.game || "VALORANT";
+  if (typeof window.renderRankings === "function") {
+    window.renderRankings(currentRankingGame);
+  }
+  injectMoshimoOfferSlots();
+  document.addEventListener("click", () => setTimeout(syncAllExistingRakutenLinks, 100));
+})();
