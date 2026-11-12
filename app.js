@@ -6611,3 +6611,149 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   injectMoshimoOfferSlots();
   document.addEventListener("click", () => setTimeout(syncAllExistingRakutenLinks, 100));
 })();
+// ============================================================================
+// 統合メンテナンスパッチ：5大バグ修正（広告枠ID・音声項目コピー・同名別ゲーム・管理ロック）＆ 販促日自動バッジ
+// ============================================================================
+(() => {
+  // --------------------------------------------------------------------------
+  // 1. もしもアフィリエイト広告枠の挿入先IDミス（#match-result / #consult-result）を修正
+  // --------------------------------------------------------------------------
+  function fixMoshimoOfferPlacements() {
+    const existingRankingOffer = document.getElementById("frag-offer-slot-ranking");
+    if (!existingRankingOffer) return;
+    const templateHtml = existingRankingOffer.outerHTML;
+
+    const correctTargets = [
+      { selector: "#match-result", slotId: "frag-offer-slot-match" },
+      { selector: "#consult-result", slotId: "frag-offer-slot-consult" }
+    ];
+
+    correctTargets.forEach(({ selector, slotId }) => {
+      if (document.getElementById(slotId)) return;
+      const anchor = document.querySelector(selector);
+      if (anchor) {
+        const clonedHtml = templateHtml.replace('id="frag-offer-slot-ranking"', `id="${slotId}"`);
+        anchor.insertAdjacentHTML("afterend", clonedHtml);
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 2. 楽天市場「0と5のつく日（毎月5,10,15,20,25,30日）」の自動判定＆ポイントUPバッジ表示
+  // --------------------------------------------------------------------------
+  function applySpecialSaleDayBadge() {
+    const todayDate = new Date().getDate();
+    const isZeroOrFiveDay = todayDate % 5 === 0;
+    if (!isZeroOrFiveDay) return;
+
+    document.querySelectorAll(".frag-offer-showcase").forEach((box) => {
+      if (box.querySelector(".js-rakuten-5day-badge")) return;
+      const headerRow = box.querySelector("div:first-child");
+      if (headerRow) {
+        headerRow.insertAdjacentHTML(
+          "beforeend",
+          `<span class="js-rakuten-5day-badge" style="padding: 0.2rem 0.6rem; border-radius: 999px; background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fff; font-size: 0.68rem; font-weight: 900; box-shadow: 0 0 12px rgba(239,68,68,0.4);">
+             🔥 本日「0と5のつく日」楽天ポイント倍率UPデー！
+           </span>`
+        );
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. 同名プレイヤーの別ゲームデータ消失修正 ＆ ラピトリ検索キーワード保持の最適化
+  // --------------------------------------------------------------------------
+  let cachedMergedList = null;
+  let lastPlayersRef = null;
+  let lastCustomRaw = null;
+
+  window.getMergedPlayersList = function () {
+    const currentCustomRaw = localStorage.getItem(CUSTOM_PLAYERS_STORAGE_KEY) || "";
+    if (cachedMergedList && lastPlayersRef === players && lastCustomRaw === currentCustomRaw) {
+      return cachedMergedList;
+    }
+
+    const baseList = Array.isArray(players) ? players : [];
+    const customList = typeof loadCustomPlayers === "function" ? loadCustomPlayers() : [];
+    const seenGameAndName = new Set();
+    const merged = [];
+
+    [...customList, ...baseList, ...SUPPLEMENTAL_PLAYERS_DB].forEach((p) => {
+      if (!p || typeof p.name !== "string") return;
+      const validated = typeof window.validateAndNormalizePlayerRecord === "function"
+        ? window.validateAndNormalizePlayerRecord(p)
+        : p;
+      if (!validated) return;
+
+      const gameKey = normalizeGameName(validated.game).toLowerCase();
+      const baseNameKey = validated.name.split(/[（(]/)[0].trim().toLowerCase();
+      // ゲーム名＋選手名をキーにすることで、VALORANTとApex両方に登録がある配信者も両方残す
+      const uniqueKey = `${gameKey}::${baseNameKey}`;
+      if (seenGameAndName.has(uniqueKey)) return;
+      seenGameAndName.add(uniqueKey);
+
+      const fourDevsPlayer = ensurePlayerFourDevices({ ...p, ...validated });
+      const specs = typeof window.getPlayerEnvSpecs === "function"
+        ? window.getPlayerEnvSpecs(fourDevsPlayer.name, fourDevsPlayer)
+        : null;
+
+      if (specs) {
+        fourDevsPlayer.proEnvSpecs = specs;
+        const kw = `ラピトリ AP${specs.ap} RT${specs.rt} ${specs.hz} ${specs.res} ${specs.aspect}`;
+        if (!String(fourDevsPlayer.source || "").includes(specs.hz)) {
+          fourDevsPlayer.source = `${fourDevsPlayer.source || "ProSettings"} | ${kw}`;
+        }
+      }
+
+      merged.push(fourDevsPlayer);
+    });
+
+    lastPlayersRef = players;
+    lastCustomRaw = currentCustomRaw;
+    cachedMergedList = merged;
+    return merged;
+  };
+
+  // --------------------------------------------------------------------------
+  // 4. 管理モーダルの「#cp-audio」JSONコピー漏れ修正 ＆ ロック解除後のパネル確実表示
+  // --------------------------------------------------------------------------
+  const origLockAdmin = window.lockFragAdminMode;
+  window.lockFragAdminMode = function () {
+    if (typeof origLockAdmin === "function") origLockAdmin();
+    // 正しいモーダルID（#frag-add-player-modal）も確実に閉じる
+    const actualModal = document.getElementById("frag-add-player-modal");
+    if (actualModal) actualModal.innerHTML = "";
+  };
+
+  // モーダル内の #cp-audio（ヘッドセット）が変更された際、#cp-hs としても値を読めるように同期
+  document.addEventListener("input", (e) => {
+    if (e.target && e.target.id === "cp-audio") {
+      e.target.setAttribute("name", "headset");
+    }
+  });
+
+  // パスコード認証後にモーダルが開いた際、JSONコピーパネルとバックアップバーを確実にアタッチ
+  const currentOpenModal = window.openAddCustomPlayerModal;
+  if (typeof currentOpenModal === "function") {
+    window.openAddCustomPlayerModal = async function (...args) {
+      const result = await currentOpenModal.apply(this, args);
+      const audioInput = document.getElementById("cp-audio");
+      if (audioInput) {
+        audioInput.setAttribute("name", "headset");
+        audioInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      return result;
+    };
+  }
+
+  // 初回実行＆イベント連動
+  fixMoshimoOfferPlacements();
+  applySpecialSaleDayBadge();
+  renderPlayers();
+  document.addEventListener("click", () => {
+    setTimeout(() => {
+      fixMoshimoOfferPlacements();
+      applySpecialSaleDayBadge();
+    }, 120);
+  });
+})();
