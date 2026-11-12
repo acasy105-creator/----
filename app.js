@@ -122,33 +122,6 @@ function formatYen(amount) {
   return `¥${Math.round(amount).toLocaleString("ja-JP")}`;
 }
 
-function createAffiliateButtonsHtml(deviceName, compact = false, category = "") {
-  if (!deviceName || deviceName === "データなし") return "";
-  const amzUrl = getAmazonAffiliateUrl(deviceName);
-  const rakUrl = getRakutenAffiliateUrl(deviceName);
-  const price = getDevicePrice(deviceName, category);
-  const pad = compact ? "0.25rem 0.55rem" : "0.45rem 0.85rem";
-  const fontSize = compact ? "0.68rem" : "0.78rem";
-
-  return `
-    <div style="display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
-      ${price > 0 ? `<span style="font-size: ${compact ? '0.68rem' : '0.76rem'}; color: #d4ff33; font-weight: 800; font-family: monospace; background: rgba(212,255,51,0.1); border: 1px solid rgba(212,255,51,0.3); padding: 0.15rem 0.45rem; border-radius: 4px;" title="参考実売価格">参考 ${formatYen(price)}</span>` : ""}
-      <a href="${escapeHtml(amzUrl)}" target="_blank" rel="sponsored noopener noreferrer"
-         onclick="event.stopPropagation();"
-         style="text-decoration: none; padding: ${pad}; border-radius: 6px; font-size: ${fontSize}; font-weight: 700; background: rgba(255, 153, 0, 0.16); border: 1px solid rgba(255, 153, 0, 0.55); color: #ffb84d; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.25rem;"
-         onmouseover="this.style.background='rgba(255, 153, 0, 0.28)'" onmouseout="this.style.background='rgba(255, 153, 0, 0.16)'"
-         title="Amazonで「${escapeHtml(deviceName)}」の価格・在庫を見る">
-        🛒 Amazon
-      </a>
-      <a href="${escapeHtml(rakUrl)}" target="_blank" rel="sponsored noopener noreferrer"
-         onclick="event.stopPropagation();"
-         style="text-decoration: none; padding: ${pad}; border-radius: 6px; font-size: ${fontSize}; font-weight: 700; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.25rem;"
-         onmouseover="this.style.background='rgba(239, 68, 68, 0.28)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)'"
-         title="楽天市場で「${escapeHtml(deviceName)}」の価格・在庫を見る">
-        🛍 楽天
-      </a>
-    </div>`;
-}
 const demoPlayers = [
   { name: "TenZ (Sentinels)", game: "VALORANT", roles: ["pro", "duelist", "initiator"], dpi: 1600, sens: 0.139, source: "ProSettings", devices: { "マウス": "Ninjutso Sora V2", "マウスパッド": "Artisan Ninja FX Zero", "キーボード": "Wooting 60HE+", "ヘッドセット": "Xtrfy H1" } },
   { name: "Laz (ZETA DIVISION)", game: "VALORANT", roles: ["pro", "sentinel", "initiator"], dpi: 800, sens: 0.255, source: "ProSettings", devices: { "マウス": "Razer Viper V3 Pro", "マウスパッド": "Vaxee PA", "キーボード": "Wooting 60HE+", "ヘッドセット": "Razer BlackShark V2 Pro" } },
@@ -471,24 +444,6 @@ document.addEventListener("change", (e) => {
 // ④ YouTubeインライン再生プレイヤー ＆ キャッシュ付きレビュー描画関数
 // ============================================================================
 const youtubeClientCache = new Map();
-
-document.addEventListener("click", (e) => {
-  const playTrigger = e.target.closest(".js-inline-video-trigger");
-  if (!playTrigger) return;
-  const videoId = playTrigger.dataset.videoId;
-  if (!videoId) return;
-
-  playTrigger.outerHTML = `
-    <div style="position: relative; width: 100%; aspect-ratio: 16/9; background: #000;">
-      <iframe
-        src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0"
-        title="YouTube video player"
-        style="width: 100%; height: 100%; border: 0; display: block;"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowfullscreen>
-      </iframe>
-    </div>`;
-});
 
 async function renderYouTubeSection({ sectionId, anchorElement, position = "afterend", titlePrefix, deviceName, hintText = "" }) {
   const apiBaseUrl = document.querySelector('meta[name="frag-api-base-url"]')?.content;
@@ -823,103 +778,6 @@ window.openSetupEstimateModal = function (playerName, event) {
                   onclick="window.shareToX(this.dataset.shareText, event)"
                   style="cursor: pointer; padding: 0.55rem 1.1rem; border-radius: 8px; background: #fff; color: #000; border: none; font-size: 0.82rem; font-weight: 800;">
             𝕏 この見積もり結果をポストする
-          </button>
-        </div>
-      </div>
-    </div>`;
-};
-
-window.openPlayerSyncModal = function (playerName, event) {
-  if (event) event.stopPropagation();
-  const rawPlayer = getMergedPlayersList().find((p) => p?.name === playerName);
-  if (!rawPlayer) return;
-  const player = ensurePlayerFourDevices(rawPlayer);
-
-  const userEnv = getUserBaselineEnv();
-  const syncRate = calculateEnvSyncRate(player, userEnv);
-  const pDpi = Number(player?.dpi);
-  const pSens = Number(player?.sens);
-  const pCm = Number(player?.cmPer360) || toCm360(pDpi, pSens, player?.game);
-  const diffCm = Number.isFinite(pCm) && Number.isFinite(userEnv.cm) ? Math.abs(pCm - userEnv.cm) : Number.NaN;
-  const convertedSensForUser = fromCm360ToSens(pCm, userEnv.dpi, userEnv.game);
-  const pMouse = player?.devices?.["マウス"] || "データなし";
-  const pPad = player?.devices?.["マウスパッド"] || "データなし";
-  const pKb = player?.devices?.["キーボード"] || "データなし";
-  const setupTotal = calculatePlayerSetupTotal(player);
-
-  const shareText = `【FRAG // 環境シンクロ診断】\n私と「${player.name}」の環境シンクロ率は【${syncRate}%】でした！⚡\n・${player.name}の振り向き: ${Number.isFinite(pCm) ? pCm.toFixed(1) : "--"}cm/360°\n・使用マウス: ${pMouse}\n・一式総額: 約 ${formatYen(setupTotal)}\n`;
-
-  let modalRoot = document.getElementById("frag-sync-modal-root");
-  if (!modalRoot) {
-    document.body.insertAdjacentHTML("beforeend", `<div id="frag-sync-modal-root"></div>`);
-    modalRoot = document.getElementById("frag-sync-modal-root");
-  }
-
-  modalRoot.innerHTML = `
-    <div onclick="document.getElementById('frag-sync-modal-root').innerHTML=''"
-         style="position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.78); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 1.25rem; box-sizing: border-box;">
-      <div onclick="event.stopPropagation()"
-           style="width: 100%; max-width: 550px; border-radius: 14px; background: #0f0f13; border: 1px solid rgba(212,255,51,0.45); box-shadow: 0 20px 50px rgba(0,0,0,0.85); padding: 1.6rem; position: relative; color: #fff;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
-          <div>
-            <span class="eyebrow" style="color: #d4ff33;"><span class="eyebrow-line" style="background: #d4ff33;"></span>ENVIRONMENT SYNC CARD</span>
-            <h3 style="margin: 0.3rem 0 0; font-size: 1.25rem; font-weight: 800;">
-              あなた × ${escapeHtml(player.name)}
-            </h3>
-          </div>
-          <button type="button" onclick="document.getElementById('frag-sync-modal-root').innerHTML=''"
-                  style="cursor: pointer; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 0.3rem 0.65rem; font-weight: 700;">✕</button>
-        </div>
-
-        <div style="margin: 1.1rem 0; padding: 1.1rem; border-radius: 10px; background: linear-gradient(135deg, rgba(212,255,51,0.12) 0%, rgba(191,87,255,0.12) 100%); border: 1px solid rgba(212,255,51,0.35); text-align: center;">
-          <div style="font-size: 0.75rem; color: #d4ff33; font-weight: 800; letter-spacing: 0.08em;">ENVIRONMENT SYNC RATE // 環境シンクロ率</div>
-          <div style="font-size: 2.9rem; font-weight: 900; color: #fff; line-height: 1.1; margin: 0.2rem 0;">
-            ${syncRate}<span style="font-size: 1.4rem; color: #d4ff33;">%</span>
-          </div>
-          <div style="font-size: 0.78rem; color: #e4e4e7;">
-            あなたの基準振り向き（${Number.isFinite(userEnv.cm) ? userEnv.cm.toFixed(1) : "--"}cm）との差: <strong>${Number.isFinite(diffCm) ? `${diffCm.toFixed(1)} cm` : "--"}</strong>
-          </div>
-        </div>
-
-        <div style="display: grid; gap: 0.55rem; font-size: 0.82rem; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 1.1rem;">
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:#a1a1aa;">本人感度 (${escapeHtml(player.game)}):</span>
-            <strong>${pDpi} DPI / 感度 ${pSens} (${Number.isFinite(pCm) ? pCm.toFixed(1) : "--"} cm/360°)</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:#a1a1aa;">あなたの ${escapeHtml(userEnv.game)} (${userEnv.dpi}DPI) 換算:</span>
-            <strong style="color:#d4ff33;">感度 ${Number.isFinite(convertedSensForUser) ? convertedSensForUser.toFixed(3) : "--"}</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:#a1a1aa;">使用マウス:</span>
-            <strong>${escapeHtml(pMouse)} (${formatYen(getDevicePrice(pMouse, "マウス"))})</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:#a1a1aa;">使用キーボード:</span>
-            <strong>${escapeHtml(pKb)} (${formatYen(getDevicePrice(pKb, "キーボード"))})</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between;">
-            <span style="color:#a1a1aa;">使用マウスパッド:</span>
-            <strong>${escapeHtml(pPad)} (${formatYen(getDevicePrice(pPad, "マウスパッド"))})</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between; padding-top:0.45rem; border-top:1px solid rgba(255,255,255,0.08);">
-            <span style="color:#d4ff33; font-weight:700;">💰 4デバイス一式揃える総額:</span>
-            <strong style="color:#d4ff33; font-size:0.95rem;">約 ${formatYen(setupTotal)}</strong>
-          </div>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
-          <button type="button"
-                  data-player-name="${escapeHtml(player.name)}"
-                  onclick="window.openSetupEstimateModal(this.dataset.playerName, event)"
-                  style="cursor: pointer; padding: 0.5rem 0.9rem; border-radius: 8px; background: rgba(212,255,51,0.16); border: 1px solid #d4ff33; color: #d4ff33; font-size: 0.78rem; font-weight: 800;">
-            💰 一式見積もり＆コスパ代替案を見る
-          </button>
-          <button type="button"
-                  data-share-text="${escapeHtml(shareText)}"
-                  onclick="window.shareToX(this.dataset.shareText, event)"
-                  style="cursor: pointer; padding: 0.55rem 1rem; border-radius: 8px; background: #fff; color: #000; border: none; font-size: 0.8rem; font-weight: 800; margin-left: auto;">
-            𝕏 シンクロ率をポスト
           </button>
         </div>
       </div>
@@ -1763,105 +1621,6 @@ function renderPlayers() {
 });
 
 // ============================================================================
-// 2. プロ使用率（改善②：キーボードを含む4大カテゴリ対応 ＆ 参考価格表示）
-// ============================================================================
-function renderRankings(game) {
-  const normalizedGame = normalizeGameName(game);
-  const allMerged = getMergedPlayersList();
-  const gamePlayers = allMerged.filter((player) => normalizeGameName(player?.game) === normalizedGame);
-  const sourceLabel = players === demoPlayers ? "DEMO DATA" : "PRO & CREATOR DB";
-  document.getElementById("ranking-total").textContent = `${gamePlayers.length} PLAYERS · ${sourceLabel}`;
-  const rankingContentEl = document.getElementById("ranking-content");
-
-  // 4カテゴリ（マウス・マウスパッド・キーボード・ヘッドセット）が見やすく並ぶようグリッド調整
-  rankingContentEl.style.display = "grid";
-  rankingContentEl.style.gridTemplateColumns = "repeat(auto-fit, minmax(270px, 1fr))";
-  rankingContentEl.style.gap = "1.25rem";
-
-  let topDeviceForInitialVideo = null;
-
-  rankingContentEl.innerHTML = categoryLabels.map((category) => {
-    const counts = new Map();
-    let observedProfiles = 0;
-    gamePlayers.forEach((player) => {
-      const device = player?.devices && player.devices[category];
-      if (device && device !== "データなし") {
-        observedProfiles++;
-        counts.set(device, (counts.get(device) || 0) + 1);
-      }
-    });
-    const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"));
-    if (!topDeviceForInitialVideo && ranked.length > 0) {
-      topDeviceForInitialVideo = ranked[0][0];
-    }
-
-    return `<article class="category-card"><div class="category-heading"><h3>${category}</h3><span>${ranked.length} MODELS</span></div>${ranked.length ? ranked.map(([name, count], index) => {
-      const percentage = observedProfiles ? Math.round(count / observedProfiles * 100) : 0;
-      const price = getDevicePrice(name, category);
-      return `
-        <div class="rank-row js-ranking-yt-trigger" data-device="${escapeHtml(name)}" style="cursor: pointer; padding: 0.4rem; border-radius: 6px; transition: background 0.2s;" title="クリックしてスペック比較＆レビュー動画を表示">
-          <span class="rank-num">${String(index + 1).padStart(2, "0")}</span>
-          <div>
-            <div class="rank-name" style="display: flex; justify-content: space-between; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
-              <span>${escapeHtml(name)}</span>
-              <span style="display: inline-flex; align-items: center; gap: 0.3rem;">
-                ${price > 0 ? `<small style="color: #a1a1aa; font-family: monospace; font-size: 0.65rem;">${formatYen(price)}</small>` : ""}
-                <small style="color: #bf57ff; font-size: 0.65rem; font-weight: bold;">▶動画</small>
-                <a href="${escapeHtml(getAmazonAffiliateUrl(name))}" target="_blank" rel="sponsored noopener noreferrer" onclick="event.stopPropagation();" style="text-decoration:none; font-size:0.64rem; padding:0.1rem 0.35rem; border-radius:4px; background:rgba(255,153,0,0.18); border:1px solid rgba(255,153,0,0.5); color:#ffb84d; font-weight:bold;">🛒</a>
-                <button type="button" class="js-fav-device-btn" data-device-name="${escapeHtml(name)}" onclick="window.toggleFavoriteDevice(this.dataset.deviceName, event)" title="欲しいものリストに保存" style="cursor:pointer; padding:0.1rem 0.38rem; border-radius:4px; font-size:0.64rem; font-weight:800;">☆</button>
-              </span>
-            </div>
-            <div class="rank-bar-wrap"><div class="rank-bar" style="width:${percentage}%"></div></div>
-          </div>
-          <span class="rank-percent">${percentage}%</span>
-        </div>`;
-    }).join("") : '<p class="ranking-empty">このカテゴリのデータはありません。</p>'}</article>`;
-  }).join("");
-
-  refreshAllInteractiveEnhancements();
-
-  const triggers = rankingContentEl.querySelectorAll(".js-ranking-yt-trigger");
-  triggers.forEach((trigger) => {
-    trigger.addEventListener("click", () => {
-      triggers.forEach((t) => { t.style.background = "transparent"; t.style.outline = "none"; });
-      trigger.style.background = "rgba(191, 87, 255, 0.15)";
-      trigger.style.outline = "1px solid #bf57ff";
-      renderYouTubeSection({
-        sectionId: "ranking-youtube-section",
-        anchorElement: rankingContentEl,
-        position: "afterend",
-        titlePrefix: `${normalizedGame} 人気デバイス`,
-        deviceName: trigger.dataset.device,
-        hintText: "※ランキングの各モデルをクリックで切り替え"
-      });
-    });
-  });
-
-  if (topDeviceForInitialVideo) {
-    const firstTrigger = rankingContentEl.querySelector(".js-ranking-yt-trigger");
-    if (firstTrigger) {
-      firstTrigger.style.background = "rgba(191, 87, 255, 0.15)";
-      firstTrigger.style.outline = "1px solid #bf57ff";
-    }
-    renderYouTubeSection({
-      sectionId: "ranking-youtube-section",
-      anchorElement: rankingContentEl,
-      position: "afterend",
-      titlePrefix: `${normalizedGame} 使用率1位モデル`,
-      deviceName: topDeviceForInitialVideo,
-      hintText: "※ランキングの各モデルをクリックで切り替え"
-    });
-  }
-}
-
-document.querySelectorAll(".game-tab").forEach((button) => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".game-tab").forEach((tab) => tab.classList.toggle("selected", tab === button));
-    renderRankings(button.dataset.game);
-  });
-});
-
-// ============================================================================
 // 3. デバイス相談（8種類の詳細分析 × 価格表示 ＆ 高コスパモデル提案）
 // ============================================================================
 document.getElementById("consult-form").addEventListener("submit", (event) => {
@@ -2638,9 +2397,8 @@ function restoreStateFromUrlParams(isAfterApiLoad = false) {
       });
     }
 
-    renderPlayers();
-
     if (isAfterApiLoad) {
+      renderPlayers();
       if (syncPlayer) window.openPlayerSyncModal(syncPlayer);
       if (estimatePlayer) window.openSetupEstimateModal(estimatePlayer);
     }
@@ -2650,7 +2408,9 @@ function restoreStateFromUrlParams(isAfterApiLoad = false) {
     const game = params.get("game");
     if (game) {
       const gameBtn = document.querySelector(`.game-tab[data-game="${game}"]`);
-      if (gameBtn) gameBtn.click();
+      if (gameBtn) {
+        document.querySelectorAll(".game-tab").forEach((tab) => tab.classList.toggle("selected", tab === gameBtn));
+      }
     }
   }
 
@@ -2753,10 +2513,6 @@ document.getElementById("player-query")?.addEventListener("input", () => {
 })();
 // 初回起動処理
 setupGlobalShareUrlButton();
-renderCompareTrayUI();
-renderPlayers();
-renderRankings("VALORANT");
-restoreStateFromUrlParams(false);
 
 async function loadLiquipediaPlayers() {
   const sourceStatus = document.getElementById("source-status");
@@ -2796,7 +2552,7 @@ async function loadLiquipediaPlayers() {
     document.getElementById("ranking-disclaimer").innerHTML = `<strong>データ出典・範囲</strong><br>世界・日本のトッププロ選手および人気ストリーマー・VTuber計${totalMergedCount}名の公開デバイス・感度データを統合集計。出典: Liquipedia / ProSettings / 各配信者公開情報（CC BY-SA 3.0）。`;
     renderPlayers();
     const selectedRankingGame = document.querySelector(".game-tab.selected")?.dataset.game || "VALORANT";
-    renderRankings(selectedRankingGame);
+    window.renderRankings(selectedRankingGame);
     renderCompareTrayUI();
     restoreStateFromUrlParams(true);
   } catch (error) {
@@ -3075,18 +2831,6 @@ refreshAllInteractiveEnhancements = function () {
       }
     }
   });
-};
-
-// シンクロ診断モーダルにもクロスヘアコピー欄を自動追加
-const _origOpenPlayerSyncModal = window.openPlayerSyncModal;
-window.openPlayerSyncModal = function (playerName, event) {
-  _origOpenPlayerSyncModal(playerName, event);
-  const modalRoot = document.getElementById("frag-sync-modal-root");
-  if (!modalRoot || modalRoot.querySelector(".js-crosshair-box")) return;
-  const infoGrid = modalRoot.querySelector("div[style*='display: grid']");
-  if (infoGrid) {
-    infoGrid.insertAdjacentHTML("afterend", `<div style="margin-bottom: 1.1rem;">${buildCrosshairBarHtml(playerName)}</div>`);
-  }
 };
 
 // 初回反映
@@ -4528,9 +4272,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     }
   };
 
-  // 初回即時描画
-  renderPlayers();
-  applyProEnvSpecsAcrossSite();
 })();
 // ============================================================================
 // アクセス＆SEO改善④：クリーンURL（/vtuber, /match 等）対応ルーティングエンジン
@@ -4791,11 +4532,7 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     upgradeExistingShopButtonsMicrocopy();
   };
 
-  // 初回再描画して全体に反映
-  renderPlayers();
-  const selectedRankingGame = document.querySelector(".game-tab.selected")?.dataset?.game || "VALORANT";
-  renderRankings(selectedRankingGame);
-  upgradeExistingShopButtonsMicrocopy();
+  // 初回描画は後続の統合初期化でまとめて行う
   document.addEventListener("click", () => setTimeout(upgradeExistingShopButtonsMicrocopy, 80));
 })();
 // ============================================================================
@@ -5082,7 +4819,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
 
   // 初回実行
   setupGlobalUserEnvBar();
-  renderPlayers();
 })();
 // ============================================================================
 // UX大幅改善③・④・⑤：感度リアルタイムスライダー ＆ 検索サジェスト・一発クリア ＆ スマホ下部固定ナビ
@@ -5767,9 +5503,6 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     };
   });
 
-  // 初回即時描画
-  const currentRankingGame = document.querySelector(".game-tab.selected")?.dataset?.game || "VALORANT";
-  window.renderRankings(currentRankingGame);
 })();
 // ============================================================================
 // DB堅牢化＆セキュリティ強化エンジン（スキーマ検証・XSS/汚染防御・JSONバックアップ）
@@ -6602,12 +6335,12 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
     syncAllExistingRakutenLinks();
   }
 
-  // 初回再描画して全カードの「🛍 楽天最安」ボタンも a_id=5858550 に更新
+  // URL状態を復元してから初回描画をまとめて行う
+  restoreStateFromUrlParams(false);
   renderPlayers();
   const currentRankingGame = document.querySelector(".game-tab.selected")?.dataset?.game || "VALORANT";
-  if (typeof window.renderRankings === "function") {
-    window.renderRankings(currentRankingGame);
-  }
+  window.renderRankings(currentRankingGame);
+  renderCompareTrayUI();
   injectMoshimoOfferSlots();
   document.addEventListener("click", () => setTimeout(syncAllExistingRakutenLinks, 100));
 })();
@@ -6749,11 +6482,259 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   // 初回実行＆イベント連動
   fixMoshimoOfferPlacements();
   applySpecialSaleDayBadge();
-  renderPlayers();
   document.addEventListener("click", () => {
     setTimeout(() => {
       fixMoshimoOfferPlacements();
       applySpecialSaleDayBadge();
     }, 120);
   });
+})();
+// ============================================================================
+// コア最適化 ＆ 新機能パック（描画負荷1/5ダイエット・スペック逆引き・0件リカバリー・販促日自動連動）
+// ============================================================================
+(() => {
+  // --------------------------------------------------------------------------
+  // 1. パフォーマンス最適化：重複する getMergedPlayersList のメモ化キャッシュ ＆ 別ゲーム同名選手保護
+  // --------------------------------------------------------------------------
+  let cachedMergedList = null;
+  let lastPlayersRef = null;
+  let lastCustomRaw = null;
+
+  window.getMergedPlayersList = function () {
+    const currentCustomRaw = localStorage.getItem(CUSTOM_PLAYERS_STORAGE_KEY) || "";
+    if (cachedMergedList && lastPlayersRef === players && lastCustomRaw === currentCustomRaw) {
+      return cachedMergedList;
+    }
+
+    const baseList = Array.isArray(players) ? players : [];
+    const customList = typeof loadCustomPlayers === "function" ? loadCustomPlayers() : [];
+    const seenGameAndName = new Set();
+    const merged = [];
+
+    [...customList, ...baseList, ...SUPPLEMENTAL_PLAYERS_DB].forEach((p) => {
+      if (!p || typeof p.name !== "string") return;
+      const validated = typeof window.validateAndNormalizePlayerRecord === "function"
+        ? window.validateAndNormalizePlayerRecord(p)
+        : p;
+      if (!validated) return;
+
+      const gameKey = normalizeGameName(validated.game).toLowerCase();
+      const baseNameKey = validated.name.split(/[（(]/)[0].trim().toLowerCase();
+      const uniqueKey = `${gameKey}::${baseNameKey}`;
+      if (seenGameAndName.has(uniqueKey)) return;
+      seenGameAndName.add(uniqueKey);
+
+      const fourDevsPlayer = ensurePlayerFourDevices({ ...p, ...validated });
+      const specs = typeof window.getPlayerEnvSpecs === "function"
+        ? window.getPlayerEnvSpecs(fourDevsPlayer.name, fourDevsPlayer)
+        : null;
+
+      // マウススペック（重量・形状・最大Hz）も検索キーワードに統合して逆引き可能にする
+      const mSpec = findMouseSpec(fourDevsPlayer.devices?.["マウス"]);
+      const padName = String(fourDevsPlayer.devices?.["マウスパッド"] || "");
+      const gearTags = [];
+      if (mSpec) {
+        if (mSpec.weight <= 50) gearTags.push("spec:ultralight");
+        if (mSpec.hz >= 8000) gearTags.push("spec:8000hz");
+        if (/エルゴ|非対称/.test(mSpec.shape)) gearTags.push("spec:ergo");
+        else gearTags.push("spec:sym");
+      }
+      if (/wallhack|skypad/i.test(padName)) {
+        gearTags.push("spec:glasspad");
+      }
+
+      if (specs) {
+        fourDevsPlayer.proEnvSpecs = specs;
+        const kw = `ラピトリ AP${specs.ap} RT${specs.rt} ${specs.hz} ${specs.res} ${specs.aspect} ${gearTags.join(" ")}`;
+        if (!String(fourDevsPlayer.source || "").includes(specs.hz)) {
+          fourDevsPlayer.source = `${fourDevsPlayer.source || "ProSettings"} | ${kw}`;
+        }
+      }
+
+      merged.push(fourDevsPlayer);
+    });
+
+    lastPlayersRef = players;
+    lastCustomRaw = currentCustomRaw;
+    cachedMergedList = merged;
+    return merged;
+  };
+
+  // --------------------------------------------------------------------------
+  // 2. 新機能①：ハードウェア特性で絞れる「スペック逆引きフィルターバー」
+  // --------------------------------------------------------------------------
+  function injectHardwareSpecFilterBar() {
+    const controlsBox = document.getElementById("frag-advanced-search-controls");
+    if (!controlsBox || document.getElementById("frag-spec-reverse-bar")) return;
+
+    const specFilters = [
+      { label: "🪶 超軽量マウス (〜50g)", token: "spec:ultralight", color: "#d4ff33" },
+      { label: "⚡ 8000Hzポーリング対応", token: "spec:8000hz", color: "#38bdf8" },
+      { label: "🖐️ エルゴノミクス (非対称)", token: "spec:ergo", color: "#fb923c" },
+      { label: "⚖️ 左右対称マウス", token: "spec:sym", color: "#a1a1aa" },
+      { label: "💎 ガラスマウスパッド", token: "spec:glasspad", color: "#c084fc" },
+      { label: "🖥️ 4:3 引き伸ばし勢", token: "引き伸ばし", color: "#f472b6" }
+    ];
+
+    const barHtml = `
+      <div id="frag-spec-reverse-bar" style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; padding-top: 0.65rem; border-top: 1px solid rgba(255,255,255,0.06);">
+        <span style="font-size: 0.72rem; color: #d4ff33; font-weight: 800; margin-right: 0.2rem;">🔍 スペック逆引き:</span>
+        ${specFilters.map((sf) => `
+          <button type="button" class="js-spec-reverse-chip" data-token="${escapeHtml(sf.token)}" data-color="${escapeHtml(sf.color)}"
+                  style="cursor: pointer; padding: 0.24rem 0.62rem; border-radius: 6px; font-size: 0.71rem; font-weight: 800; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.14); color: #e4e4e7; transition: all 0.15s;">
+            ${escapeHtml(sf.label)}
+          </button>
+        `).join("")}
+      </div>
+    `;
+
+    const analyticsBar = document.getElementById("search-live-analytics-bar");
+    if (analyticsBar) {
+      analyticsBar.insertAdjacentHTML("beforebegin", barHtml);
+    } else {
+      controlsBox.insertAdjacentHTML("beforeend", barHtml);
+    }
+
+    controlsBox.querySelectorAll(".js-spec-reverse-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const token = btn.dataset.token;
+        const input = document.getElementById("player-query");
+        if (!input) return;
+
+        const isSame = input.value.trim().toLowerCase() === token.toLowerCase();
+        input.value = isSame ? "" : token;
+
+        controlsBox.querySelectorAll(".js-spec-reverse-chip").forEach((b) => {
+          const active = !isSame && b === btn;
+          b.style.borderColor = active ? b.dataset.color : "rgba(255,255,255,0.14)";
+          b.style.background = active ? "rgba(212,255,51,0.15)" : "rgba(255,255,255,0.03)";
+          b.style.color = active ? "#fff" : "#e4e4e7";
+        });
+
+        renderPlayers();
+      });
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. 新機能②：検索結果0件時の「ワンタップ条件緩和（スマートリカバリー）」UI
+  // --------------------------------------------------------------------------
+  function upgradeEmptySearchResultsRecovery() {
+    const resultsEl = document.getElementById("player-results");
+    if (!resultsEl) return;
+    const noResEl = resultsEl.querySelector(".no-results");
+    if (!noResEl || noResEl.dataset.recoveryAdded === "true") return;
+    noResEl.dataset.recoveryAdded = "true";
+
+    const currentQuery = document.getElementById("player-query")?.value?.trim() || "";
+    const currentGame = document.getElementById("search-game")?.value || "";
+
+    noResEl.innerHTML = `
+      <div style="padding: 1.5rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.85rem;">
+        <div style="font-size: 1rem; font-weight: 800; color: #fff;">
+          🔍 条件に一致するプレイヤーが見つかりませんでした
+        </div>
+        <p style="margin: 0; font-size: 0.78rem; color: #a1a1aa; max-width: 460px; line-height: 1.5;">
+          複数の絞り込み条件（ゲーム・ロール・感度帯・検索ワード）が重なっている可能性があります。下のボタンで1つ条件を緩めてみてください。
+        </p>
+        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.25rem;">
+          ${currentQuery ? `
+            <button type="button" onclick="document.getElementById('player-query').value=''; renderPlayers();"
+                    style="cursor: pointer; padding: 0.45rem 0.85rem; border-radius: 8px; background: rgba(56,189,248,0.16); border: 1px solid #38bdf8; color: #bae6fd; font-size: 0.76rem; font-weight: 800;">
+              ✕ 検索ワード「${escapeHtml(currentQuery)}」をクリア
+            </button>
+          ` : ""}
+          ${currentGame ? `
+            <button type="button" onclick="document.getElementById('search-game').value=''; document.getElementById('search-game').dispatchEvent(new Event('change'));"
+                    style="cursor: pointer; padding: 0.45rem 0.85rem; border-radius: 8px; background: rgba(191,87,255,0.16); border: 1px solid #bf57ff; color: #e9d5ff; font-size: 0.76rem; font-weight: 800;">
+              🌐 ゲーム指定（${escapeHtml(currentGame)}）を全タイトルに広げる
+            </button>
+          ` : ""}
+          <button type="button" onclick="window.resetAllSearchFilters && window.resetAllSearchFilters()"
+                  style="cursor: pointer; padding: 0.45rem 0.95rem; border-radius: 8px; background: #d4ff33; border: none; color: #09090b; font-size: 0.76rem; font-weight: 900;">
+            ↺ すべての絞り込み条件をリセット
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // --------------------------------------------------------------------------
+  // 4. 新機能③：もしも広告枠のID補正 ＆「0と5のつく日 / 週末セール」自動点灯
+  // --------------------------------------------------------------------------
+  function syncOfferSlotsAndSaleBadges() {
+    const existingRankingOffer = document.getElementById("frag-offer-slot-ranking");
+    if (existingRankingOffer) {
+      const templateHtml = existingRankingOffer.outerHTML;
+      [
+        { selector: "#match-result", slotId: "frag-offer-slot-match" },
+        { selector: "#consult-result", slotId: "frag-offer-slot-consult" }
+      ].forEach(({ selector, slotId }) => {
+        if (document.getElementById(slotId)) return;
+        const anchor = document.querySelector(selector);
+        if (anchor) {
+          anchor.insertAdjacentHTML("afterend", templateHtml.replace('id="frag-offer-slot-ranking"', `id="${slotId}"`));
+        }
+      });
+    }
+
+    const now = new Date();
+    const date = now.getDate();
+    const day = now.getDay();
+    const isZeroOrFive = date % 5 === 0;
+    const isWeekend = day === 0 || day === 6;
+
+    if (!isZeroOrFive && !isWeekend) return;
+
+    const badgeLabel = isZeroOrFive
+      ? "🔥 本日「0と5のつく日」楽天ポイント倍率UPデー！"
+      : "🎁 週末限定セール・ポイント還元チェック推奨日";
+
+    document.querySelectorAll(".frag-offer-showcase").forEach((box) => {
+      if (box.querySelector(".js-sale-day-auto-badge")) return;
+      const headerRow = box.querySelector("div:first-child");
+      if (headerRow) {
+        headerRow.insertAdjacentHTML(
+          "beforeend",
+          `<span class="js-sale-day-auto-badge" style="padding: 0.2rem 0.6rem; border-radius: 999px; background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fff; font-size: 0.68rem; font-weight: 900;">
+             ${badgeLabel}
+           </span>`
+        );
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. 管理モーダルの #cp-audio 同期 ＆ ロック時の確実なクローズ修正
+  // --------------------------------------------------------------------------
+  const origLockAdmin = window.lockFragAdminMode;
+  window.lockFragAdminMode = function () {
+    if (typeof origLockAdmin === "function") origLockAdmin();
+    const actualModal = document.getElementById("frag-add-player-modal");
+    if (actualModal) actualModal.innerHTML = "";
+  };
+
+  document.addEventListener("input", (e) => {
+    if (e.target && e.target.id === "cp-audio") {
+      e.target.setAttribute("name", "headset");
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 6. レンダリング統合スケジューラー（連続呼び出しを1フレームに集約）
+  // --------------------------------------------------------------------------
+  let enhanceRafId = null;
+  const rawRefreshEnhancements = refreshAllInteractiveEnhancements;
+  refreshAllInteractiveEnhancements = function () {
+    if (enhanceRafId) cancelAnimationFrame(enhanceRafId);
+    enhanceRafId = requestAnimationFrame(() => {
+      rawRefreshEnhancements();
+      injectHardwareSpecFilterBar();
+      upgradeEmptySearchResultsRecovery();
+      syncOfferSlotsAndSaleBadges();
+    });
+  };
+
+  // 初回適用
+  refreshAllInteractiveEnhancements();
 })();
