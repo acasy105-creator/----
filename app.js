@@ -6025,3 +6025,193 @@ document.addEventListener("click", () => setTimeout(updateDynamicSeoMeta, 80));
   sanitizeUrlQueryParams();
   auditAndRepairLocalStorageDB();
 })();
+// ============================================================================
+// 運用効率化ツール：モーダル入力データの「players-dataset.json」形式ワンクリックコピー機能
+// ============================================================================
+(() => {
+  // 1. フォーム要素（または保存データ）から players-dataset.json 互換オブジェクトを生成
+  function buildDatasetRecordFromForm(formEl) {
+    if (!formEl) return null;
+
+    const getVal = (selectors, fallback = "") => {
+      for (const sel of selectors) {
+        const el = formEl.querySelector(sel);
+        if (el && el.value !== undefined && String(el.value).trim() !== "") {
+          return String(el.value).trim();
+        }
+      }
+      return fallback;
+    };
+
+    const name = getVal(["#cp-name", '[name="name"]', 'input[type="text"]'], "新規プレイヤー");
+    const gameRaw = getVal(["#cp-game", '[name="game"]', "select"], "VALORANT");
+    const game = typeof normalizeGameName === "function" ? normalizeGameName(gameRaw) : gameRaw;
+    const typeRole = getVal(["#cp-type", '[name="type"]', '[name="role"]'], "pro").toLowerCase();
+    const subRole = getVal(["#cp-subrole", '[name="subrole"]'], "");
+
+    const dpi = Number(getVal(["#cp-dpi", '[name="dpi"]'], "800")) || 800;
+    const sens = Number(getVal(["#cp-sens", '[name="sens"]'], "0.30")) || 0.3;
+    const cmRaw = typeof toCm360 === "function" ? toCm360(dpi, sens, game) : (360 / (dpi * sens * 0.07)) * 2.54;
+    const cmPer360 = Number.isFinite(cmRaw) ? Number(cmRaw.toFixed(2)) : 54.43;
+
+    const mouse = getVal(["#cp-mouse", '[name="mouse"]'], "Logicool G PRO X SUPERLIGHT 2");
+    const pad = getVal(["#cp-pad", "#cp-mousepad", '[name="pad"]', '[name="mousepad"]'], "Artisan Ninja FX Zero");
+    const kb = getVal(["#cp-kb", "#cp-keyboard", '[name="kb"]', '[name="keyboard"]'], "Wooting 60HE+");
+    const hs = getVal(["#cp-hs", "#cp-headset", '[name="hs"]', '[name="headset"]'], "SHURE SE215");
+    const sourceUrl = getVal(["#cp-url", '[name="sourceUrl"]'], "https://liquipedia.net/");
+
+    const roles = [...new Set([typeRole, subRole].map((r) => r.trim().toLowerCase()).filter(Boolean))];
+    if (roles.length === 0) roles.push("pro");
+
+    const sourceLabel =
+      roles.includes("vtuber") ? "VTuber Gear DB" :
+      roles.includes("streamer") ? "Streamer Gear DB" :
+      "ProSettings / Liquipedia";
+
+    return {
+      name,
+      game,
+      roles,
+      dpi,
+      sens,
+      cmPer360,
+      devices: {
+        "マウス": mouse,
+        "マウスパッド": pad,
+        "キーボード": kb,
+        "ヘッドセット": hs
+      },
+      source: sourceLabel,
+      sourceUrl
+    };
+  }
+
+  // 2. クリップボードへのコピー＆トースト通知処理
+  async function copyTextWithFeedback(btnEl, textToCopy, successLabel) {
+    const origHtml = btnEl.innerHTML;
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+    } catch (e) {
+      const ta = document.createElement("textarea");
+      ta.value = textToCopy;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    btnEl.innerHTML = `✓ ${successLabel}`;
+    btnEl.style.background = "rgba(212, 255, 51, 0.28)";
+    btnEl.style.borderColor = "#d4ff33";
+    btnEl.style.color = "#fff";
+    setTimeout(() => {
+      btnEl.innerHTML = origHtml;
+      btnEl.style.background = "";
+      btnEl.style.borderColor = "";
+      btnEl.style.color = "";
+    }, 1800);
+  }
+
+  // 3. モーダル起動時に「players-dataset.json 生成＆コピーパネル」を自動注入
+  function attachDatasetCopyPanel() {
+    const formEl = document.getElementById("custom-player-form");
+    if (!formEl || document.getElementById("frag-dataset-json-generator")) return;
+
+    const panelHtml = `
+      <div id="frag-dataset-json-generator" style="margin-top: 1rem; padding: 0.9rem 1rem; border-radius: 10px; background: rgba(10, 10, 16, 0.92); border: 1px solid rgba(56, 189, 248, 0.35);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.55rem;">
+          <div>
+            <span style="font-size: 0.68rem; font-weight: 900; color: #38bdf8; background: rgba(56, 189, 248, 0.14); padding: 0.15rem 0.45rem; border-radius: 4px;">DEV TOOL</span>
+            <strong style="font-size: 0.78rem; color: #fff; margin-left: 0.35rem;">players-dataset.json 用コード自動生成</strong>
+          </div>
+          <span style="font-size: 0.66rem; color: #a1a1aa;">コピーしてそのままJSONファイルに貼り付け可能</span>
+        </div>
+
+        <pre id="frag-live-json-preview" style="margin: 0 0 0.65rem; padding: 0.65rem 0.75rem; border-radius: 7px; background: #050508; border: 1px solid rgba(255,255,255,0.1); color: #d4ff33; font-family: monospace; font-size: 0.68rem; line-height: 1.45; overflow-x: auto; max-height: 135px; white-space: pre;"></pre>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 0.45rem;">
+          <button type="button" id="frag-copy-single-json-btn"
+                  style="cursor: pointer; flex: 1; min-width: 180px; padding: 0.48rem 0.75rem; border-radius: 7px; background: rgba(56, 189, 248, 0.16); border: 1px solid rgba(56, 189, 248, 0.55); color: #bae6fd; font-size: 0.74rem; font-weight: 800;">
+            📋 入力中の1件をJSONコピー
+          </button>
+          <button type="button" id="frag-copy-all-custom-json-btn"
+                  style="cursor: pointer; flex: 1; min-width: 180px; padding: 0.48rem 0.75rem; border-radius: 7px; background: rgba(191, 87, 255, 0.16); border: 1px solid rgba(191, 87, 255, 0.55); color: #e9d5ff; font-size: 0.74rem; font-weight: 800;">
+            📦 登録済みマイ選手を全件コピー
+          </button>
+        </div>
+      </div>
+    `;
+
+    formEl.insertAdjacentHTML("afterend", panelHtml);
+
+    const previewEl = document.getElementById("frag-live-json-preview");
+    const singleBtn = document.getElementById("frag-copy-single-json-btn");
+    const allBtn = document.getElementById("frag-copy-all-custom-json-btn");
+
+    function updatePreview() {
+      const record = buildDatasetRecordFromForm(formEl);
+      if (previewEl && record) {
+        previewEl.textContent = JSON.stringify(record, null, 2);
+      }
+    }
+
+    // フォームのどの項目が変更されてもリアルタイムでJSONプレビューを更新
+    formEl.addEventListener("input", updatePreview);
+    formEl.addEventListener("change", updatePreview);
+    updatePreview();
+
+    // 1. 入力中の1件をコピー
+    singleBtn?.addEventListener("click", () => {
+      const record = buildDatasetRecordFromForm(formEl);
+      if (!record) return;
+      const formatted = JSON.stringify(record, null, 2);
+      copyTextWithFeedback(singleBtn, formatted, "1件のJSONをコピーしました！");
+    });
+
+    // 2. ローカル保存済みのマイ追加選手をすべて players-dataset.json 形式でコピー
+    allBtn?.addEventListener("click", () => {
+      const savedList = typeof loadCustomPlayers === "function" ? loadCustomPlayers() : [];
+      const targetList = savedList.length > 0 ? savedList : [buildDatasetRecordFromForm(formEl)];
+      const normalizedList = targetList.filter(Boolean).map((p) => {
+        const g = typeof normalizeGameName === "function" ? normalizeGameName(p.game) : (p.game || "VALORANT");
+        const d = Number(p.dpi) || 800;
+        const s = Number(p.sens) || 0.3;
+        const cm = typeof toCm360 === "function" ? toCm360(d, s, g) : 54.43;
+        return {
+          name: p.name,
+          game: g,
+          roles: Array.isArray(p.roles) && p.roles.length ? p.roles : ["pro"],
+          dpi: d,
+          sens: s,
+          cmPer360: Number.isFinite(cm) ? Number(cm.toFixed(2)) : 54.43,
+          devices: {
+            "マウス": p.devices?.["マウス"] || "Logicool G PRO X SUPERLIGHT 2",
+            "マウスパッド": p.devices?.["マウスパッド"] || "Artisan Ninja FX Zero",
+            "キーボード": p.devices?.["キーボード"] || "Wooting 60HE+",
+            "ヘッドセット": p.devices?.["ヘッドセット"] || "SHURE SE215"
+          },
+          source: p.source || "Custom Verified DB",
+          sourceUrl: p.sourceUrl || "https://liquipedia.net/"
+        };
+      });
+
+      const formattedArray = JSON.stringify(normalizedList, null, 2);
+      copyTextWithFeedback(allBtn, formattedArray, `全${normalizedList.length}件のJSON配列をコピーしました！`);
+    });
+  }
+
+  // モーダル展開関数をフックして自動アタッチ
+  const prevOpenModal = window.openAddCustomPlayerModal;
+  if (typeof prevOpenModal === "function") {
+    window.openAddCustomPlayerModal = function (...args) {
+      const res = prevOpenModal.apply(this, args);
+      setTimeout(attachDatasetCopyPanel, 20);
+      return res;
+    };
+  }
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest('[onclick*="openAddCustomPlayerModal"], #add-custom-player-btn')) {
+      setTimeout(attachDatasetCopyPanel, 40);
+    }
+  });
+})();
